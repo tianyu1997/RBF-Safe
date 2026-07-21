@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use RBF-Safe in research, please cite this software."
+title: "RBF-Safe"
+type: software
+authors:
+  - family-names: Tian
+    given-names: Yu
+    affiliation: The Chinese University of Hong Kong
+  - family-names: Ren
+    given-names: Hongliang
+    affiliation: The Chinese University of Hong Kong
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/tianyu1997/RBF-Safe"
+abstract: "Reusable geometric safety certificates and safe-region atlases for robot configuration spaces."
+keywords:
+  - robotics
+  - geometric safety
+  - interval arithmetic
+  - configuration space

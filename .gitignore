@@ -1,0 +1,16 @@
+.venv/
+build*/
+dist/
+wheelhouse/
+_skbuild/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.idea/
+.vscode/
+*.user
+*.suo
+*.VC.db
+Testing/

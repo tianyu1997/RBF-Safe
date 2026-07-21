@@ -1,0 +1,80 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "rbfsafe"
+version = "0.1.0"
+description = "Reusable geometric safety certificates for robot configuration spaces"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Yu Tian" }, { name = "Hongliang Ren" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/tianyu1997/RBF-Safe"
+Documentation = "https://github.com/tianyu1997/RBF-Safe/tree/main/docs"
+Repository = "https://github.com/tianyu1997/RBF-Safe.git"
+Issues = "https://github.com/tianyu1997/RBF-Safe/issues"
+Changelog = "https://github.com/tianyu1997/RBF-Safe/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+visualization = ["matplotlib>=3.7"]
+test = ["pytest>=7"]
+
+[project.scripts]
+rbfsafe-inspect = "rbfsafe.cli:main"
+
+[tool.scikit-build]
+cmake.args = ["-DRBFSAFE_BUILD_PYTHON=ON", "-DRBFSAFE_BUILD_TESTS=OFF", "-DRBFSAFE_BUILD_EXAMPLES=OFF", "-DRBFSAFE_BUILD_TOOLS=OFF"]
+wheel.packages = ["python/rbfsafe"]
+sdist.inclusion-mode = "explicit"
+sdist.include = [
+  "pyproject.toml",
+  "CMakeLists.txt",
+  "cmake/**",
+  "include/**",
+  "src/**",
+  "python/**",
+  "tests/**",
+  "tools/**",
+  "examples/**",
+  "data/**",
+  "docs/**",
+  ".github/**",
+  ".clang-format",
+  ".clang-tidy",
+  ".gitattributes",
+  ".gitignore",
+  "CHANGELOG.md",
+  "CITATION.cff",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  "LICENSE",
+  "MAINTAINERS.md",
+  "README.md",
+  "SECURITY.md",
+  "SUPPORT.md",
+]
+sdist.exclude = [
+  ".pytest_cache/**",
+  ".venv/**",
+  "build*/**",
+  "dist/**",
+  "**/__pycache__/**",
+  "**/*.pyc",
+  "**/*.pyo",
+]
