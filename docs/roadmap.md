@@ -5,12 +5,15 @@
 - **v0.2:** continuous trajectory auditor with `CERTIFIED`,
   `PARTIAL`, and `INVALID` reports, coverage ratio, deterministic region
   sequence, and explicit uncovered intervals.
-- **v0.3 (current):** optional OMPL component with certified-only state
+- **v0.3:** optional OMPL component with certified-only state
   validity, continuous motion validation, and certified-region sampling.
-- **v0.4:** OBB, portal corridors, HiPaC, and stronger connectivity claims.
+- **v0.4 (current):** conservative OBB segment tubes, bounded growth,
+  shared-witness portals, HiPaC recursive covering, and subject-bound
+  connectivity routes.
 - **v0.5:** MoveIt integration and Safe IK.
 - **v0.6:** scene invalidation, local repair, and incremental atlas versions.
 - **v1.0:** stable public API and documented storage migrations.
 
-MoveIt, Safe IK, dynamic update, VLA shields, planner implementations, and
-paper experiments are intentionally outside v0.3.
+MoveIt, Safe IK, dynamic update, VLA shields, planner implementations,
+correlated OBB proofs, arbitrary OBB portal discovery, and paper experiments
+are intentionally outside v0.4.

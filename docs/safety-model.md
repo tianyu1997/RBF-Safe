@@ -72,15 +72,35 @@ probabilistic completeness outside the certified union, or certify a planner's
 termination and optimization behavior. A final returned path should still be
 audited before downstream use.
 
-## Explicit exclusions in v0.3
+## OBB corridor and connectivity claims
+
+A v0.4 OBB is certified only through its enclosing C-space AABB. The enclosure
+is a superset of the rotated cell, so a successful IFK-AA/LinkIAABB proof is
+valid for the OBB. Failure to certify the enclosure says nothing conclusive
+about the exact OBB or collision state.
+
+A witness portal contains one configuration that belongs to both adjacent
+certified convex OBBs. This proves that their union is path-connected. A
+`CertifiedRoute` connects query points to consecutive portal witnesses with
+line segments inside those convex cells and binds the exact sequence and
+waypoints through `Certificate::subject_digest`.
+
+`CertifiedConnectivity` remains strictly below `RuntimeExecutable`. It does
+not cover velocity, acceleration, timing, actuator limits, tracking error,
+control discretization, dynamic obstacles, or unmodeled robot geometry.
+
+## Explicit exclusions in v0.4
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
   by the supplied link radii and optional tool link.
 - Dynamic obstacles, localization/calibration uncertainty, control error,
   deformation, and latency are not modeled automatically.
-- AABB separation is the only workspace collision proof; no mesh, OBB, KDOP,
-  portal, or swept-time validation is performed.
+- AABB separation is the only workspace collision proof; OBB certification
+  uses a conservative C-space enclosure rather than a correlated workspace
+  proof, and no mesh, KDOP, or swept-time validation is performed.
+- Arbitrary OBB intersection portals are not discovered; v0.4 portals are
+  shared witnesses between consecutive path-cover cells.
 - `contains` and `connected` are not motion-planning or runtime-execution
   approvals.
 

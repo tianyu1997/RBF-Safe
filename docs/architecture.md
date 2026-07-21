@@ -5,10 +5,10 @@ usable without the Atlas layer:
 
 ```text
 RBFSafe::geometry
-       ↑
-RBFSafe::lect
-       ↑
-RBFSafe::atlas ← RBFSafe::rbfsafe (aggregate target)
+       -> RBFSafe::lect
+       -> RBFSafe::atlas
+       -> RBFSafe::corridor
+       -> RBFSafe::rbfsafe (aggregate target)
 ```
 
 ## Modules
@@ -31,6 +31,14 @@ Owns certificates, seed-guided construction, safe regions, revalidated merges,
 adjacency, connected components, an immutable region query BVH, schema-v1
 persistence, and continuous trajectory coverage auditing.
 
+### Corridor
+
+Owns standard-library C-space OBB values, deterministic segment-tube
+generation, conservative OBB enclosure validation, bounded growth, HiPaC
+recursive path covering, witness portals, connectivity route certificates,
+and corridor schema-1 persistence. It depends on Atlas-layer cancellation,
+trajectory interval, and save-option types, but does not mutate an Atlas.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -49,6 +57,10 @@ The trajectory auditor remains in the Atlas layer: it consumes immutable
 certified regions and produces a report without depending on robot geometry,
 planners, or storage internals.
 
+The corridor layer consumes robot and scene models directly. Its OBB validator
+delegates the enclosing AABB to the geometry validator; no correlated OBB
+state is passed into the affine-arithmetic kernel in v0.4.
+
 ## Construction flow
 
 1. Validate and canonically identify the robot and scene.
@@ -62,6 +74,11 @@ planners, or storage internals.
 7. Build deterministic overlap/touch adjacency and connected components.
 8. Bind certificates and stable region IDs to the resulting Atlas.
 
+HiPaC is a separate construction flow: validate a candidate polyline,
+recursively certify or split segment OBBs, grow successful cells within a hard
+validation budget, add portals only at shared certified witnesses, then label
+components and bind subject digests.
+
 ## Design constraints
 
 - Public headers do not expose Eigen, JSON, pybind11, or binary storage types.
@@ -70,3 +87,5 @@ planners, or storage internals.
 - No C++ struct is written directly to disk.
 - The current validator is deliberately singular; adding another backend
   requires an explicit certificate and compatibility design.
+- Atlas schema 1 and corridor schema 1 are independent. OBB and portal records
+  are never injected into the Atlas binary files.

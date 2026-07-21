@@ -1,4 +1,4 @@
-"""Inspect and optionally visualize an RBF-Safe atlas."""
+"""Inspect and optionally visualize RBF-Safe Atlas or corridor data."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ import json
 import math
 from pathlib import Path
 
-from . import SafeAtlas, TrajectoryAuditor, TrajectoryAuditOptions, TrajectoryAuditStatus
+from . import HipacCorridor, SafeAtlas, TrajectoryAuditor, TrajectoryAuditOptions, TrajectoryAuditStatus
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rbfsafe-inspect")
-    parser.add_argument("atlas", type=Path, help="atlas directory")
+    parser.add_argument("atlas", type=Path, help="Atlas or corridor directory")
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
     parser.add_argument("--trajectory", type=Path, help="audit a JSON waypoint array")
@@ -30,6 +30,32 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    try:
+        manifest = json.loads((args.atlas / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        manifest = {}
+    if manifest.get("format") == "rbfsafe-corridor":
+        if args.plot is not None or args.trajectory is not None:
+            parser.error("--plot and --trajectory apply only to Atlas directories")
+        corridor = HipacCorridor.load(args.atlas)
+        components = {region.component for region in corridor.regions}
+        print(f"RBF-Safe corridor schema=1 dimension={corridor.dimension}")
+        print(
+            f"regions={len(corridor.regions)} portals={len(corridor.portals)} "
+            f"components={len(components)}"
+        )
+        print(f"robot={corridor.robot_digest}")
+        print(f"scene={corridor.scene_digest}")
+        if args.query is not None:
+            if len(args.query) != corridor.dimension or not all(
+                math.isfinite(value) for value in args.query
+            ):
+                parser.error(f"--query requires {corridor.dimension} coordinates")
+            regions = corridor.regions_at(args.query)
+            print(f"query_contains={str(bool(regions)).lower()}")
+            print("query_regions=" + ",".join(str(region) for region in regions))
+        return 0
+
     atlas = SafeAtlas.load(args.atlas)
     components = {region.component for region in atlas.regions}
     print(f"RBF-Safe atlas schema=1 dimension={atlas.dimension}")

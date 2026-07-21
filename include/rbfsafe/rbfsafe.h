@@ -2,6 +2,7 @@
 
 #include <rbfsafe/atlas.h>
 #include <rbfsafe/certificate.h>
+#include <rbfsafe/corridor.h>
 #include <rbfsafe/geometry.h>
 #include <rbfsafe/lect.h>
 #include <rbfsafe/model.h>

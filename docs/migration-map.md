@@ -11,5 +11,5 @@ no source, build, runtime, or data-format dependency on it.
 | LECT journal, prewarm modes, SBF adapter, old snapshots | Retired | Experiment-oriented layout is not a public contract |
 | Safe box certification and query semantics | Selectively re-derived | Needed for SafeAtlas |
 | Planning forest, grower, bridge, connector | Excluded | RBF-Safe v0.1 is not a planner |
-| HiPaC, portal and OBB code | Deferred to v0.4 | Requires a separate certificate design |
+| HiPaC, portal and OBB code | Re-derived in v0.4 | New OBB enclosure proofs, witness portals, and subject-bound certificates; no legacy planner code |
 | Experiments, manuscript and generated outputs | Excluded | Remain in RapidBoxForest |

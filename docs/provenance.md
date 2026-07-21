@@ -22,3 +22,11 @@ interfaces. RapidBoxForest's experiment-oriented OMPL helpers were consulted
 for behavioral context only; their planner wrappers, private-member access,
 deterministic subclasses, collision checker, and Python orchestration code are
 not copied or migrated.
+
+The v0.4 corridor layer is also a new implementation. Legacy OBB path-cover,
+portal overlay, and HiPaC query-bridge files were reviewed only to identify
+behavioral concepts and failure modes. RBF-Safe does not copy their Eigen
+types, GJK/zonotope implementation, planner-private access, adaptive sweep
+configuration, diagnostics, or promotion logic. Its OBBs use standard
+containers, conservative AABB-enclosure proofs, bounded recursive covering,
+and new subject-bound certificate identities.

@@ -30,11 +30,13 @@ Certificate evidence levels are explicit:
 | `Unknown` | No accepted evidence |
 | `PointChecked` | A point was checked; never a regional claim |
 | `CertifiedRegion` | Every configuration in one C-space AABB passed the validator |
-| `CertifiedConnectivity` | Reserved for stronger future connectivity evidence |
+| `CertifiedConnectivity` | A subject-bound convex-cell/portal chain proves connectivity |
 | `RuntimeExecutable` | Reserved for runtime execution guarantees |
 
-The builder issues only `CertifiedRegion` certificates. Atlas components
-are query metadata and are not upgraded to `RuntimeExecutable`.
+`AtlasBuilder` issues only `CertifiedRegion` certificates. Atlas components
+remain query metadata. The v0.4 corridor layer issues `CertifiedConnectivity`
+only for explicit OBB/portal subjects. Neither layer issues
+`RuntimeExecutable`.
 
 ## LECT
 
@@ -112,8 +114,30 @@ creates a bounded `ompl::base::RealVectorStateSpace` from the Atlas root.
 - atomic query, motion, sampling, fallback, and audit-failure counters.
 
 The adapter holds a shared immutable Atlas. Its bounds and dimensions must
-exactly match the OMPL real-vector space. Unknown coverage returns false; v0.3
+exactly match the OMPL real-vector space. Unknown coverage returns false; v0.4
 has no fallback collision checker. See the [OMPL adapter guide](ompl-adapter.md).
+
+## OBB corridors and HiPaC
+
+Include `<rbfsafe/corridor.h>` and link `RBFSafe::corridor`.
+
+- `CspaceObb::create` validates a center, row-major orthonormal basis, and
+  half-width vector.
+- `ObbGenerator::segment_tube` constructs a deterministic oriented tube around
+  a configuration-space segment.
+- `ObbRegionValidator` certifies only when the OBB's conservative AABB
+  enclosure passes `IFK-AA + LinkIAABB`.
+- `ObbGrower` expands a certified segment tube toward a configured lateral
+  cap under iteration, validation, and cancellation limits.
+- `HipacCorridorBuilder::build` recursively covers a candidate path and returns
+  coverage status, gaps, statistics, cells, and witness portals.
+- `HipacCorridor` provides membership, certified connectivity, deterministic
+  route recovery, identity checking, and save/load.
+
+Advanced certificates populate `Certificate::subject_digest` with the SHA-256
+of the exact OBB, portal, or route subject. Legacy Atlas schema-1 certificates
+leave this optional field empty, preserving their identities. See the
+[corridor guide](corridors.md) and [corridor schema](corridor-format.md).
 
 ## Error model
 

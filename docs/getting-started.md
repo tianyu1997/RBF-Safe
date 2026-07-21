@@ -98,9 +98,30 @@ certificate verifier.
 - `nearest_region(q)` is a geometric nearest-box query and does not certify
   the segment from `q` to that region.
 - `connected(q1, q2)` means both points belong to the same certified region
-  component. v0.3 does not return a generated path or a runtime-execution
-  guarantee.
+  component. `SafeAtlas` does not return a path; use the separate v0.4 HiPaC
+  corridor API when an explicit convex-cell route is required. Neither API
+  grants a runtime-execution guarantee.
 - `false` normally means “not certified by this Atlas,” not “in collision.”
+
+## Build a certified OBB corridor
+
+When a planner or optimizer already produced a candidate polyline, v0.4 can
+cover it with certified OBB cells:
+
+```cpp
+std::vector<rbfsafe::Configuration> path{
+    {-1.0, -1.0}, {0.0, 0.0}, {1.0, 1.0}};
+auto report = rbfsafe::HipacCorridorBuilder{}.build(robot, scene, path);
+if (report && report.value().status == rbfsafe::HipacBuildStatus::Certified) {
+    auto route = report.value().corridor.route(path.front(), path.back());
+    report.value().corridor.save("corridor");
+}
+```
+
+The builder recursively splits unresolved segments and returns explicit gaps
+for partial coverage. A returned route is a geometric connectivity
+certificate through convex cells, not a timing or execution approval. See the
+[corridor guide](corridors.md).
 
 ## 6. Audit a trajectory
 

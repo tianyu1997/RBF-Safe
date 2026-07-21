@@ -353,7 +353,8 @@ Result<std::vector<Certificate>> decode_certificates(const internal::Json& root,
                                 robot.value(),
                                 scene.value(),
                                 {algorithm.value(), algorithm_version.value(), padding_json->as_number()},
-                                clearance_json->as_number()};
+                                clearance_json->as_number(),
+                                {}};
         if (certificate_identity(certificate) != certificate.id) {
             return Result<std::vector<Certificate>>::failure(
                 StatusCode::CorruptData, "certificate digest does not match content", certificate.id);

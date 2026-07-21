@@ -62,9 +62,17 @@ sorted by ID before canonical hashing, so input array order does not change the
 scene digest. The scene `version` is identity-bearing and must change whenever
 the snapshot semantics change, even when geometry happens to remain equal.
 
-RBF-Safe v0.3 supports only static workspace AABBs. Meshes, poses, dynamic
+RBF-Safe v0.4 supports only static workspace AABBs. Meshes, poses, dynamic
 objects, self-collision models, and uncertainty models must be conservatively
 converted outside the library and documented by the consumer.
+
+## C-space OBB values
+
+`CspaceObb` is constructed through the API rather than robot/scene JSON. It
+uses a center vector, a flat row-major orthonormal basis, and a half-width
+vector of the same dimension. Basis row `i` is local OBB axis `i`. Corridor
+persistence records the same representation in
+[corridor schema 1](corridor-format.md).
 
 ## Trajectory JSON
 

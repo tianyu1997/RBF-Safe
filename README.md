@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.3
+geometric safety certificates in robot configuration space. Version 0.4
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -14,6 +14,8 @@ trajectories against the certified region union.
 
 An optional C++ OMPL component maps certified Atlas coverage to state and
 continuous-motion validity and samples directly from certified regions.
+The core corridor component builds conservative OBB tubes, shared-witness
+portals, and certified HiPaC routes around candidate paths.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -35,10 +37,12 @@ certificate.
   parameter intervals and deterministic region sequences.
 - Optional `RBFSafe::ompl` adapter with certified-only state checking,
   continuous edge validation, and certified-region sampling.
+- Public `RBFSafe::corridor` OBB/Portal/HiPaC layer with bounded growth,
+  partial-coverage reports, certified route recovery, and schema-1 storage.
 
 RBF-Safe does not implement an OMPL planner. MoveIt integration, Safe IK,
-dynamic scene repair, OBBs, portals, and legacy cache compatibility remain
-outside v0.3.
+dynamic scene repair, arbitrary OBB-intersection portals, and legacy cache
+compatibility remain outside v0.4.
 
 ## Quick start
 
@@ -95,6 +99,7 @@ Inspect the result with either installed CLI:
 rbfsafe-inspect atlas --query 0.0 0.0  # Python entry point
 rbfsafe-inspect atlas 0.0 0.0          # C++ executable
 rbfsafe-inspect atlas --trajectory data/trajectory_2r.json  # Python entry point
+rbfsafe-inspect corridor --query 0.0 0.0  # Atlas/corridor auto-detection
 ```
 
 ## Documentation
@@ -107,7 +112,9 @@ rbfsafe-inspect atlas --trajectory data/trajectory_2r.json  # Python entry point
 - [Safety model](docs/safety-model.md)
 - [Trajectory auditor](docs/trajectory-auditor.md)
 - [OMPL adapter](docs/ompl-adapter.md)
+- [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Atlas schema v1](docs/atlas-format.md)
+- [Corridor schema v1](docs/corridor-format.md)
 - [Versioning and compatibility](docs/versioning.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)
 - [Roadmap](docs/roadmap.md)

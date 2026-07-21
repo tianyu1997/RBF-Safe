@@ -133,6 +133,79 @@ PYBIND11_MODULE(_rbfsafe, module) {
             py::arg("configuration"), py::arg("tolerance") = 0.0)
         .def("valid", &CspaceAabb::valid);
 
+    py::class_<CspaceObb>(module, "CspaceObb")
+        .def(py::init([](Configuration center, std::vector<double> basis, Configuration half_widths) {
+                 return unwrap(
+                     CspaceObb::create(std::move(center), std::move(basis), std::move(half_widths)));
+             }),
+             py::arg("center"), py::arg("basis"), py::arg("half_widths"))
+        .def_property_readonly("center", &CspaceObb::center)
+        .def_property_readonly("basis", &CspaceObb::basis)
+        .def_property_readonly("half_widths", &CspaceObb::half_widths)
+        .def_property_readonly("dimension", &CspaceObb::dimension)
+        .def_property_readonly("volume", &CspaceObb::volume)
+        .def_property_readonly("enclosing_aabb", &CspaceObb::enclosing_aabb)
+        .def(
+            "contains",
+            [](const CspaceObb& value, const Configuration& q, double tolerance) {
+                return value.contains(view(q), tolerance);
+            },
+            py::arg("configuration"), py::arg("tolerance") = 0.0)
+        .def("valid", &CspaceObb::valid);
+
+    py::class_<ObbGenerator>(module, "ObbGenerator")
+        .def_static(
+            "segment_tube",
+            [](const Configuration& first, const Configuration& second, double lateral_half_width,
+               double longitudinal_margin) {
+                return unwrap(ObbGenerator::segment_tube(view(first), view(second), lateral_half_width,
+                                                         longitudinal_margin));
+            },
+            py::arg("first"), py::arg("second"), py::arg("lateral_half_width"),
+            py::arg("longitudinal_margin") = 0.0);
+
+    py::enum_<ValidationDisposition>(module, "ValidationDisposition")
+        .value("CERTIFIED_FREE", ValidationDisposition::CertifiedFree)
+        .value("UNDETERMINED", ValidationDisposition::Undetermined);
+
+    py::class_<ObbValidation>(module, "ObbValidation")
+        .def_readonly("disposition", &ObbValidation::disposition)
+        .def_readonly("clearance_lower_bound", &ObbValidation::clearance_lower_bound)
+        .def_readonly("conservative_enclosure", &ObbValidation::conservative_enclosure);
+
+    py::class_<ObbGrowthOptions>(module, "ObbGrowthOptions")
+        .def(py::init<>())
+        .def_readwrite("initial_lateral_half_width", &ObbGrowthOptions::initial_lateral_half_width)
+        .def_readwrite("maximum_lateral_half_width", &ObbGrowthOptions::maximum_lateral_half_width)
+        .def_readwrite("longitudinal_margin", &ObbGrowthOptions::longitudinal_margin)
+        .def_readwrite("maximum_iterations", &ObbGrowthOptions::maximum_iterations)
+        .def_readwrite("maximum_validations", &ObbGrowthOptions::maximum_validations)
+        .def_readwrite("obstacle_padding", &ObbGrowthOptions::obstacle_padding)
+        .def_readwrite("cancellation", &ObbGrowthOptions::cancellation);
+
+    py::class_<ObbGrowthResult>(module, "ObbGrowthResult")
+        .def_readonly("certified", &ObbGrowthResult::certified)
+        .def_readonly("region", &ObbGrowthResult::region)
+        .def_readonly("validation", &ObbGrowthResult::validation)
+        .def_readonly("achieved_lateral_half_width", &ObbGrowthResult::achieved_lateral_half_width)
+        .def_readonly("validations", &ObbGrowthResult::validations)
+        .def_readonly("growth_attempts", &ObbGrowthResult::growth_attempts);
+
+    py::class_<ObbGrower>(module, "ObbGrower")
+        .def(py::init<>())
+        .def(
+            "grow",
+            [](const ObbGrower& grower, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const Configuration& first, const Configuration& second, const ObbGrowthOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return grower.grow(robot, scene, view(first), view(second), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("first"), py::arg("second"),
+            py::arg("options") = ObbGrowthOptions{});
+
     py::class_<WorkspaceAabb>(module, "WorkspaceAabb")
         .def(py::init([](std::array<double, 3> lower, std::array<double, 3> upper) {
                  WorkspaceAabb value{lower, upper};
@@ -215,7 +288,8 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_readonly("robot_digest", &Certificate::robot_digest)
         .def_readonly("scene_digest", &Certificate::scene_digest)
         .def_readonly("policy", &Certificate::policy)
-        .def_readonly("clearance_lower_bound", &Certificate::clearance_lower_bound);
+        .def_readonly("clearance_lower_bound", &Certificate::clearance_lower_bound)
+        .def_readonly("subject_digest", &Certificate::subject_digest);
 
     py::class_<LectNodeKey>(module, "LectNodeKey")
         .def(py::init<std::string>(), py::arg("path") = "")
@@ -368,6 +442,110 @@ PYBIND11_MODULE(_rbfsafe, module) {
                 return unwrap(std::move(result));
             },
             py::arg("atlas"), py::arg("trajectory"), py::arg("options") = TrajectoryAuditOptions{});
+
+    py::enum_<HipacBuildStatus>(module, "HipacBuildStatus")
+        .value("CERTIFIED", HipacBuildStatus::Certified)
+        .value("PARTIAL", HipacBuildStatus::Partial)
+        .value("INVALID", HipacBuildStatus::Invalid);
+
+    py::class_<HipacOptions>(module, "HipacOptions")
+        .def(py::init<>())
+        .def_readwrite("minimum_lateral_half_width", &HipacOptions::minimum_lateral_half_width)
+        .def_readwrite("maximum_lateral_half_width", &HipacOptions::maximum_lateral_half_width)
+        .def_readwrite("longitudinal_margin", &HipacOptions::longitudinal_margin)
+        .def_readwrite("growth_iterations", &HipacOptions::growth_iterations)
+        .def_readwrite("maximum_subdivision_depth", &HipacOptions::maximum_subdivision_depth)
+        .def_readwrite("maximum_validations", &HipacOptions::maximum_validations)
+        .def_readwrite("portal_tolerance", &HipacOptions::portal_tolerance)
+        .def_readwrite("obstacle_padding", &HipacOptions::obstacle_padding)
+        .def_readwrite("cancellation", &HipacOptions::cancellation);
+
+    py::class_<HipacBuildStats>(module, "HipacBuildStats")
+        .def_readonly("validations", &HipacBuildStats::validations)
+        .def_readonly("recursive_splits", &HipacBuildStats::recursive_splits)
+        .def_readonly("certified_cells", &HipacBuildStats::certified_cells)
+        .def_readonly("failed_leaf_segments", &HipacBuildStats::failed_leaf_segments)
+        .def_readonly("growth_attempts", &HipacBuildStats::growth_attempts)
+        .def_readonly("portals", &HipacBuildStats::portals);
+
+    py::class_<CertifiedObbRegion>(module, "CertifiedObbRegion")
+        .def_readonly("id", &CertifiedObbRegion::id)
+        .def_readonly("bounds", &CertifiedObbRegion::bounds)
+        .def_readonly("certificate", &CertifiedObbRegion::certificate)
+        .def_readonly("component", &CertifiedObbRegion::component)
+        .def_readonly("segment_index", &CertifiedObbRegion::segment_index)
+        .def_readonly("start_fraction", &CertifiedObbRegion::start_fraction)
+        .def_readonly("end_fraction", &CertifiedObbRegion::end_fraction)
+        .def_readonly("entry", &CertifiedObbRegion::entry)
+        .def_readonly("exit", &CertifiedObbRegion::exit);
+
+    py::class_<PortalRegion>(module, "PortalRegion")
+        .def_readonly("id", &PortalRegion::id)
+        .def_readonly("left_region", &PortalRegion::left_region)
+        .def_readonly("right_region", &PortalRegion::right_region)
+        .def_readonly("witness", &PortalRegion::witness)
+        .def_readonly("certificate", &PortalRegion::certificate);
+
+    py::class_<CertifiedRoute>(module, "CertifiedRoute")
+        .def_readonly("waypoints", &CertifiedRoute::waypoints)
+        .def_readonly("region_sequence", &CertifiedRoute::region_sequence)
+        .def_readonly("portal_sequence", &CertifiedRoute::portal_sequence)
+        .def_readonly("certificate", &CertifiedRoute::certificate);
+
+    py::class_<HipacCorridor>(module, "HipacCorridor")
+        .def_static("load",
+                    [](const std::filesystem::path& path) { return unwrap(HipacCorridor::load(path)); })
+        .def_property_readonly("dimension", &HipacCorridor::dimension)
+        .def_property_readonly("robot_digest", &HipacCorridor::robot_digest)
+        .def_property_readonly("scene_digest", &HipacCorridor::scene_digest)
+        .def_property_readonly("regions", &HipacCorridor::regions)
+        .def_property_readonly("portals", &HipacCorridor::portals)
+        .def("regions_at", [](const HipacCorridor& corridor,
+                              const Configuration& q) { return unwrap(corridor.regions_at(view(q))); })
+        .def("contains",
+             [](const HipacCorridor& corridor, const Configuration& q) { return corridor.contains(view(q)); })
+        .def("connected",
+             [](const HipacCorridor& corridor, const Configuration& first, const Configuration& second) {
+                 return unwrap(corridor.connected(view(first), view(second)));
+             })
+        .def("route",
+             [](const HipacCorridor& corridor, const Configuration& first, const Configuration& second) {
+                 return unwrap(corridor.route(view(first), view(second)));
+             })
+        .def("verify_compatible",
+             [](const HipacCorridor& corridor, const SerialRobotModel& robot, const SceneSnapshot& scene) {
+                 unwrap_void(corridor.verify_compatible(robot, scene));
+             })
+        .def(
+            "save",
+            [](const HipacCorridor& corridor, const std::filesystem::path& path, bool overwrite) {
+                unwrap_void(corridor.save(path, SaveOptions{overwrite}));
+            },
+            py::arg("path"), py::arg("overwrite") = false);
+
+    py::class_<HipacBuildReport>(module, "HipacBuildReport")
+        .def_readonly("status", &HipacBuildReport::status)
+        .def_readonly("coverage_ratio", &HipacBuildReport::coverage_ratio)
+        .def_readonly("waypoint_count", &HipacBuildReport::waypoint_count)
+        .def_readonly("segment_count", &HipacBuildReport::segment_count)
+        .def_readonly("uncovered_intervals", &HipacBuildReport::uncovered_intervals)
+        .def_readonly("corridor", &HipacBuildReport::corridor)
+        .def_readonly("stats", &HipacBuildReport::stats);
+
+    py::class_<HipacCorridorBuilder>(module, "HipacCorridorBuilder")
+        .def(py::init<>())
+        .def(
+            "build",
+            [](const HipacCorridorBuilder& builder, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const std::vector<Configuration>& path, const HipacOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return builder.build(robot, scene,
+                                         std::span<const Configuration>(path.data(), path.size()), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("path"), py::arg("options") = HipacOptions{});
 
     py::class_<AtlasBuildResult>(module, "AtlasBuildResult")
         .def_readonly("atlas", &AtlasBuildResult::atlas)

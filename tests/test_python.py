@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "0.3.0"
+    assert rbfsafe.__version__ == "0.4.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -53,6 +53,44 @@ def test_public_lect(tmp_path: Path) -> None:
     tree.save(destination)
     snapshot = rbfsafe.LectSnapshot.open(destination)
     assert snapshot.size == tree.size
+
+
+def test_hipac_corridor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    robot = make_robot()
+    scene = rbfsafe.SceneSnapshot([], "python-hipac-v1")
+    options = rbfsafe.HipacOptions()
+    options.minimum_lateral_half_width = 0.01
+    options.maximum_lateral_half_width = 0.05
+    growth_options = rbfsafe.ObbGrowthOptions()
+    growth_options.initial_lateral_half_width = 0.01
+    growth_options.maximum_lateral_half_width = 0.05
+    grown = rbfsafe.ObbGrower().grow(
+        robot, scene, [-0.5, -0.5], [0.5, 0.5], growth_options
+    )
+    assert grown.certified
+    assert grown.validation.disposition == rbfsafe.ValidationDisposition.CERTIFIED_FREE
+    assert grown.achieved_lateral_half_width == pytest.approx(0.05)
+    report = rbfsafe.HipacCorridorBuilder().build(
+        robot, scene, [[-1.0, -1.0], [0.0, 0.0], [1.0, 1.0]], options
+    )
+    assert report.status == rbfsafe.HipacBuildStatus.CERTIFIED
+    assert report.coverage_ratio == pytest.approx(1.0)
+    assert len(report.corridor.regions) == 2
+    assert len(report.corridor.portals) == 1
+    assert report.corridor.connected([-0.5, -0.5], [0.5, 0.5])
+    route = report.corridor.route([-0.5, -0.5], [0.5, 0.5])
+    assert route is not None
+    assert route.certificate.level == rbfsafe.EvidenceLevel.CERTIFIED_CONNECTIVITY
+    assert len(route.waypoints) == 3
+    destination = tmp_path / "corridor"
+    report.corridor.save(destination)
+    loaded = rbfsafe.HipacCorridor.load(destination)
+    loaded.verify_compatible(robot, scene)
+    assert loaded.connected([-0.5, -0.5], [0.5, 0.5])
+    from rbfsafe.cli import main
+
+    assert main([str(destination), "--query", "-0.5", "-0.5"]) == 0
+    assert "RBF-Safe corridor" in capsys.readouterr().out
 
 
 def test_tool_link_and_specific_identity_error() -> None:

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -74,10 +74,21 @@ target_include_directories(rbfsafe_atlas
 target_link_libraries(rbfsafe_atlas PUBLIC rbfsafe_geometry rbfsafe_lect)
 rbfsafe_configure_target(rbfsafe_atlas)
 
+add_library(rbfsafe_corridor src/corridor.cpp src/corridor_persistence.cpp)
+add_library(RBFSafe::corridor ALIAS rbfsafe_corridor)
+set_target_properties(rbfsafe_corridor PROPERTIES EXPORT_NAME corridor)
+target_include_directories(rbfsafe_corridor
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(rbfsafe_corridor PUBLIC rbfsafe_atlas)
+rbfsafe_configure_target(rbfsafe_corridor)
+
 add_library(rbfsafe INTERFACE)
 add_library(RBFSafe::rbfsafe ALIAS rbfsafe)
 set_target_properties(rbfsafe PROPERTIES EXPORT_NAME rbfsafe)
-target_link_libraries(rbfsafe INTERFACE rbfsafe_atlas)
+target_link_libraries(rbfsafe INTERFACE rbfsafe_corridor)
 
 set(RBFSAFE_OMPL_BUILT 0)
 if(RBFSAFE_BUILD_OMPL)
@@ -112,7 +123,7 @@ endif()
 
 if(RBFSAFE_BUILD_TOOLS)
     add_executable(rbfsafe_inspect tools/inspect.cpp)
-    target_link_libraries(rbfsafe_inspect PRIVATE RBFSafe::atlas)
+    target_link_libraries(rbfsafe_inspect PRIVATE RBFSafe::corridor)
     rbfsafe_configure_target(rbfsafe_inspect)
     set_target_properties(rbfsafe_inspect PROPERTIES OUTPUT_NAME "rbfsafe-inspect")
     if(NOT SKBUILD)
@@ -124,6 +135,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_quickstart examples/quickstart.cpp)
     target_link_libraries(rbfsafe_quickstart PRIVATE RBFSafe::rbfsafe)
     rbfsafe_configure_target(rbfsafe_quickstart)
+    add_executable(rbfsafe_hipac_quickstart examples/hipac_quickstart.cpp)
+    target_link_libraries(rbfsafe_hipac_quickstart PRIVATE RBFSafe::corridor)
+    rbfsafe_configure_target(rbfsafe_hipac_quickstart)
     if(RBFSAFE_BUILD_OMPL)
         add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
         target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
@@ -151,7 +165,7 @@ if(NOT SKBUILD)
     install(FILES LICENSE README.md CHANGELOG.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe)
 
-    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe
+    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_corridor rbfsafe
         EXPORT RBFSafeTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

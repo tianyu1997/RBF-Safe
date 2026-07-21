@@ -29,6 +29,7 @@ struct Certificate {
     std::string scene_digest;
     ValidationPolicy policy;
     double clearance_lower_bound = 0.0;
+    std::string subject_digest;
 };
 
 Result<Certificate> make_region_certificate(const SerialRobotModel& robot, const SceneSnapshot& scene,

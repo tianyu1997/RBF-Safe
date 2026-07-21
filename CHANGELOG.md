@@ -3,6 +3,28 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [0.4.0] - 2026-07-22
+
+### Added
+
+- Public `RBFSafe::corridor` target with standard-library `CspaceObb` values,
+  deterministic segment-tube generation, conservative OBB validation, and a
+  standalone bounded `ObbGrower`.
+- Bounded lateral OBB growth and recursive HiPaC path covering with
+  `CERTIFIED`, `PARTIAL`, and `INVALID` reports.
+- Subject-bound certified OBB cells, shared-witness portals, deterministic
+  connected components, and `CertifiedConnectivity` route certificates.
+- Checksummed, atomic corridor schema 1 persistence plus matching C++ and
+  Python save/load/query APIs.
+- OBB enclosure property tests, independent collision regression sampling,
+  route-convexity tests, corruption tests, and a HiPaC quickstart.
+
+### Changed
+
+- `RBFSafe::rbfsafe` now aggregates the corridor layer in addition to Atlas.
+- `Certificate` exposes an optional `subject_digest`; existing Atlas schema-1
+  certificates retain their v0.1-v0.3 identity and storage representation.
+
 ## [0.3.0] - 2026-07-22
 
 ### Added
