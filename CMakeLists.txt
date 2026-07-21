@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -62,7 +62,7 @@ target_include_directories(rbfsafe_lect
 target_link_libraries(rbfsafe_lect PUBLIC rbfsafe_geometry)
 rbfsafe_configure_target(rbfsafe_lect)
 
-add_library(rbfsafe_atlas src/atlas.cpp src/persistence.cpp)
+add_library(rbfsafe_atlas src/atlas.cpp src/persistence.cpp src/trajectory.cpp)
 add_library(RBFSafe::atlas ALIAS rbfsafe_atlas)
 set_target_properties(rbfsafe_atlas PROPERTIES EXPORT_NAME atlas)
 target_include_directories(rbfsafe_atlas

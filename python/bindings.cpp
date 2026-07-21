@@ -328,6 +328,47 @@ PYBIND11_MODULE(_rbfsafe, module) {
             },
             py::arg("path"), py::arg("overwrite") = false);
 
+    py::enum_<TrajectoryAuditStatus>(module, "TrajectoryAuditStatus")
+        .value("CERTIFIED", TrajectoryAuditStatus::Certified)
+        .value("PARTIAL", TrajectoryAuditStatus::Partial)
+        .value("INVALID", TrajectoryAuditStatus::Invalid);
+
+    py::class_<TrajectoryInterval>(module, "TrajectoryInterval")
+        .def_readonly("segment_index", &TrajectoryInterval::segment_index)
+        .def_readonly("start_fraction", &TrajectoryInterval::start_fraction)
+        .def_readonly("end_fraction", &TrajectoryInterval::end_fraction)
+        .def_readonly("start_included", &TrajectoryInterval::start_included)
+        .def_readonly("end_included", &TrajectoryInterval::end_included);
+
+    py::class_<TrajectoryAuditOptions>(module, "TrajectoryAuditOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_region_tests", &TrajectoryAuditOptions::maximum_region_tests)
+        .def_readwrite("cancellation", &TrajectoryAuditOptions::cancellation);
+
+    py::class_<TrajectoryAuditReport>(module, "TrajectoryAuditReport")
+        .def_readonly("status", &TrajectoryAuditReport::status)
+        .def_readonly("coverage_ratio", &TrajectoryAuditReport::coverage_ratio)
+        .def_readonly("waypoint_count", &TrajectoryAuditReport::waypoint_count)
+        .def_readonly("segment_count", &TrajectoryAuditReport::segment_count)
+        .def_readonly("region_tests", &TrajectoryAuditReport::region_tests)
+        .def_readonly("region_sequence", &TrajectoryAuditReport::region_sequence)
+        .def_readonly("uncovered_intervals", &TrajectoryAuditReport::uncovered_intervals);
+
+    py::class_<TrajectoryAuditor>(module, "TrajectoryAuditor")
+        .def(py::init<>())
+        .def(
+            "audit",
+            [](const TrajectoryAuditor& auditor, const SafeAtlas& atlas,
+               const std::vector<Configuration>& trajectory, const TrajectoryAuditOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return auditor.audit(
+                        atlas, std::span<const Configuration>(trajectory.data(), trajectory.size()), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("atlas"), py::arg("trajectory"), py::arg("options") = TrajectoryAuditOptions{});
+
     py::class_<AtlasBuildResult>(module, "AtlasBuildResult")
         .def_readonly("atlas", &AtlasBuildResult::atlas)
         .def_readonly("stats", &AtlasBuildResult::stats);

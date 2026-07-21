@@ -6,5 +6,6 @@
 #include <rbfsafe/lect.h>
 #include <rbfsafe/model.h>
 #include <rbfsafe/result.h>
+#include <rbfsafe/trajectory.h>
 #include <rbfsafe/types.h>
 #include <rbfsafe/version.h>

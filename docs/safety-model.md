@@ -20,7 +20,7 @@ cancellation limits remain uncertified. Samples may prioritize branches and
 support regression tests; they never create or upgrade a regional certificate.
 
 Region merging is allowed only when the rectangular union is independently
-revalidated. Connectivity in v0.1 means two configurations belong to regions
+revalidated. Connectivity means two configurations belong to regions
 in the same deterministic overlap/touch component. It does not produce a
 continuous path, timing law, controller command, or execution guarantee.
 
@@ -46,7 +46,19 @@ digital signatures and do not establish publisher authenticity.
 - Supported compiler and floating-point modes preserve ordinary IEEE-754
   double behavior; unsafe fast-math transformations are not supported.
 
-## Explicit exclusions in v0.1
+## Trajectory audit claims
+
+`TrajectoryAuditor` certifies only that every parameter value in a
+piecewise-linear segment is contained in the union of certified regions. It
+computes segment/AABB intersections analytically; waypoint or intermediate
+sampling does not establish the result.
+
+`PARTIAL` and `INVALID` are absence-of-certificate results. They do not prove a
+collision. Coverage ratio is an equal-segment parameter metric, not a
+probability or risk score. Region sequences are not paths, timing plans, or
+execution guarantees.
+
+## Explicit exclusions in v0.2
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included

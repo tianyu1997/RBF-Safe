@@ -28,13 +28,18 @@ array position. `LectTree` is mutable; `LectSnapshot` is read-only.
 ### Atlas
 
 Owns certificates, seed-guided construction, safe regions, revalidated merges,
-adjacency, connected components, queries, and schema-v1 persistence.
+adjacency, connected components, queries, schema-v1 persistence, and continuous
+trajectory coverage auditing.
 
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
 Python exceptions. The C++ and Python `rbfsafe-inspect` tools load through the
 same validating reader used by the library.
+
+The v0.2 trajectory auditor remains in the Atlas layer: it consumes immutable
+certified regions and produces a report without depending on robot geometry,
+planners, or storage internals.
 
 ## Construction flow
 

@@ -21,6 +21,13 @@ int main(int argc, char** argv) {
     }
     std::cout << "regions=" << built.value().atlas.regions().size()
               << " safe_origin=" << built.value().atlas.contains(Configuration{0.0, 0.0}) << '\n';
+    const std::vector<Configuration> trajectory{{-1.0, 0.0}, {0.0, 0.0}, {1.0, 0.0}};
+    auto audit = TrajectoryAuditor{}.audit(built.value().atlas, trajectory);
+    if (!audit) {
+        std::cerr << audit.error().describe() << '\n';
+        return 1;
+    }
+    std::cout << "trajectory_coverage=" << audit.value().coverage_ratio << '\n';
     if (argc == 2) {
         auto saved = built.value().atlas.save(std::filesystem::path(argv[1]));
         if (!saved) {

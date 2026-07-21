@@ -11,6 +11,7 @@ rbfsafe_add_test(rbfsafe_test_golden test_golden.cpp)
 target_include_directories(rbfsafe_test_golden PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 rbfsafe_add_test(rbfsafe_test_lect test_lect.cpp)
 rbfsafe_add_test(rbfsafe_test_atlas test_atlas.cpp)
+rbfsafe_add_test(rbfsafe_test_trajectory test_trajectory.cpp)
 rbfsafe_add_test(rbfsafe_test_persistence test_persistence.cpp)
 
 add_executable(rbfsafe_test_internal test_internal.cpp)

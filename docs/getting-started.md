@@ -98,5 +98,21 @@ certificate verifier.
 - `nearest_region(q)` is a geometric nearest-box query and does not certify
   the segment from `q` to that region.
 - `connected(q1, q2)` means both points belong to the same certified region
-  component. v0.1 does not return a path or a runtime-execution guarantee.
+  component. v0.2 does not return a generated path or a runtime-execution
+  guarantee.
 - `false` normally means “not certified by this Atlas,” not “in collision.”
+
+## 6. Audit a trajectory
+
+After loading and compatibility-checking an Atlas:
+
+```python
+report = rbfsafe.TrajectoryAuditor().audit(
+    atlas,
+    [[-1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+)
+print(report.status, report.coverage_ratio)
+```
+
+Read the [trajectory auditor guide](trajectory-auditor.md) before interpreting
+`PARTIAL` or `INVALID`.

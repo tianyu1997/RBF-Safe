@@ -62,6 +62,22 @@ sorted by ID before canonical hashing, so input array order does not change the
 scene digest. The scene `version` is identity-bearing and must change whenever
 the snapshot semantics change, even when geometry happens to remain equal.
 
-RBF-Safe v0.1 supports only static workspace AABBs. Meshes, poses, dynamic
+RBF-Safe v0.2 supports only static workspace AABBs. Meshes, poses, dynamic
 objects, self-collision models, and uncertainty models must be conservatively
 converted outside the library and documented by the consumer.
+
+## Trajectory JSON
+
+The Python CLI accepts an array of waypoints or an object with a `waypoints`
+array. Every waypoint must contain exactly the Atlas dimension in finite
+coordinates:
+
+```json
+{
+  "waypoints": [
+    [-1.0, 0.0],
+    [0.0, 0.0],
+    [1.0, 0.0]
+  ]
+}
+```

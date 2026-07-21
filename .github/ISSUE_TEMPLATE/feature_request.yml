@@ -40,7 +40,7 @@ body:
     attributes:
       label: Scope check
       options:
-        - label: I reviewed the roadmap and current v0.1 scope.
+        - label: I reviewed the roadmap and current release scope.
           required: true
         - label: I identified any change to certification or safety semantics above.
           required: true

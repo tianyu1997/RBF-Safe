@@ -25,7 +25,7 @@ overlap never proves collision.
 
 Certificate evidence levels are explicit:
 
-| Level | Meaning in v0.1 |
+| Level | Meaning |
 |---|---|
 | `Unknown` | No accepted evidence |
 | `PointChecked` | A point was checked; never a regional claim |
@@ -33,7 +33,7 @@ Certificate evidence levels are explicit:
 | `CertifiedConnectivity` | Reserved for stronger future connectivity evidence |
 | `RuntimeExecutable` | Reserved for runtime execution guarantees |
 
-The v0.1 builder issues only `CertifiedRegion` certificates. Atlas components
+The builder issues only `CertifiedRegion` certificates. Atlas components
 are query metadata and are not upgraded to `RuntimeExecutable`.
 
 ## LECT
@@ -77,6 +77,24 @@ depth or width limits leave affected branches unresolved and are reflected in
 - `save(path)` publishes schema v1 without overwriting by default.
 - `load(path)` validates schema, bounds, counts, checksums, graph invariants,
   certificate identities, and trailing bytes before returning an Atlas.
+
+## Trajectory auditing
+
+`TrajectoryAuditor::audit(atlas, trajectory, options)` checks continuous
+piecewise-linear coverage by analytically intersecting each segment with the
+Atlas regions. The result is a `TrajectoryAuditReport` containing:
+
+- `status`: `Certified`, `Partial`, or `Invalid`;
+- equal-segment-parameter `coverage_ratio`;
+- a deterministic `region_sequence`;
+- explicit `TrajectoryInterval` gaps; and
+- waypoint, segment, and region-test counts.
+
+`Invalid` means the trajectory has no certificate coverage; it does not prove
+collision. Invalid input remains a `Result<T>` failure. See the
+[trajectory auditor guide](trajectory-auditor.md) for precise semantics.
+`TrajectoryAuditOptions` defaults to ten million region/segment tests and a
+fresh cooperative cancellation token.
 
 ## Error model
 

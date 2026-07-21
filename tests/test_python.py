@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 import rbfsafe
+
+
+def test_version() -> None:
+    assert rbfsafe.__version__ == "0.2.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -67,3 +72,43 @@ def test_tool_link_and_specific_identity_error() -> None:
     other_scene = rbfsafe.SceneSnapshot([], "different-version")
     with pytest.raises(rbfsafe.IdentityMismatchError):
         atlas.verify_compatible(robot, other_scene)
+
+
+def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    robot = rbfsafe.SerialRobotModel(
+        "python-trajectory-prismatic",
+        [rbfsafe.DhJoint(0.0, 0.0, 0.0, 0.0, rbfsafe.JointType.PRISMATIC)],
+        [rbfsafe.Interval(0.0, 2.0)],
+        [0.05],
+    )
+    scene = rbfsafe.SceneSnapshot(
+        [
+            rbfsafe.SceneObstacle(
+                "high-block",
+                rbfsafe.WorkspaceAabb([-0.1, -0.1, 1.1], [0.1, 0.1, 1.2]),
+            )
+        ],
+        "python-trajectory-v1",
+    )
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.25]]).atlas
+    report = rbfsafe.TrajectoryAuditor().audit(atlas, [[0.25], [1.5]])
+    assert report.status == rbfsafe.TrajectoryAuditStatus.PARTIAL
+    assert report.coverage_ratio == pytest.approx(0.6)
+    assert len(report.region_sequence) == 1
+    assert len(report.uncovered_intervals) == 1
+    assert report.uncovered_intervals[0].segment_index == 0
+    assert report.uncovered_intervals[0].start_fraction == pytest.approx(0.6)
+    assert not report.uncovered_intervals[0].start_included
+    assert report.uncovered_intervals[0].end_included
+
+    destination = tmp_path / "atlas"
+    atlas.save(destination)
+    trajectory = tmp_path / "trajectory.json"
+    trajectory.write_text(json.dumps({"waypoints": [[0.25], [1.5]]}), encoding="utf-8")
+    from rbfsafe.cli import main
+
+    assert main([str(destination), "--trajectory", str(trajectory)]) == 0
+    output = capsys.readouterr().out
+    assert "trajectory_status=PARTIAL" in output
+    assert "trajectory_coverage=0.6" in output
+    assert "trajectory_uncovered=0:(0.6,1]" in output
