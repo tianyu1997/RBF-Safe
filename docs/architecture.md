@@ -7,7 +7,7 @@ usable without the Atlas layer:
 RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
-       -> RBFSafe::corridor
+       -> RBFSafe::corridor and RBFSafe::ik
        -> RBFSafe::rbfsafe (aggregate target)
 ```
 
@@ -39,6 +39,14 @@ recursive path covering, witness portals, connectivity route certificates,
 and corridor schema-1 persistence. It depends on Atlas-layer cancellation,
 trajectory interval, and save-option types, but does not mutate an Atlas.
 
+### Safe IK
+
+`RBFSafe::ik` owns deterministic projected damped-least-squares solving inside
+certified Atlas regions. It consumes `Pose3d`, the robot/scene identity, and
+an immutable Atlas. A successful connected result combines point-checked pose
+evidence, the destination region certificate, and an explicit Atlas route
+whose subject digest binds every region and witness waypoint.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -52,6 +60,13 @@ not flow back into the core targets or Python wheels. It owns the conversion
 between `RealVectorStateSpace` states and configurations, strict Atlas-backed
 state validity, continuous edge validation through `TrajectoryAuditor`, and
 certified-region sampling.
+
+### Optional MoveIt 2 integration
+
+`plugins/moveit2/rbfsafe_moveit` is an independent ROS 2 Jazzy ament package.
+It consumes the installed core through `find_package(RBFSafe)` and exports
+request/response adapters plus a `KinematicsBase` plugin. No ROS, URDF,
+MoveIt, or pluginlib type enters a core public header or Python wheel.
 
 The trajectory auditor remains in the Atlas layer: it consumes immutable
 certified regions and produces a report without depending on robot geometry,

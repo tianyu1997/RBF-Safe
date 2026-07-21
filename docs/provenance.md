@@ -30,3 +30,9 @@ types, GJK/zonotope implementation, planner-private access, adaptive sweep
 configuration, diagnostics, or promotion logic. Its OBBs use standard
 containers, conservative AABB-enclosure proofs, bounded recursive covering,
 and new subject-bound certificate identities.
+
+The v0.5 Safe IK solver and MoveIt 2 package are new implementations. The
+legacy Safe IK and integration notes were used only to establish the intended
+high-level contract. RBF-Safe uses its own pose type, Atlas route evidence,
+bounded projected numerical method, current MoveIt 2 adapter split, and ROS 2
+Jazzy `KinematicsBase` API; no legacy ROS, planner, or IK source was copied.

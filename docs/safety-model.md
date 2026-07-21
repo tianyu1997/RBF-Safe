@@ -20,9 +20,9 @@ cancellation limits remain uncertified. Samples may prioritize branches and
 support regression tests; they never create or upgrade a regional certificate.
 
 Region merging is allowed only when the rectangular union is independently
-revalidated. Connectivity means two configurations belong to regions
-in the same deterministic overlap/touch component. It does not produce a
-continuous path, timing law, controller command, or execution guarantee.
+revalidated. Atlas connectivity is certified only when an explicit chain of
+exactly intersecting convex AABBs and witness configurations can be recovered.
+It does not produce a timing law, controller command, or execution guarantee.
 
 ## Identity and reuse
 
@@ -89,7 +89,35 @@ waypoints through `Certificate::subject_digest`.
 not cover velocity, acceleration, timing, actuator limits, tracking error,
 control discretization, dynamic obstacles, or unmodeled robot geometry.
 
-## Explicit exclusions in v0.4
+## Safe IK claims
+
+The v0.5 solver projects every numerical iterate into one Atlas
+`CertifiedRegion`. A returned pose match is still only `PointChecked`: the
+finite-difference numerical solve does not prove pose satisfaction over a
+neighborhood. The destination region certificate separately proves geometric
+collision freedom for every configuration in that region under the recorded
+robot and scene.
+
+`SafeConnected` additionally includes an Atlas route from the supplied current
+configuration to the solution. The route certificate binds the exact region
+sequence and intersection witnesses. `SafeUnconnected`, `SeedNotCertified`,
+and `NoSolution` are absence-of-certificate outcomes; none proves that no safe
+IK solution exists.
+
+## MoveIt 2 integration claims
+
+The request adapter checks only that the planning start is Atlas-covered. The
+response adapter is the enforcement point: it clears any successful response
+unless the entire piecewise-linear joint trajectory audits as `CERTIFIED`.
+The kinematics plugin returns only `SafeConnected` solutions.
+
+Plugin initialization requires exact joint-variable order, finite joint-limit
+agreement, and matching robot/scene/Atlas digests. DH-to-URDF frame and shape
+equivalence cannot be derived automatically in v0.5 and remains an explicit
+deployment assumption. The plugins therefore issue no `RuntimeExecutable`
+evidence.
+
+## Explicit exclusions in v0.5
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -99,10 +127,12 @@ control discretization, dynamic obstacles, or unmodeled robot geometry.
 - AABB separation is the only workspace collision proof; OBB certification
   uses a conservative C-space enclosure rather than a correlated workspace
   proof, and no mesh, KDOP, or swept-time validation is performed.
-- Arbitrary OBB intersection portals are not discovered; v0.4 portals are
+- Arbitrary OBB intersection portals are not discovered; portals are
   shared witnesses between consecutive path-cover cells.
-- `contains` and `connected` are not motion-planning or runtime-execution
-  approvals.
+- Pose tolerances, MoveIt callback acceptance, and trajectory coverage do not
+  certify dynamics, controller tracking, or runtime execution.
+- `contains`, `connected`, Safe IK, and MoveIt plugin acceptance are not
+  runtime-execution approvals.
 
 RBF-Safe therefore does not replace emergency stops, independent collision
 monitoring, controller limits, calibration checks, or application-specific

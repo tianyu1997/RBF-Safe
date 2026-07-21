@@ -3,6 +3,30 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [0.5.0] - 2026-07-22
+
+### Added
+
+- Public `Pose3d` and deterministic end-effector pose computation with a
+  normalized `x,y,z,w` quaternion.
+- Public `RBFSafe::ik` target with bounded projected damped-least-squares Safe
+  IK, explicit evidence separation, cancellation, statistics, and C++/Python
+  APIs.
+- Deterministic `SafeAtlas::route` recovery through exactly intersecting AABB
+  regions with subject-bound `CertifiedConnectivity` certificates.
+- Safe IK quickstart and `rbfsafe-inspect` pose/seed query support.
+- Optional ROS 2 Jazzy `rbfsafe_moveit` ament package with fail-closed start
+  state, final trajectory, and connected Safe IK plugins.
+- MoveIt plugin discovery plus functional Safe IK/request/response gate tests,
+  and deployment/configuration guides.
+
+### Changed
+
+- `SafeAtlas::connected` now delegates to exact route recovery; adjacency
+  tolerance cannot by itself certify connectivity across a geometric gap.
+- `RBFSafe::rbfsafe` aggregates the Safe IK target while core and Python wheel
+  builds remain independent of ROS and MoveIt.
+
 ## [0.4.0] - 2026-07-22
 
 ### Added

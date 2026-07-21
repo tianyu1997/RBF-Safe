@@ -17,8 +17,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Check C++ formatting
         run: >-
-          find include src tests tools examples python -type f
-          \( -name '*.h' -o -name '*.cpp' \) -print0 |
+          find include src tests tools examples python plugins -type f
+          \( -name '*.h' -o -name '*.hpp' -o -name '*.cpp' \) -print0 |
           xargs -0 clang-format --dry-run --Werror
 
   cpp:
@@ -153,3 +153,47 @@ jobs:
             "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           cmake --build consumer-ompl-build --config Release
           & "./consumer-ompl-build/Release/rbfsafe_ompl_consumer.exe"
+
+  moveit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: jazzy
+      - name: Install MoveIt 2 build dependencies
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y
+          python3-colcon-common-extensions
+          ros-jazzy-moveit-core
+      - name: Build and install RBF-Safe core
+        run: |
+          cmake -S . -B build-core -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/install-core" \
+            -DRBFSAFE_BUILD_TESTS=OFF \
+            -DRBFSAFE_BUILD_EXAMPLES=OFF \
+            -DRBFSAFE_BUILD_TOOLS=OFF \
+            -DRBFSAFE_WARNINGS_AS_ERRORS=ON
+          cmake --build build-core --parallel 2
+          cmake --install build-core
+      - name: Build MoveIt plugins
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd plugins/moveit2
+          colcon build \
+            --packages-select rbfsafe_moveit \
+            --cmake-args \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/install-core"
+      - name: Test MoveIt plugin discovery
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source plugins/moveit2/install/setup.bash
+          cd plugins/moveit2
+          colcon test --packages-select rbfsafe_moveit --event-handlers console_direct+
+          colcon test-result --verbose

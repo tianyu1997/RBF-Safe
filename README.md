@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.4
+geometric safety certificates in robot configuration space. Version 0.5
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -16,6 +16,10 @@ An optional C++ OMPL component maps certified Atlas coverage to state and
 continuous-motion validity and samples directly from certified regions.
 The core corridor component builds conservative OBB tubes, shared-witness
 portals, and certified HiPaC routes around candidate paths.
+The Safe IK component solves end-effector pose targets inside certified Atlas
+regions and returns an explicit Atlas connectivity certificate. An optional
+ROS 2 Jazzy package exposes fail-closed MoveIt 2 request, response, and
+kinematics plugins without adding ROS dependencies to the core library.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -39,10 +43,14 @@ certificate.
   continuous edge validation, and certified-region sampling.
 - Public `RBFSafe::corridor` OBB/Portal/HiPaC layer with bounded growth,
   partial-coverage reports, certified route recovery, and schema-1 storage.
+- Public `Pose3d`, deterministic `RBFSafe::ik`, and subject-bound Atlas route
+  certificates for region-constrained Safe IK.
+- Optional ROS 2 Jazzy `rbfsafe_moveit` package with certified start-state,
+  final-trajectory, and connected Safe IK gates.
 
-RBF-Safe does not implement an OMPL planner. MoveIt integration, Safe IK,
-dynamic scene repair, arbitrary OBB-intersection portals, and legacy cache
-compatibility remain outside v0.4.
+RBF-Safe does not implement an OMPL planner. Dynamic scene repair, arbitrary
+OBB-intersection portals, execution-time guarantees, and legacy cache
+compatibility remain outside v0.5.
 
 ## Quick start
 
@@ -100,6 +108,8 @@ rbfsafe-inspect atlas --query 0.0 0.0  # Python entry point
 rbfsafe-inspect atlas 0.0 0.0          # C++ executable
 rbfsafe-inspect atlas --trajectory data/trajectory_2r.json  # Python entry point
 rbfsafe-inspect corridor --query 0.0 0.0  # Atlas/corridor auto-detection
+rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
+  --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
 ```
 
 ## Documentation
@@ -113,6 +123,8 @@ rbfsafe-inspect corridor --query 0.0 0.0  # Atlas/corridor auto-detection
 - [Trajectory auditor](docs/trajectory-auditor.md)
 - [OMPL adapter](docs/ompl-adapter.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
+- [Safe IK](docs/safe-ik.md)
+- [MoveIt 2 integration](docs/moveit2.md)
 - [Atlas schema v1](docs/atlas-format.md)
 - [Corridor schema v1](docs/corridor-format.md)
 - [Versioning and compatibility](docs/versioning.md)

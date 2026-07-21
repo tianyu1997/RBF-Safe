@@ -17,7 +17,7 @@ Robot JSON, scene JSON, standalone LECT storage, and Atlas storage carry
 explicit schema numbers. These schemas are independent from the library
 version. A library release must not silently reinterpret an existing schema.
 
-The v0.4 readers accept only schema 1 for each format. Unknown schemas return
+The v0.5 readers accept only schema 1 for each format. Unknown schemas return
 `IncompatibleFormat`; malformed schema-1 data returns `CorruptData` or
 `ResourceLimit`. Legacy RapidBoxForest caches are never interpreted as
 RBF-Safe data.

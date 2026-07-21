@@ -22,6 +22,17 @@ int main() {
     CHECK(first.value().atlas.contains(Configuration{1.4, -1.4}));
     CHECK(first.value().atlas.contains(Configuration{-1.5, 1.5}));
     CHECK(first.value().atlas.connected(Configuration{0.0, 0.0}, Configuration{1.0, -1.0}).value());
+    auto root_route = first.value().atlas.route(Configuration{0.0, 0.0}, Configuration{1.0, -1.0});
+    CHECK(root_route);
+    CHECK(root_route.value().has_value());
+    CHECK(root_route.value()->waypoints.size() == 2);
+    CHECK(root_route.value()->region_sequence.size() == 1);
+    CHECK(root_route.value()->certificate.level == EvidenceLevel::CertifiedConnectivity);
+    CHECK(!root_route.value()->certificate.subject_digest.empty());
+    auto repeated_route = first.value().atlas.route(Configuration{0.0, 0.0}, Configuration{1.0, -1.0});
+    CHECK(repeated_route);
+    CHECK(repeated_route.value().has_value());
+    CHECK(repeated_route.value()->certificate.id == root_route.value()->certificate.id);
     CHECK(first.value().atlas.verify_compatible(robot, scene));
 
     BuildOptions parallel;
@@ -87,5 +98,8 @@ int main() {
     auto disconnected = isolated.value().atlas.connected(Configuration{-1.0, 0.0}, Configuration{1.0, 0.0});
     CHECK(disconnected);
     CHECK(!disconnected.value());
+    auto missing_route = isolated.value().atlas.route(Configuration{-1.0, 0.0}, Configuration{1.0, 0.0});
+    CHECK(missing_route);
+    CHECK(!missing_route.value().has_value());
     return EXIT_SUCCESS;
 }

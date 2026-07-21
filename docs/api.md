@@ -14,7 +14,8 @@ module headers directly and link only the corresponding CMake target.
 - Robot and scene `digest()` values are SHA-256 of canonical JSON content.
 
 `SerialRobotModel::forward_kinematics(q)` returns `link_count() + 1` frame
-origins, beginning with the base origin.
+origins, beginning with the base origin. `end_effector_pose(q)` returns a
+`Pose3d` with position and an `x,y,z,w` unit quaternion.
 
 ## Geometry and certification
 
@@ -33,10 +34,10 @@ Certificate evidence levels are explicit:
 | `CertifiedConnectivity` | A subject-bound convex-cell/portal chain proves connectivity |
 | `RuntimeExecutable` | Reserved for runtime execution guarantees |
 
-`AtlasBuilder` issues only `CertifiedRegion` certificates. Atlas components
-remain query metadata. The v0.4 corridor layer issues `CertifiedConnectivity`
-only for explicit OBB/portal subjects. Neither layer issues
-`RuntimeExecutable`.
+`AtlasBuilder` issues only `CertifiedRegion` certificates. The corridor and
+Atlas route APIs issue `CertifiedConnectivity` only for explicit cell/witness
+subjects. Safe IK pose convergence remains `PointChecked`. No v0.5 component
+issues `RuntimeExecutable`.
 
 ## LECT
 
@@ -73,8 +74,11 @@ depth or width limits leave affected branches unresolved and are reflected in
 - `regions_at(q)` returns every certified region containing `q`.
 - `contains(q)` is a convenience membership predicate.
 - `nearest_region(q)` returns the nearest C-space box, not a certified route.
-- `connected(q1, q2)` tests stored component membership and does not generate a
-  path.
+- `route(q1, q2)` recovers a deterministic chain through exactly intersecting
+  convex Atlas AABBs and returns witness waypoints plus a subject-bound
+  `CertifiedConnectivity` certificate.
+- `connected(q1, q2)` is true only when `route` can recover that certified
+  chain; adjacency tolerance alone cannot bridge a geometric gap.
 - `verify_compatible(robot, scene)` checks exact identity digests.
 - `save(path)` publishes schema v1 without overwriting by default.
 - `load(path)` validates schema, bounds, counts, checksums, graph invariants,
@@ -114,7 +118,7 @@ creates a bounded `ompl::base::RealVectorStateSpace` from the Atlas root.
 - atomic query, motion, sampling, fallback, and audit-failure counters.
 
 The adapter holds a shared immutable Atlas. Its bounds and dimensions must
-exactly match the OMPL real-vector space. Unknown coverage returns false; v0.4
+exactly match the OMPL real-vector space. Unknown coverage returns false; v0.5
 has no fallback collision checker. See the [OMPL adapter guide](ompl-adapter.md).
 
 ## OBB corridors and HiPaC
@@ -138,6 +142,22 @@ Advanced certificates populate `Certificate::subject_digest` with the SHA-256
 of the exact OBB, portal, or route subject. Legacy Atlas schema-1 certificates
 leave this optional field empty, preserving their identities. See the
 [corridor guide](corridors.md) and [corridor schema](corridor-format.md).
+
+## Safe IK
+
+Include `<rbfsafe/safe_ik.h>` and link `RBFSafe::ik`.
+`SafeIkSolver::solve(robot, scene, atlas, target, current, options)` searches
+certified regions in deterministic seed-distance order and projects every
+numerical step into the active region. Its `SafeIkReport` distinguishes:
+
+- `SafeConnected`: pose-checked solution plus an Atlas route from `current`;
+- `SafeUnconnected`: region-certified pose solution without such a route;
+- `SeedNotCertified`: the current state is outside the Atlas; and
+- `NoSolution`: bounded search found no tolerance-satisfying solution.
+
+The report keeps the destination `CertifiedRegion`, the `PointChecked` pose
+evidence, numerical errors/statistics, and, when present, the
+`CertifiedConnectivity` route as separate claims. See [Safe IK](safe-ik.md).
 
 ## Error model
 

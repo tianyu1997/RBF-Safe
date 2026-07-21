@@ -1,5 +1,6 @@
 #include <rbfsafe/atlas.h>
 
+#include "internal/certificate_utils.h"
 #include "internal/region_index.h"
 
 #include "internal/json.h"
@@ -84,6 +85,29 @@ double point_box_distance_squared(std::span<const double> point, const CspaceAab
         squared += delta * delta;
     }
     return squared;
+}
+
+internal::Json configuration_json(std::span<const double> configuration) {
+    internal::Json::Array values;
+    values.reserve(configuration.size());
+    for (const double value : configuration)
+        values.emplace_back(value);
+    return values;
+}
+
+std::optional<Configuration> intersection_witness(const CspaceAabb& left, const CspaceAabb& right) {
+    if (left.dimension() != right.dimension())
+        return std::nullopt;
+    Configuration witness;
+    witness.reserve(left.dimension());
+    for (std::size_t axis = 0; axis < left.dimension(); ++axis) {
+        const double lower = std::max(left.axes()[axis].lower, right.axes()[axis].lower);
+        const double upper = std::min(left.axes()[axis].upper, right.axes()[axis].upper);
+        if (lower > upper)
+            return std::nullopt;
+        witness.push_back(0.5 * (lower + upper));
+    }
+    return witness;
 }
 
 } // namespace
@@ -384,19 +408,156 @@ Result<std::optional<SafeRegion>> SafeAtlas::nearest_region(std::span<const doub
 }
 
 Result<bool> SafeAtlas::connected(std::span<const double> first, std::span<const double> second) const {
-    auto first_regions = regions_at(first);
-    if (!first_regions)
-        return first_regions.error();
-    auto second_regions = regions_at(second);
-    if (!second_regions)
-        return second_regions.error();
-    for (const auto& left : first_regions.value()) {
-        for (const auto& right : second_regions.value()) {
-            if (left.component != 0 && left.component == right.component)
-                return true;
+    auto result = route(first, second);
+    if (!result)
+        return result.error();
+    return result.value().has_value();
+}
+
+Result<std::optional<AtlasRoute>> SafeAtlas::route(std::span<const double> first,
+                                                   std::span<const double> second) const {
+    auto first_status = validate_configuration(first, dimension_, "Atlas route start");
+    if (!first_status)
+        return first_status.error();
+    auto second_status = validate_configuration(second, dimension_, "Atlas route goal");
+    if (!second_status)
+        return second_status.error();
+    if (adjacency_.size() != regions_.size()) {
+        return Result<std::optional<AtlasRoute>>::failure(StatusCode::InternalError,
+                                                          "Atlas adjacency size does not match regions");
+    }
+
+    std::vector<std::size_t> starts;
+    std::vector<std::size_t> goals;
+    for (std::size_t index = 0; index < regions_.size(); ++index) {
+        if (regions_[index].bounds.contains(first))
+            starts.push_back(index);
+        if (regions_[index].bounds.contains(second))
+            goals.push_back(index);
+    }
+    if (starts.empty() || goals.empty())
+        return std::optional<AtlasRoute>{};
+    auto by_id = [&](std::size_t left, std::size_t right) { return regions_[left].id < regions_[right].id; };
+    std::sort(starts.begin(), starts.end(), by_id);
+    std::sort(goals.begin(), goals.end(), by_id);
+    std::vector<bool> is_goal(regions_.size(), false);
+    for (const auto goal : goals)
+        is_goal[goal] = true;
+
+    std::vector<std::vector<std::size_t>> certified_adjacency(regions_.size());
+    for (std::size_t index = 0; index < adjacency_.size(); ++index) {
+        for (const auto neighbor : adjacency_[index]) {
+            if (neighbor >= regions_.size()) {
+                return Result<std::optional<AtlasRoute>>::failure(
+                    StatusCode::InternalError, "Atlas adjacency references an unknown region");
+            }
+            if (intersection_witness(regions_[index].bounds, regions_[neighbor].bounds))
+                certified_adjacency[index].push_back(neighbor);
+        }
+        std::sort(certified_adjacency[index].begin(), certified_adjacency[index].end(), by_id);
+        certified_adjacency[index].erase(
+            std::unique(certified_adjacency[index].begin(), certified_adjacency[index].end()),
+            certified_adjacency[index].end());
+    }
+
+    const std::size_t none = std::numeric_limits<std::size_t>::max();
+    std::vector<std::size_t> predecessor(regions_.size(), none);
+    std::deque<std::size_t> frontier;
+    for (const auto start : starts) {
+        predecessor[start] = start;
+        frontier.push_back(start);
+    }
+    std::size_t selected_goal = none;
+    while (!frontier.empty()) {
+        const std::size_t current = frontier.front();
+        frontier.pop_front();
+        if (is_goal[current]) {
+            selected_goal = current;
+            break;
+        }
+        for (const auto neighbor : certified_adjacency[current]) {
+            if (predecessor[neighbor] != none)
+                continue;
+            predecessor[neighbor] = current;
+            frontier.push_back(neighbor);
         }
     }
-    return false;
+    if (selected_goal == none)
+        return std::optional<AtlasRoute>{};
+
+    std::vector<std::size_t> route_indices;
+    for (std::size_t current = selected_goal;; current = predecessor[current]) {
+        route_indices.push_back(current);
+        if (predecessor[current] == current)
+            break;
+    }
+    std::reverse(route_indices.begin(), route_indices.end());
+
+    AtlasRoute route;
+    route.waypoints.emplace_back(first.begin(), first.end());
+    for (const auto index : route_indices)
+        route.region_sequence.push_back(regions_[index].id);
+    for (std::size_t index = 1; index < route_indices.size(); ++index) {
+        auto witness = intersection_witness(regions_[route_indices[index - 1]].bounds,
+                                            regions_[route_indices[index]].bounds);
+        if (!witness) {
+            return Result<std::optional<AtlasRoute>>::failure(StatusCode::InternalError,
+                                                              "Atlas route lost its intersection witness");
+        }
+        route.waypoints.push_back(std::move(*witness));
+    }
+    route.waypoints.emplace_back(second.begin(), second.end());
+
+    double clearance = std::numeric_limits<double>::infinity();
+    double obstacle_padding = 0.0;
+    bool have_padding = false;
+    internal::Json::Array region_ids;
+    internal::Json::Array region_certificates;
+    internal::Json::Array region_bounds;
+    for (const auto index : route_indices) {
+        if (regions_[index].certificate_index >= certificates_.size()) {
+            return Result<std::optional<AtlasRoute>>::failure(StatusCode::InternalError,
+                                                              "Atlas route region has no certificate");
+        }
+        const auto& certificate = certificates_[regions_[index].certificate_index];
+        if (certificate.level != EvidenceLevel::CertifiedRegion ||
+            certificate.robot_digest != robot_digest_ || certificate.scene_digest != scene_digest_) {
+            return Result<std::optional<AtlasRoute>>::failure(StatusCode::InternalError,
+                                                              "Atlas route region certificate is invalid");
+        }
+        clearance = std::min(clearance, certificate.clearance_lower_bound);
+        if (!have_padding) {
+            obstacle_padding = certificate.policy.obstacle_padding;
+            have_padding = true;
+        } else if (certificate.policy.obstacle_padding != obstacle_padding) {
+            return Result<std::optional<AtlasRoute>>::failure(
+                StatusCode::InternalError, "Atlas route certificate padding policies differ");
+        }
+        region_ids.emplace_back(std::to_string(regions_[index].id));
+        region_certificates.emplace_back(certificate.id);
+        region_bounds.emplace_back(box_identity(regions_[index].bounds));
+    }
+    if (!std::isfinite(clearance))
+        clearance = 0.0;
+    internal::Json::Array waypoints;
+    for (const auto& waypoint : route.waypoints)
+        waypoints.emplace_back(configuration_json(waypoint));
+    const std::string subject =
+        internal::sha256(internal::Json(internal::Json::Object{
+                                            {"region_sequence", std::move(region_ids)},
+                                            {"region_certificates", std::move(region_certificates)},
+                                            {"region_bounds", std::move(region_bounds)},
+                                            {"type", "atlas-convex-aabb-chain"},
+                                            {"waypoints", std::move(waypoints)},
+                                        })
+                             .dump(false));
+    auto certificate = internal::make_subject_certificate(
+        EvidenceLevel::CertifiedConnectivity, robot_digest_, scene_digest_,
+        {"atlas-convex-aabb-chain", "1", obstacle_padding}, subject, clearance);
+    if (!certificate)
+        return certificate.error();
+    route.certificate = std::move(certificate).value();
+    return std::optional<AtlasRoute>{std::move(route)};
 }
 
 Result<void> SafeAtlas::verify_compatible(const SerialRobotModel& robot, const SceneSnapshot& scene) const {

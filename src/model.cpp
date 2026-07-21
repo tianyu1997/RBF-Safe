@@ -58,6 +58,56 @@ Matrix4 joint_matrix(const DhJoint& joint, double value) {
                    1.0};
 }
 
+Pose3d pose_from_matrix(const Matrix4& matrix) {
+    Pose3d pose;
+    pose.position = {matrix[3], matrix[7], matrix[11]};
+    const double trace = matrix[0] + matrix[5] + matrix[10];
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    double w = 1.0;
+    if (trace > 0.0) {
+        const double scale = 2.0 * std::sqrt(std::max(0.0, trace + 1.0));
+        w = 0.25 * scale;
+        x = (matrix[9] - matrix[6]) / scale;
+        y = (matrix[2] - matrix[8]) / scale;
+        z = (matrix[4] - matrix[1]) / scale;
+    } else if (matrix[0] > matrix[5] && matrix[0] > matrix[10]) {
+        const double scale = 2.0 * std::sqrt(std::max(0.0, 1.0 + matrix[0] - matrix[5] - matrix[10]));
+        w = (matrix[9] - matrix[6]) / scale;
+        x = 0.25 * scale;
+        y = (matrix[1] + matrix[4]) / scale;
+        z = (matrix[2] + matrix[8]) / scale;
+    } else if (matrix[5] > matrix[10]) {
+        const double scale = 2.0 * std::sqrt(std::max(0.0, 1.0 + matrix[5] - matrix[0] - matrix[10]));
+        w = (matrix[2] - matrix[8]) / scale;
+        x = (matrix[1] + matrix[4]) / scale;
+        y = 0.25 * scale;
+        z = (matrix[6] + matrix[9]) / scale;
+    } else {
+        const double scale = 2.0 * std::sqrt(std::max(0.0, 1.0 + matrix[10] - matrix[0] - matrix[5]));
+        w = (matrix[4] - matrix[1]) / scale;
+        x = (matrix[2] + matrix[8]) / scale;
+        y = (matrix[6] + matrix[9]) / scale;
+        z = 0.25 * scale;
+    }
+    const double norm = std::sqrt(x * x + y * y + z * z + w * w);
+    if (norm > 0.0) {
+        x /= norm;
+        y /= norm;
+        z /= norm;
+        w /= norm;
+    }
+    if (w < 0.0 || (w == 0.0 && (x < 0.0 || (x == 0.0 && (y < 0.0 || (y == 0.0 && z < 0.0)))))) {
+        x = -x;
+        y = -y;
+        z = -z;
+        w = -w;
+    }
+    pose.orientation = {x, y, z, w};
+    return pose;
+}
+
 bool finite_joint(const DhJoint& joint) {
     return std::isfinite(joint.alpha) && std::isfinite(joint.a) && std::isfinite(joint.d) &&
            std::isfinite(joint.theta) &&
@@ -121,6 +171,19 @@ Result<DhJoint> parse_joint(const internal::Json& json) {
 }
 
 } // namespace
+
+bool Pose3d::valid(double tolerance) const noexcept {
+    if (!std::isfinite(tolerance) || tolerance < 0.0)
+        return false;
+    if (!std::all_of(position.begin(), position.end(), [](double value) { return std::isfinite(value); }) ||
+        !std::all_of(orientation.begin(), orientation.end(),
+                     [](double value) { return std::isfinite(value); }))
+        return false;
+    double squared_norm = 0.0;
+    for (const double value : orientation)
+        squared_norm += value * value;
+    return std::abs(std::sqrt(squared_norm) - 1.0) <= tolerance;
+}
 
 SerialRobotModel::SerialRobotModel(std::string name, std::vector<DhJoint> joints,
                                    std::vector<Interval> joint_limits, std::vector<double> link_radii,
@@ -204,6 +267,28 @@ SerialRobotModel::forward_kinematics(std::span<const double> configuration) cons
         origins.push_back({transform[3], transform[7], transform[11]});
     }
     return origins;
+}
+
+Result<Pose3d> SerialRobotModel::end_effector_pose(std::span<const double> configuration) const {
+    auto model_status = validate();
+    if (!model_status)
+        return model_status.error();
+    auto configuration_status = validate_configuration(configuration, dimension());
+    if (!configuration_status)
+        return configuration_status.error();
+    for (std::size_t index = 0; index < dimension(); ++index) {
+        if (!joint_limits_[index].contains(configuration[index], 1e-12)) {
+            return Result<Pose3d>::failure(StatusCode::InvalidArgument,
+                                           "configuration lies outside joint limits", std::to_string(index));
+        }
+    }
+
+    Matrix4 transform = identity_matrix();
+    for (std::size_t index = 0; index < joints_.size(); ++index)
+        transform = multiply(transform, joint_matrix(joints_[index], configuration[index]));
+    if (tool_frame_)
+        transform = multiply(transform, joint_matrix(*tool_frame_, 0.0));
+    return pose_from_matrix(transform);
 }
 
 std::string SerialRobotModel::canonical_json() const {

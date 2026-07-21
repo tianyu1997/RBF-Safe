@@ -1,0 +1,23 @@
+# Planning-pipeline adapter parameters. Here the MoveIt pipeline namespace is "ompl".
+ompl:
+  robot_model_path: /absolute/path/to/robot.json
+  scene_path: /absolute/path/to/scene.json
+  atlas_path: /absolute/path/to/atlas
+  group_name: arm
+  joint_names: [joint_1, joint_2]
+  tip_link: tool0
+  maximum_audit_region_tests: 10000000
+
+# Kinematics plugin parameters are read from rbfsafe.<group_name>.
+rbfsafe:
+  arm:
+    robot_model_path: /absolute/path/to/robot.json
+    scene_path: /absolute/path/to/scene.json
+    atlas_path: /absolute/path/to/atlas
+    group_name: arm
+    joint_names: [joint_1, joint_2]
+    tip_link: tool0
+    position_tolerance: 0.0001
+    orientation_tolerance: 0.001
+    maximum_ik_iterations: 128
+    maximum_region_attempts: 256

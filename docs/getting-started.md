@@ -97,10 +97,10 @@ certificate verifier.
 - `regions_at(q)` returns every matching region.
 - `nearest_region(q)` is a geometric nearest-box query and does not certify
   the segment from `q` to that region.
-- `connected(q1, q2)` means both points belong to the same certified region
-  component. `SafeAtlas` does not return a path; use the separate v0.4 HiPaC
-  corridor API when an explicit convex-cell route is required. Neither API
-  grants a runtime-execution guarantee.
+- `route(q1, q2)` returns a deterministic certified path through intersecting
+  convex Atlas AABBs; `connected(q1, q2)` is its Boolean shorthand. HiPaC
+  remains useful for covering a supplied candidate path with oriented cells.
+  Neither API grants a runtime-execution guarantee.
 - `false` normally means “not certified by this Atlas,” not “in collision.”
 
 ## Build a certified OBB corridor
@@ -123,7 +123,25 @@ for partial coverage. A returned route is a geometric connectivity
 certificate through convex cells, not a timing or execution approval. See the
 [corridor guide](corridors.md).
 
-## 6. Audit a trajectory
+## 6. Solve a Safe IK query
+
+Safe IK keeps its search inside certified regions and requires an explicit
+Atlas route from the seed to the result:
+
+```python
+target = robot.end_effector_pose([0.4, -0.2])
+report = rbfsafe.SafeIkSolver().solve(
+    robot, scene, atlas, target, [0.0, 0.0]
+)
+if report.status == rbfsafe.SafeIkStatus.SAFE_CONNECTED:
+    print(report.solution)
+    print(report.connectivity_route.certificate.id)
+```
+
+Pose convergence is point-checked evidence. Read the [Safe IK guide](safe-ik.md)
+before using the result in a planning or control system.
+
+## 7. Audit a trajectory
 
 After loading and compatibility-checking an Atlas:
 

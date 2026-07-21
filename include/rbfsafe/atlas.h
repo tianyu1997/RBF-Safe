@@ -61,6 +61,12 @@ struct SaveOptions {
     bool overwrite = false;
 };
 
+struct AtlasRoute {
+    std::vector<Configuration> waypoints;
+    std::vector<RegionId> region_sequence;
+    Certificate certificate;
+};
+
 class SafeAtlas {
   public:
     SafeAtlas() = default;
@@ -83,6 +89,8 @@ class SafeAtlas {
     }
     Result<std::optional<SafeRegion>> nearest_region(std::span<const double> configuration) const;
     Result<bool> connected(std::span<const double> first, std::span<const double> second) const;
+    Result<std::optional<AtlasRoute>> route(std::span<const double> first,
+                                            std::span<const double> second) const;
     Result<void> verify_compatible(const SerialRobotModel& robot, const SceneSnapshot& scene) const;
 
     Result<void> save(const std::filesystem::path& directory, const SaveOptions& options = {}) const;

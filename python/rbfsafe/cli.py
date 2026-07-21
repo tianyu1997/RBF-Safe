@@ -7,7 +7,18 @@ import json
 import math
 from pathlib import Path
 
-from . import HipacCorridor, SafeAtlas, TrajectoryAuditor, TrajectoryAuditOptions, TrajectoryAuditStatus
+from . import (
+    HipacCorridor,
+    Pose3d,
+    SafeAtlas,
+    SafeIkSolver,
+    SafeIkStatus,
+    SceneSnapshot,
+    SerialRobotModel,
+    TrajectoryAuditor,
+    TrajectoryAuditOptions,
+    TrajectoryAuditStatus,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -16,6 +27,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
     parser.add_argument("--trajectory", type=Path, help="audit a JSON waypoint array")
+    parser.add_argument("--robot", type=Path, help="robot JSON used for a Safe IK query")
+    parser.add_argument("--scene", type=Path, help="scene JSON used for a Safe IK query")
+    parser.add_argument(
+        "--ik-target",
+        nargs=7,
+        type=float,
+        metavar=("X", "Y", "Z", "QX", "QY", "QZ", "QW"),
+        help="solve a position/quaternion target with certified connectivity",
+    )
+    parser.add_argument("--seed", nargs="+", type=float, metavar="Q", help="Safe IK seed state")
     parser.add_argument(
         "--max-region-tests",
         type=int,
@@ -35,8 +56,15 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, UnicodeError, json.JSONDecodeError):
         manifest = {}
     if manifest.get("format") == "rbfsafe-corridor":
-        if args.plot is not None or args.trajectory is not None:
-            parser.error("--plot and --trajectory apply only to Atlas directories")
+        if (
+            args.plot is not None
+            or args.trajectory is not None
+            or args.robot is not None
+            or args.scene is not None
+            or args.ik_target is not None
+            or args.seed is not None
+        ):
+            parser.error("plot, trajectory, and Safe IK options apply only to Atlas directories")
         corridor = HipacCorridor.load(args.atlas)
         components = {region.component for region in corridor.regions}
         print(f"RBF-Safe corridor schema=1 dimension={corridor.dimension}")
@@ -115,6 +143,38 @@ def main(argv: list[str] | None = None) -> int:
                 for interval in report.uncovered_intervals
             )
         )
+    ik_arguments = (args.robot, args.scene, args.ik_target, args.seed)
+    if any(argument is not None for argument in ik_arguments):
+        if not all(argument is not None for argument in ik_arguments):
+            parser.error("--robot, --scene, --ik-target, and --seed must be used together")
+        if len(args.seed) != atlas.dimension or not all(math.isfinite(value) for value in args.seed):
+            parser.error(f"--seed requires {atlas.dimension} finite coordinates")
+        if not all(math.isfinite(value) for value in args.ik_target):
+            parser.error("--ik-target requires seven finite coordinates")
+        robot = SerialRobotModel.from_json(args.robot)
+        scene = SceneSnapshot.from_json(args.scene)
+        atlas.verify_compatible(robot, scene)
+        target = Pose3d(args.ik_target[:3], args.ik_target[3:])
+        report = SafeIkSolver().solve(robot, scene, atlas, target, args.seed)
+        status_names = {
+            SafeIkStatus.SAFE_CONNECTED: "SAFE_CONNECTED",
+            SafeIkStatus.SAFE_UNCONNECTED: "SAFE_UNCONNECTED",
+            SafeIkStatus.SEED_NOT_CERTIFIED: "SEED_NOT_CERTIFIED",
+            SafeIkStatus.NO_SOLUTION: "NO_SOLUTION",
+        }
+        print(f"safe_ik_status={status_names[report.status]}")
+        print("safe_ik_solution=" + ",".join(f"{value:.12g}" for value in report.solution))
+        print(f"safe_ik_region={report.region_id}")
+        print(f"safe_ik_position_error={report.position_error:.12g}")
+        print(f"safe_ik_orientation_error={report.orientation_error:.12g}")
+        if report.connectivity_route is not None:
+            print(
+                "safe_ik_route="
+                + ",".join(str(region) for region in report.connectivity_route.region_sequence)
+            )
+            print(f"safe_ik_connectivity_certificate={report.connectivity_route.certificate.id}")
+        if report.status != SafeIkStatus.SAFE_CONNECTED:
+            return 3
     if args.plot:
         from .visualize import plot_slice
 

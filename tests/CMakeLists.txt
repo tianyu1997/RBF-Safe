@@ -16,6 +16,7 @@ rbfsafe_add_test(rbfsafe_test_persistence test_persistence.cpp)
 rbfsafe_add_test(rbfsafe_test_obb test_obb.cpp)
 rbfsafe_add_test(rbfsafe_test_hipac test_hipac.cpp)
 target_include_directories(rbfsafe_test_hipac PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+rbfsafe_add_test(rbfsafe_test_safe_ik test_safe_ik.cpp)
 
 if(RBFSAFE_BUILD_OMPL)
     add_executable(rbfsafe_test_ompl test_ompl.cpp)

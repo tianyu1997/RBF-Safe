@@ -1,0 +1,20 @@
+<library path="rbfsafe_moveit_plugins">
+  <class
+      name="rbfsafe_moveit/CertifiedStartStateAdapter"
+      type="rbfsafe_moveit::CertifiedStartStateAdapter"
+      base_class_type="planning_interface::PlanningRequestAdapter">
+    <description>Rejects planning requests whose start state is outside the configured SafeAtlas.</description>
+  </class>
+  <class
+      name="rbfsafe_moveit/CertifiedTrajectoryAdapter"
+      type="rbfsafe_moveit::CertifiedTrajectoryAdapter"
+      base_class_type="planning_interface::PlanningResponseAdapter">
+    <description>Rejects and clears responses whose complete trajectory is not certified by the SafeAtlas.</description>
+  </class>
+  <class
+      name="rbfsafe_moveit/SafeIkKinematicsPlugin"
+      type="rbfsafe_moveit::SafeIkKinematicsPlugin"
+      base_class_type="kinematics::KinematicsBase">
+    <description>Deterministic region-constrained IK that returns only Atlas-connected solutions.</description>
+  </class>
+</library>

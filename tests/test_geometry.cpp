@@ -28,6 +28,14 @@ int main() {
     auto point_fk = robot.forward_kinematics(Configuration{0.2, -0.3});
     CHECK(point_fk);
     CHECK(point_fk.value().size() == 3);
+    auto end_pose = robot.end_effector_pose(Configuration{0.2, -0.3});
+    CHECK(end_pose);
+    CHECK(end_pose.value().valid());
+    CHECK(close(end_pose.value().position[0], point_fk.value().back()[0]));
+    CHECK(close(end_pose.value().position[1], point_fk.value().back()[1]));
+    CHECK(close(end_pose.value().position[2], point_fk.value().back()[2]));
+    CHECK(close(end_pose.value().orientation[2], std::sin(-0.05)));
+    CHECK(close(end_pose.value().orientation[3], std::cos(-0.05)));
 
     CspaceAabb domain({{-0.7, 0.9}, {-0.5, 0.8}});
     auto envelope = compute_ifk_aa_link_envelope(robot, domain);

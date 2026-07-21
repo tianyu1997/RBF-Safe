@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "0.4.0"
+    assert rbfsafe.__version__ == "0.5.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -29,6 +29,9 @@ def test_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     result = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0], [1.0, -1.0]])
     assert result.atlas.contains([0.0, 0.0])
     assert result.atlas.connected([0.0, 0.0], [1.0, -1.0])
+    route = result.atlas.route([0.0, 0.0], [1.0, -1.0])
+    assert route is not None
+    assert route.certificate.level == rbfsafe.EvidenceLevel.CERTIFIED_CONNECTIVITY
     assert result.atlas.certificates[0].level == rbfsafe.EvidenceLevel.CERTIFIED_REGION
     destination = tmp_path / "atlas"
     result.atlas.save(destination)
@@ -40,6 +43,52 @@ def test_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
 
     assert main([str(destination), "--query", "0.0", "0.0"]) == 0
     assert "query_contains=true" in capsys.readouterr().out
+
+
+def test_safe_ik() -> None:
+    robot = make_robot()
+    scene = rbfsafe.SceneSnapshot([], "python-safe-ik-v1")
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
+    target = robot.end_effector_pose([0.4, -0.2])
+    assert target.valid()
+    report = rbfsafe.SafeIkSolver().solve(robot, scene, atlas, target, [0.0, 0.0])
+    assert report.status == rbfsafe.SafeIkStatus.SAFE_CONNECTED
+    assert report.pose_evidence == rbfsafe.EvidenceLevel.POINT_CHECKED
+    assert report.position_error <= 1e-4
+    assert report.orientation_error <= 1e-3
+    assert report.region_certificate.level == rbfsafe.EvidenceLevel.CERTIFIED_REGION
+    assert report.connectivity_route.certificate.level == rbfsafe.EvidenceLevel.CERTIFIED_CONNECTIVITY
+
+
+def test_safe_ik_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repository = Path(__file__).resolve().parents[1]
+    robot_path = repository / "data" / "planar_2r.json"
+    scene_path = repository / "data" / "empty_scene.json"
+    robot = rbfsafe.SerialRobotModel.from_json(robot_path)
+    scene = rbfsafe.SceneSnapshot.from_json(scene_path)
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
+    destination = tmp_path / "safe-ik-atlas"
+    atlas.save(destination)
+    target = robot.end_effector_pose([0.4, -0.2])
+
+    from rbfsafe.cli import main
+
+    arguments = [
+        str(destination),
+        "--robot",
+        str(robot_path),
+        "--scene",
+        str(scene_path),
+        "--ik-target",
+        *(str(value) for value in (*target.position, *target.orientation)),
+        "--seed",
+        "0.0",
+        "0.0",
+    ]
+    assert main(arguments) == 0
+    output = capsys.readouterr().out
+    assert "safe_ik_status=SAFE_CONNECTED" in output
+    assert "safe_ik_connectivity_certificate=" in output
 
 
 def test_public_lect(tmp_path: Path) -> None:

@@ -12,4 +12,5 @@ no source, build, runtime, or data-format dependency on it.
 | Safe box certification and query semantics | Selectively re-derived | Needed for SafeAtlas |
 | Planning forest, grower, bridge, connector | Excluded | RBF-Safe v0.1 is not a planner |
 | HiPaC, portal and OBB code | Re-derived in v0.4 | New OBB enclosure proofs, witness portals, and subject-bound certificates; no legacy planner code |
+| Safe IK concepts and MoveIt bridge | Re-derived in v0.5 | New region-projected solver, Atlas route evidence, and current public MoveIt 2 plugin interfaces |
 | Experiments, manuscript and generated outputs | Excluded | Remain in RapidBoxForest |

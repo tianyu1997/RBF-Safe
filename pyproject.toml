@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "rbfsafe"
-version = "0.4.0"
+version = "0.5.0"
 description = "Reusable geometric safety certificates for robot configuration spaces"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -41,6 +41,7 @@ rbfsafe-inspect = "rbfsafe.cli:main"
 [tool.scikit-build]
 cmake.args = ["-DRBFSAFE_BUILD_PYTHON=ON", "-DRBFSAFE_BUILD_TESTS=OFF", "-DRBFSAFE_BUILD_EXAMPLES=OFF", "-DRBFSAFE_BUILD_TOOLS=OFF"]
 wheel.packages = ["python/rbfsafe"]
+wheel.exclude = ["**/__pycache__/**", "**/*.pyc"]
 sdist.inclusion-mode = "explicit"
 sdist.include = [
   "pyproject.toml",
@@ -52,6 +53,7 @@ sdist.include = [
   "tests/**",
   "tools/**",
   "examples/**",
+  "plugins/**",
   "data/**",
   "docs/**",
   ".github/**",

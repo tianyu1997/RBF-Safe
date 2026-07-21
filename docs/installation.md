@@ -55,8 +55,9 @@ target_link_libraries(my_consumer PRIVATE RBFSafe::rbfsafe)
 ```
 
 Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
-targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`, and
-`RBFSafe::corridor` are available when the aggregate target is unnecessary.
+targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
+`RBFSafe::corridor`, and `RBFSafe::ik` are available when the aggregate target
+is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
 party dependency. It provides OBB, Portal, and HiPaC APIs. The aggregate
@@ -73,6 +74,22 @@ target_link_libraries(my_planner PRIVATE RBFSafe::ompl)
 The package accepts OMPL configurations that provide the current `ompl::ompl`
 target or the legacy `OMPL_INCLUDE_DIRS` and `OMPL_LIBRARIES` variables. The
 base RBF-Safe package and Python wheels do not load OMPL.
+
+## Build the optional MoveIt 2 package
+
+Install RBF-Safe to a prefix first. On Ubuntu 24.04 with ROS 2 Jazzy and
+MoveIt 2 sourced:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+colcon build --base-paths plugins/moveit2 \
+  --packages-select rbfsafe_moveit \
+  --cmake-args -DCMAKE_PREFIX_PATH=/path/to/rbfsafe/install
+colcon test --packages-select rbfsafe_moveit
+```
+
+The ament package is deliberately outside the core CMake graph. See the
+[MoveIt 2 guide](moveit2.md) for its fail-closed behavior and parameters.
 
 ## Build and install the Python wheel
 

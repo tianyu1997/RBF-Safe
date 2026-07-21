@@ -232,6 +232,14 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_readwrite("theta", &DhJoint::theta)
         .def_readwrite("type", &DhJoint::type);
 
+    py::class_<Pose3d>(module, "Pose3d")
+        .def(py::init<std::array<double, 3>, std::array<double, 4>>(),
+             py::arg("position") = std::array<double, 3>{},
+             py::arg("orientation") = std::array<double, 4>{0.0, 0.0, 0.0, 1.0})
+        .def_readwrite("position", &Pose3d::position)
+        .def_readwrite("orientation", &Pose3d::orientation)
+        .def("valid", &Pose3d::valid, py::arg("tolerance") = 1e-9);
+
     py::class_<SerialRobotModel>(module, "SerialRobotModel")
         .def(py::init([](std::string name, std::vector<DhJoint> joints, std::vector<Interval> limits,
                          std::vector<double> radii, std::optional<DhJoint> tool) {
@@ -250,8 +258,12 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_property_readonly("joint_limits", &SerialRobotModel::joint_limits)
         .def_property_readonly("link_radii", &SerialRobotModel::link_radii)
         .def_property_readonly("digest", &SerialRobotModel::digest)
-        .def("forward_kinematics", [](const SerialRobotModel& robot, const Configuration& q) {
-            return unwrap(robot.forward_kinematics(view(q)));
+        .def("forward_kinematics",
+             [](const SerialRobotModel& robot, const Configuration& q) {
+                 return unwrap(robot.forward_kinematics(view(q)));
+             })
+        .def("end_effector_pose", [](const SerialRobotModel& robot, const Configuration& q) {
+            return unwrap(robot.end_effector_pose(view(q)));
         });
 
     py::class_<SceneObstacle>(module, "SceneObstacle")
@@ -374,6 +386,11 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def(py::init<>())
         .def_readwrite("overwrite", &SaveOptions::overwrite);
 
+    py::class_<AtlasRoute>(module, "AtlasRoute")
+        .def_readonly("waypoints", &AtlasRoute::waypoints)
+        .def_readonly("region_sequence", &AtlasRoute::region_sequence)
+        .def_readonly("certificate", &AtlasRoute::certificate);
+
     py::class_<SafeAtlas>(module, "SafeAtlas")
         .def_static("load", [](const std::filesystem::path& path) { return unwrap(SafeAtlas::load(path)); })
         .def_property_readonly("dimension", &SafeAtlas::dimension)
@@ -391,6 +408,10 @@ PYBIND11_MODULE(_rbfsafe, module) {
              [](const SafeAtlas& atlas, const Configuration& first, const Configuration& second) {
                  return unwrap(atlas.connected(view(first), view(second)));
              })
+        .def("route",
+             [](const SafeAtlas& atlas, const Configuration& first, const Configuration& second) {
+                 return unwrap(atlas.route(view(first), view(second)));
+             })
         .def("verify_compatible",
              [](const SafeAtlas& atlas, const SerialRobotModel& robot, const SceneSnapshot& scene) {
                  unwrap_void(atlas.verify_compatible(robot, scene));
@@ -401,6 +422,60 @@ PYBIND11_MODULE(_rbfsafe, module) {
                 unwrap_void(atlas.save(path, SaveOptions{overwrite}));
             },
             py::arg("path"), py::arg("overwrite") = false);
+
+    py::enum_<SafeIkStatus>(module, "SafeIkStatus")
+        .value("SAFE_CONNECTED", SafeIkStatus::SafeConnected)
+        .value("SAFE_UNCONNECTED", SafeIkStatus::SafeUnconnected)
+        .value("SEED_NOT_CERTIFIED", SafeIkStatus::SeedNotCertified)
+        .value("NO_SOLUTION", SafeIkStatus::NoSolution);
+
+    py::class_<SafeIkOptions>(module, "SafeIkOptions")
+        .def(py::init<>())
+        .def_readwrite("position_tolerance", &SafeIkOptions::position_tolerance)
+        .def_readwrite("orientation_tolerance", &SafeIkOptions::orientation_tolerance)
+        .def_readwrite("orientation_weight", &SafeIkOptions::orientation_weight)
+        .def_readwrite("damping", &SafeIkOptions::damping)
+        .def_readwrite("finite_difference_step", &SafeIkOptions::finite_difference_step)
+        .def_readwrite("maximum_step_norm", &SafeIkOptions::maximum_step_norm)
+        .def_readwrite("minimum_step_norm", &SafeIkOptions::minimum_step_norm)
+        .def_readwrite("maximum_iterations", &SafeIkOptions::maximum_iterations)
+        .def_readwrite("maximum_region_attempts", &SafeIkOptions::maximum_region_attempts)
+        .def_readwrite("maximum_line_search_steps", &SafeIkOptions::maximum_line_search_steps)
+        .def_readwrite("require_connectivity", &SafeIkOptions::require_connectivity)
+        .def_readwrite("cancellation", &SafeIkOptions::cancellation);
+
+    py::class_<SafeIkStats>(module, "SafeIkStats")
+        .def_readonly("region_attempts", &SafeIkStats::region_attempts)
+        .def_readonly("iterations", &SafeIkStats::iterations)
+        .def_readonly("pose_evaluations", &SafeIkStats::pose_evaluations)
+        .def_readonly("disconnected_solutions", &SafeIkStats::disconnected_solutions);
+
+    py::class_<SafeIkReport>(module, "SafeIkReport")
+        .def_readonly("status", &SafeIkReport::status)
+        .def_readonly("solution", &SafeIkReport::solution)
+        .def_readonly("region_id", &SafeIkReport::region_id)
+        .def_readonly("region_certificate", &SafeIkReport::region_certificate)
+        .def_readonly("connectivity_route", &SafeIkReport::connectivity_route)
+        .def_readonly("pose_evidence", &SafeIkReport::pose_evidence)
+        .def_readonly("position_error", &SafeIkReport::position_error)
+        .def_readonly("orientation_error", &SafeIkReport::orientation_error)
+        .def_readonly("stats", &SafeIkReport::stats);
+
+    py::class_<SafeIkSolver>(module, "SafeIkSolver")
+        .def(py::init<>())
+        .def(
+            "solve",
+            [](const SafeIkSolver& solver, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const SafeAtlas& atlas, const Pose3d& target, const Configuration& current,
+               const SafeIkOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return solver.solve(robot, scene, atlas, target, view(current), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("atlas"), py::arg("target"), py::arg("current"),
+            py::arg("options") = SafeIkOptions{});
 
     py::enum_<TrajectoryAuditStatus>(module, "TrajectoryAuditStatus")
         .value("CERTIFIED", TrajectoryAuditStatus::Certified)
