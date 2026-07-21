@@ -98,7 +98,7 @@ certificate verifier.
 - `nearest_region(q)` is a geometric nearest-box query and does not certify
   the segment from `q` to that region.
 - `connected(q1, q2)` means both points belong to the same certified region
-  component. v0.2 does not return a generated path or a runtime-execution
+  component. v0.3 does not return a generated path or a runtime-execution
   guarantee.
 - `false` normally means “not certified by this Atlas,” not “in collision.”
 

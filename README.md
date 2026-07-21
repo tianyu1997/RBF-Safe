@@ -6,11 +6,14 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.2
+geometric safety certificates in robot configuration space. Version 0.3
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
 trajectories against the certified region union.
+
+An optional C++ OMPL component maps certified Atlas coverage to state and
+continuous-motion validity and samples directly from certified regions.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -23,16 +26,19 @@ certificate.
 - Deterministic IFK-AA + LinkIAABB regional certification.
 - Public mutable `LectTree` and immutable `LectSnapshot` APIs.
 - Seed-guided `SafeAtlas` construction, region lookup, nearest-region lookup,
-  and certificate-connectivity queries.
+  certificate-connectivity queries, and an immutable region query BVH.
 - Robot/scene identity binding with SHA-256.
 - Checksummed, explicitly little-endian atlas schema v1.
 - CMake install/export targets and a high-level `rbfsafe` Python package.
 - `rbfsafe-inspect` metadata, validation, query, and optional 2-D slice tools.
 - Continuous piecewise-linear trajectory auditing with explicit uncovered
   parameter intervals and deterministic region sequences.
+- Optional `RBFSafe::ompl` adapter with certified-only state checking,
+  continuous edge validation, and certified-region sampling.
 
-Motion planning, OMPL/MoveIt adapters, Safe IK, dynamic scene repair, OBBs,
-portals, and legacy cache compatibility are intentionally outside v0.2.
+RBF-Safe does not implement an OMPL planner. MoveIt integration, Safe IK,
+dynamic scene repair, OBBs, portals, and legacy cache compatibility remain
+outside v0.3.
 
 ## Quick start
 
@@ -100,6 +106,7 @@ rbfsafe-inspect atlas --trajectory data/trajectory_2r.json  # Python entry point
 - [API overview](docs/api.md)
 - [Safety model](docs/safety-model.md)
 - [Trajectory auditor](docs/trajectory-auditor.md)
+- [OMPL adapter](docs/ompl-adapter.md)
 - [Atlas schema v1](docs/atlas-format.md)
 - [Versioning and compatibility](docs/versioning.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)

@@ -17,14 +17,19 @@ Robot JSON, scene JSON, standalone LECT storage, and Atlas storage carry
 explicit schema numbers. These schemas are independent from the library
 version. A library release must not silently reinterpret an existing schema.
 
-The v0.2 reader accepts only schema 1. Unknown schemas return
+The v0.3 reader accepts only schema 1. Unknown schemas return
 `IncompatibleFormat`; malformed schema-1 data returns `CorruptData` or
 `ResourceLimit`. Legacy RapidBoxForest caches are never interpreted as
 RBF-Safe data.
 
-The v0.2 library adds trajectory-audit APIs without changing Atlas schema 1,
+The v0.2 library added trajectory-audit APIs without changing Atlas schema 1,
 LECT schema 1, or the robot and scene JSON schemas. A v0.1 Atlas remains
 loadable when its schema and checksums are valid.
+
+The v0.3 optional OMPL component also leaves all storage and input schemas
+unchanged. It is requested as a CMake component and is not part of the core
+target or Python wheel ABI. The in-memory region query BVH is reconstructed
+from schema-1 regions and is not persisted.
 
 ## Identity compatibility
 

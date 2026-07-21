@@ -78,6 +78,10 @@ depth or width limits leave affected branches unresolved and are reflected in
 - `load(path)` validates schema, bounds, counts, checksums, graph invariants,
   certificate identities, and trailing bytes before returning an Atlas.
 
+Membership and nearest-region calls use a deterministic immutable BVH rebuilt
+after Atlas construction or loading. Candidate results retain stable region
+order, and the index is not serialized or included in schema identity.
+
 ## Trajectory auditing
 
 `TrajectoryAuditor::audit(atlas, trajectory, options)` checks continuous
@@ -95,6 +99,21 @@ collision. Invalid input remains a `Result<T>` failure. See the
 [trajectory auditor guide](trajectory-auditor.md) for precise semantics.
 `TrajectoryAuditOptions` defaults to ten million region/segment tests and a
 fresh cooperative cancellation token.
+
+## Optional OMPL adapter
+
+Include `<rbfsafe/ompl.h>` and link `RBFSafe::ompl`. `make_ompl_state_space`
+creates a bounded `ompl::base::RealVectorStateSpace` from the Atlas root.
+`OmplAdapter::install` must run before `SpaceInformation::setup()` and installs:
+
+- a state validity checker that returns true only for certified Atlas states;
+- a motion validator that requires continuous certified coverage of each edge;
+- a state sampler that draws from certified regions; and
+- atomic query, motion, sampling, fallback, and audit-failure counters.
+
+The adapter holds a shared immutable Atlas. Its bounds and dimensions must
+exactly match the OMPL real-vector space. Unknown coverage returns false; v0.3
+has no fallback collision checker. See the [OMPL adapter guide](ompl-adapter.md).
 
 ## Error model
 

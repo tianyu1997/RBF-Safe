@@ -16,6 +16,10 @@
 
 namespace rbfsafe {
 
+namespace detail {
+class RegionQueryIndex;
+}
+
 class CancellationToken {
   public:
     CancellationToken() : cancelled_(std::make_shared<std::atomic<bool>>(false)) {}
@@ -90,6 +94,8 @@ class SafeAtlas {
                                              const SaveOptions&);
     friend Result<SafeAtlas> load_atlas_directory(const std::filesystem::path&);
 
+    void rebuild_query_index();
+
     std::size_t dimension_ = 0;
     std::string robot_digest_;
     std::string scene_digest_;
@@ -97,6 +103,7 @@ class SafeAtlas {
     std::vector<SafeRegion> regions_;
     std::vector<Certificate> certificates_;
     std::vector<std::vector<std::size_t>> adjacency_;
+    std::shared_ptr<const detail::RegionQueryIndex> query_index_;
 };
 
 struct AtlasBuildResult {

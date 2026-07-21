@@ -37,6 +37,7 @@ Available CMake options:
 | `RBFSAFE_BUILD_EXAMPLES` | `ON` | Build the C++ quickstart |
 | `RBFSAFE_BUILD_TOOLS` | `ON` | Build `rbfsafe-inspect` |
 | `RBFSAFE_BUILD_PYTHON` | `OFF` | Build the pybind11 extension |
+| `RBFSAFE_BUILD_OMPL` | `OFF` | Build the optional C++ OMPL adapter |
 | `RBFSAFE_WARNINGS_AS_ERRORS` | `OFF` | Promote project warnings to errors |
 
 ## Install and consume with CMake
@@ -56,6 +57,18 @@ target_link_libraries(my_consumer PRIVATE RBFSafe::rbfsafe)
 Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
 targets `RBFSafe::geometry`, `RBFSafe::lect`, and `RBFSafe::atlas` are available
 when the aggregate target is unnecessary.
+
+To build the optional adapter, install OMPL and configure with
+`-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:
+
+```cmake
+find_package(RBFSafe CONFIG REQUIRED COMPONENTS ompl)
+target_link_libraries(my_planner PRIVATE RBFSafe::ompl)
+```
+
+The package accepts OMPL configurations that provide the current `ompl::ompl`
+target or the legacy `OMPL_INCLUDE_DIRS` and `OMPL_LIBRARIES` variables. The
+base RBF-Safe package and Python wheels do not load OMPL.
 
 ## Build and install the Python wheel
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -19,6 +19,7 @@ option(RBFSAFE_BUILD_TESTS "Build RBF-Safe tests" ON)
 option(RBFSAFE_BUILD_EXAMPLES "Build RBF-Safe examples" ON)
 option(RBFSAFE_BUILD_TOOLS "Build RBF-Safe command-line tools" ON)
 option(RBFSAFE_BUILD_PYTHON "Build the rbfsafe Python extension" OFF)
+option(RBFSAFE_BUILD_OMPL "Build the optional OMPL adapter" OFF)
 option(RBFSAFE_WARNINGS_AS_ERRORS "Treat RBF-Safe warnings as errors" OFF)
 
 function(rbfsafe_configure_target target)
@@ -62,7 +63,7 @@ target_include_directories(rbfsafe_lect
 target_link_libraries(rbfsafe_lect PUBLIC rbfsafe_geometry)
 rbfsafe_configure_target(rbfsafe_lect)
 
-add_library(rbfsafe_atlas src/atlas.cpp src/persistence.cpp src/trajectory.cpp)
+add_library(rbfsafe_atlas src/atlas.cpp src/persistence.cpp src/region_index.cpp src/trajectory.cpp)
 add_library(RBFSafe::atlas ALIAS rbfsafe_atlas)
 set_target_properties(rbfsafe_atlas PROPERTIES EXPORT_NAME atlas)
 target_include_directories(rbfsafe_atlas
@@ -78,6 +79,37 @@ add_library(RBFSafe::rbfsafe ALIAS rbfsafe)
 set_target_properties(rbfsafe PROPERTIES EXPORT_NAME rbfsafe)
 target_link_libraries(rbfsafe INTERFACE rbfsafe_atlas)
 
+set(RBFSAFE_OMPL_BUILT 0)
+if(RBFSAFE_BUILD_OMPL)
+    find_package(ompl CONFIG REQUIRED)
+    if(NOT TARGET ompl::ompl)
+        if(NOT OMPL_INCLUDE_DIRS OR NOT OMPL_LIBRARIES)
+            message(FATAL_ERROR "The OMPL package did not provide ompl::ompl or legacy include/library variables")
+        endif()
+        set(RBFSAFE_OMPL_INCLUDE_DIRS "")
+        foreach(ompl_include_directory IN LISTS OMPL_INCLUDE_DIRS)
+            if(EXISTS "${ompl_include_directory}")
+                list(APPEND RBFSAFE_OMPL_INCLUDE_DIRS "${ompl_include_directory}")
+            endif()
+        endforeach()
+        add_library(ompl::ompl INTERFACE IMPORTED GLOBAL)
+        set_target_properties(ompl::ompl PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${RBFSAFE_OMPL_INCLUDE_DIRS}"
+            INTERFACE_LINK_LIBRARIES "${OMPL_LIBRARIES}")
+    endif()
+
+    add_library(rbfsafe_ompl src/ompl.cpp)
+    add_library(RBFSafe::ompl ALIAS rbfsafe_ompl)
+    set_target_properties(rbfsafe_ompl PROPERTIES EXPORT_NAME ompl)
+    target_include_directories(rbfsafe_ompl
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    target_link_libraries(rbfsafe_ompl PUBLIC rbfsafe_atlas ompl::ompl)
+    rbfsafe_configure_target(rbfsafe_ompl)
+    set(RBFSAFE_OMPL_BUILT 1)
+endif()
+
 if(RBFSAFE_BUILD_TOOLS)
     add_executable(rbfsafe_inspect tools/inspect.cpp)
     target_link_libraries(rbfsafe_inspect PRIVATE RBFSafe::atlas)
@@ -92,6 +124,11 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_quickstart examples/quickstart.cpp)
     target_link_libraries(rbfsafe_quickstart PRIVATE RBFSafe::rbfsafe)
     rbfsafe_configure_target(rbfsafe_quickstart)
+    if(RBFSAFE_BUILD_OMPL)
+        add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
+        target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
+        rbfsafe_configure_target(rbfsafe_ompl_quickstart)
+    endif()
 endif()
 
 if(RBFSAFE_BUILD_TESTS)
@@ -120,6 +157,18 @@ if(NOT SKBUILD)
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    if(RBFSAFE_BUILD_OMPL)
+        install(TARGETS rbfsafe_ompl
+            EXPORT RBFSafeOmplTargets
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+        install(EXPORT RBFSafeOmplTargets
+            FILE RBFSafeOmplTargets.cmake
+            NAMESPACE RBFSafe::
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/RBFSafe)
+    endif()
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(EXPORT RBFSafeTargets
         FILE RBFSafeTargets.cmake

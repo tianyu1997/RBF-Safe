@@ -644,6 +644,7 @@ Result<SafeAtlas> load_atlas_directory(const std::filesystem::path& directory) {
     if (!valid)
         return Result<SafeAtlas>::failure(StatusCode::CorruptData, valid.error().message,
                                           valid.error().context);
+    atlas.rebuild_query_index();
     return atlas;
 }
 

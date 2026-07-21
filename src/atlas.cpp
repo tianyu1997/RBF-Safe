@@ -1,5 +1,7 @@
 #include <rbfsafe/atlas.h>
 
+#include "internal/region_index.h"
+
 #include "internal/json.h"
 #include "internal/sha256.h"
 
@@ -324,7 +326,12 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
             }
         }
     }
+    atlas.rebuild_query_index();
     return AtlasBuildResult{std::move(atlas), stats};
+}
+
+void SafeAtlas::rebuild_query_index() {
+    query_index_ = detail::RegionQueryIndex::build(regions_, dimension_);
 }
 
 Result<std::vector<SafeRegion>> SafeAtlas::regions_at(std::span<const double> configuration) const {
@@ -332,9 +339,17 @@ Result<std::vector<SafeRegion>> SafeAtlas::regions_at(std::span<const double> co
     if (!status)
         return status.error();
     std::vector<SafeRegion> result;
-    for (const auto& region : regions_)
-        if (region.bounds.contains(configuration, 1e-12))
-            result.push_back(region);
+    const auto candidates =
+        query_index_ ? query_index_->containing(configuration, regions_) : std::vector<std::size_t>{};
+    if (query_index_) {
+        result.reserve(candidates.size());
+        for (const auto index : candidates)
+            result.push_back(regions_[index]);
+    } else {
+        for (const auto& region : regions_)
+            if (region.bounds.contains(configuration, 1e-12))
+                result.push_back(region);
+    }
     return result;
 }
 
@@ -350,12 +365,19 @@ Result<std::optional<SafeRegion>> SafeAtlas::nearest_region(std::span<const doub
     if (regions_.empty())
         return std::optional<SafeRegion>{};
     std::size_t selected = 0;
-    double best = point_box_distance_squared(configuration, regions_[0].bounds);
-    for (std::size_t index = 1; index < regions_.size(); ++index) {
-        const double distance = point_box_distance_squared(configuration, regions_[index].bounds);
-        if (distance < best || (distance == best && regions_[index].id < regions_[selected].id)) {
-            selected = index;
-            best = distance;
+    if (query_index_) {
+        const auto nearest = query_index_->nearest(configuration, regions_);
+        if (!nearest)
+            return std::optional<SafeRegion>{};
+        selected = *nearest;
+    } else {
+        double best = point_box_distance_squared(configuration, regions_[0].bounds);
+        for (std::size_t index = 1; index < regions_.size(); ++index) {
+            const double distance = point_box_distance_squared(configuration, regions_[index].bounds);
+            if (distance < best || (distance == best && regions_[index].id < regions_[selected].id)) {
+                selected = index;
+                best = distance;
+            }
         }
     }
     return std::optional<SafeRegion>{regions_[selected]};

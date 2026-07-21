@@ -16,3 +16,9 @@ models. Runtime tests consume only the checked-in fixture and never access the
 legacy checkout or its binaries. The UR5 legacy file contained a seventh
 unused radius without a tool transform; RBF-Safe intentionally records only
 the six represented links.
+
+The v0.3 OMPL adapter is a new implementation against OMPL's public extension
+interfaces. RapidBoxForest's experiment-oriented OMPL helpers were consulted
+for behavioral context only; their planner wrappers, private-member access,
+deterministic subclasses, collision checker, and Python orchestration code are
+not copied or migrated.

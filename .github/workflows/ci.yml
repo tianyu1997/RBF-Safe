@@ -74,6 +74,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+      - name: Install OMPL sanitizer dependency
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libompl-dev libboost-filesystem-dev libboost-serialization-dev
       - name: Configure ASan and UBSan
         run: >-
           cmake -S . -B build-sanitize -G Ninja
@@ -82,7 +87,69 @@ jobs:
           -DRBFSAFE_BUILD_TESTS=ON
           -DRBFSAFE_BUILD_EXAMPLES=OFF
           -DRBFSAFE_BUILD_TOOLS=OFF
+          -DRBFSAFE_BUILD_OMPL=ON
           -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
           -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
       - run: cmake --build build-sanitize --parallel 2
       - run: ctest --test-dir build-sanitize --output-on-failure
+
+  ompl:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install OMPL on Ubuntu
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libompl-dev libboost-filesystem-dev libboost-serialization-dev
+      - name: Install OMPL on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: vcpkg install ompl:x64-windows
+      - name: Configure on Ubuntu
+        if: runner.os == 'Linux'
+        run: >-
+          cmake -S . -B build-ompl -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DRBFSAFE_BUILD_TESTS=ON
+          -DRBFSAFE_BUILD_OMPL=ON
+          -DRBFSAFE_WARNINGS_AS_ERRORS=ON
+      - name: Configure on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          cmake -S . -B build-ompl -A x64
+          -DRBFSAFE_BUILD_TESTS=ON
+          -DRBFSAFE_BUILD_OMPL=ON
+          -DRBFSAFE_WARNINGS_AS_ERRORS=ON
+          "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+      - name: Build and test
+        run: |
+          cmake --build build-ompl --config Release --parallel 2
+          ctest --test-dir build-ompl -C Release --output-on-failure
+      - name: Install and consume on Ubuntu
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cmake --install build-ompl --config Release --prefix "$PWD/install-ompl"
+          cmake -S tests/consumer_ompl -B consumer-ompl-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/install-ompl"
+          cmake --build consumer-ompl-build --config Release
+          ./consumer-ompl-build/rbfsafe_ompl_consumer
+      - name: Install and consume on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --install build-ompl --config Release --prefix "$PWD/install-ompl"
+          cmake -S tests/consumer_ompl -B consumer-ompl-build -A x64 `
+            "-DCMAKE_PREFIX_PATH=$PWD/install-ompl" `
+            "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake --build consumer-ompl-build --config Release
+          & "./consumer-ompl-build/Release/rbfsafe_ompl_consumer.exe"

@@ -3,7 +3,24 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
-## [0.2.0] - Unreleased
+## [0.3.0] - 2026-07-22
+
+### Added
+
+- Optional `RBFSafe::ompl` CMake component for `RealVectorStateSpace` planning.
+- Certified-only OMPL state validity, continuous motion validation backed by
+  the trajectory auditor, and certified-region state sampling.
+- Adapter statistics, deterministic single-thread sampling seeds, an
+  RRTConnect example, and installed-component consumer tests.
+- A deterministic immutable region BVH for Atlas membership and nearest-region
+  queries, rebuilt in memory without changing schema 1.
+
+### Changed
+
+- C++ and Python package versions advance together while the Python wheels
+  remain independent of OMPL.
+
+## [0.2.0] - 2026-07-21
 
 ### Added
 

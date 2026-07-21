@@ -58,7 +58,21 @@ collision. Coverage ratio is an equal-segment parameter metric, not a
 probability or risk score. Region sequences are not paths, timing plans, or
 execution guarantees.
 
-## Explicit exclusions in v0.2
+## OMPL adapter claims
+
+The v0.3 adapter treats a state as valid only when `SafeAtlas::contains`
+returns true. Unknown space is rejected. Its motion validator delegates every
+real-vector edge to the continuous trajectory auditor instead of relying on
+OMPL's discrete validity-checking resolution. Certified-region sampling only
+changes proposal generation; every result remains subject to the installed
+state and motion validators.
+
+The adapter does not turn an Atlas into an execution certificate, restore
+probabilistic completeness outside the certified union, or certify a planner's
+termination and optimization behavior. A final returned path should still be
+audited before downstream use.
+
+## Explicit exclusions in v0.3
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
