@@ -3,6 +3,34 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [2.0.0] - 2026-07-22
+
+### Added
+
+- Public `RBFSafe::policy` learning-policy safety target with bounded
+  confidence, state/action uncertainty, observation-age, and inference-latency
+  gates above the runtime shield.
+- Deterministic `InputOrder`, `HighestConfidence`, and `LowestUncertainty`
+  selection that prefers shield acceptance over repair and fails closed when
+  no proposal remains usable.
+- Identity-bound proposal/decision IDs, one aligned feedback record per input,
+  five explicit training labels, synchronized telemetry, cancellation, and
+  duplicate/resource validation without `RuntimeExecutable` promotion.
+- Queryable `PolicyFeedbackDatabase` with atomic checksummed schema-1
+  persistence, bounded loading, corruption detection, C++/Python inspection,
+  C++/Python examples, and focused regression tests.
+- Major-version API-surface snapshot selection and v2 policy, format, safety,
+  architecture, roadmap, migration, and provenance documentation.
+
+### Changed
+
+- C++, Python, citation, optional MoveIt package, and downstream package
+  requirements advance together to 2.0.0. The complete documented 1.0 API is
+  retained while the new 2.x source-compatibility line begins.
+- `RBFSafe::rbfsafe` now aggregates `RBFSafe::policy`. Atlas schemas 1/2,
+  LECT schema 1, corridor schema 1, region-database schema 1, and version-store
+  schema 1 remain unchanged.
+
 ## [1.0.0] - 2026-07-22
 
 ### Added

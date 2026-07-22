@@ -10,6 +10,7 @@
 #include <rbfsafe/model.h>
 #include <rbfsafe/optimization.h>
 #include <rbfsafe/planning.h>
+#include <rbfsafe/policy.h>
 #include <rbfsafe/region_database.h>
 #include <rbfsafe/result.h>
 #include <rbfsafe/safe_ik.h>

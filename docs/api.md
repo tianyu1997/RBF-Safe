@@ -39,7 +39,7 @@ custom `RegionValidator` must attach one valid conservative workspace AABB per
 robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
-convergence remains `PointChecked`. No v0.8 component issues
+convergence remains `PointChecked`. No v2.0 component issues
 `RuntimeExecutable`.
 
 ## LECT
@@ -266,6 +266,28 @@ Python exposes `RuntimeShield.check_action` plus typed
 `check_joint_action`, `check_end_effector_action`, and
 `check_trajectory_action` conveniences. See the
 [runtime shield guide](runtime-shield.md) for complete semantics and limits.
+
+## Learning-policy safety
+
+Include `<rbfsafe/policy.h>` and link `RBFSafe::policy`.
+`LearningPolicySafetyGate::check_proposals` accepts an ordered batch of
+`PolicyProposal` values. Required policy/task identity, confidence,
+state/action uncertainty, observation age, and inference latency are validated
+before eligible actions enter `RuntimeShield`.
+
+`PolicyGateOptions` defines deterministic metadata thresholds, a proposal
+budget, nested `ShieldOptions`, and `InputOrder`, `HighestConfidence`, or
+`LowestUncertainty` selection. Accepts are preferred over repairs. The
+`PolicyBatchReport` retains every `PolicyGateDecision`, at most one selected
+index, and one aligned `PolicyFeedbackRecord` per input. Stable SHA-256 IDs
+cover action, metadata, decisions, identities, targets, labels, and evidence.
+
+`PolicyFeedbackDatabase` validates and appends unique records under a hard
+budget, queries by policy/task/episode/label, reports aggregate label counts,
+and saves/loads an independent checksummed schema 1. Neither policy decisions
+nor feedback exceed `CertifiedConnectivity`; they are not execution
+authorization. See [learning-policy safety](policy-safety.md) and the
+[feedback format](policy-feedback-format.md).
 
 ## Error model
 

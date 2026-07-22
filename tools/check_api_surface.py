@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the reviewed RBF-Safe 1.x public source surface snapshot."""
+"""Verify the reviewed RBF-Safe public source surface for its major version."""
 
 from __future__ import annotations
 
@@ -39,6 +39,16 @@ def current_entries(root: Path) -> dict[str, str]:
     return entries
 
 
+def current_major(root: Path) -> int:
+    version_header = (root / "include" / "rbfsafe" / "version.h").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r"^#define RBFSAFE_VERSION_MAJOR (\d+)$", version_header, re.MULTILINE)
+    if match is None:
+        raise ValueError("cannot determine RBF-Safe major version")
+    return int(match.group(1))
+
+
 def read_manifest(path: Path) -> dict[str, str]:
     entries: dict[str, str] = {}
     previous = ""
@@ -62,9 +72,7 @@ def read_manifest(path: Path) -> dict[str, str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument(
-        "--manifest", type=Path, default=Path("data/api_surface_v1.sha256")
-    )
+    parser.add_argument("--manifest", type=Path)
     parser.add_argument(
         "--emit", action="store_true", help="print the current snapshot instead of checking"
     )
@@ -76,7 +84,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{digest}  {relative}")
         return 0
 
-    manifest = args.manifest
+    try:
+        major = current_major(root)
+    except (OSError, ValueError) as error:
+        print(f"API surface version error: {error}", file=sys.stderr)
+        return 2
+    manifest = args.manifest or Path(f"data/api_surface_v{major}.sha256")
     if not manifest.is_absolute():
         manifest = root / manifest
     try:
@@ -97,11 +110,11 @@ def main(argv: list[str] | None = None) -> int:
             for relative in paths:
                 print(f"API surface {label}: {relative}", file=sys.stderr)
         print(
-            "Review the compatibility impact, then intentionally regenerate the v1 snapshot.",
+            f"Review the compatibility impact, then intentionally regenerate the v{major} snapshot.",
             file=sys.stderr,
         )
         return 1
-    print(f"API surface matches v1 snapshot ({len(current)} files)")
+    print(f"API surface matches v{major} snapshot ({len(current)} files)")
     return 0
 
 

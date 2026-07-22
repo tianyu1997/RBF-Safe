@@ -8,7 +8,7 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "usage: rbfsafe-inspect <atlas-corridor-or-region-database> [q0 q1 ...]\n";
+        std::cerr << "usage: rbfsafe-inspect <certificate-database> [q0 q1 ...]\n";
         return 2;
     }
     auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[1]));
@@ -69,10 +69,28 @@ int main(int argc, char** argv) {
             }
             return 0;
         }
+        auto feedback = rbfsafe::PolicyFeedbackDatabase::load(std::filesystem::path(argv[1]));
+        if (feedback) {
+            if (argc > 2) {
+                std::cerr << "configuration queries do not apply to policy feedback databases\n";
+                return 2;
+            }
+            const auto summary = feedback.value().summary();
+            std::cout << "RBF-Safe policy feedback\n"
+                      << "schema: 1\n"
+                      << "records: " << summary.records << '\n'
+                      << "selected accepted: " << summary.selected_accepted << '\n'
+                      << "selected repaired: " << summary.selected_repaired << '\n'
+                      << "eligible not selected: " << summary.eligible_not_selected << '\n'
+                      << "policy rejected: " << summary.policy_rejected << '\n'
+                      << "shield rejected: " << summary.shield_rejected << '\n';
+            return 0;
+        }
         auto corridor = rbfsafe::HipacCorridor::load(std::filesystem::path(argv[1]));
         if (!corridor) {
             std::cerr << "Atlas load failed: " << atlas.error().describe() << '\n'
                       << "region database load failed: " << database.error().describe() << '\n'
+                      << "policy feedback load failed: " << feedback.error().describe() << '\n'
                       << "corridor load failed: " << corridor.error().describe() << '\n';
             return 1;
         }

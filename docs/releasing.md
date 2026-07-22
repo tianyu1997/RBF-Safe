@@ -33,6 +33,9 @@ response, IK, and constraint-sampler plugin tests in a sourced Jazzy workspace.
 Run the runtime-shield quickstart and tests for all three action types,
 accept/repair/reject outcomes, deterministic IDs, proposal selection,
 telemetry, cancellation, and monitor classifications.
+Run both policy-safety quickstarts and test every metadata rejection reason,
+selection mode, duplicate handling, aligned feedback label, deterministic ID,
+query filter, load limit, checksum failure, and native/Python inspection path.
 Build `rbfsafe-release-benchmark`, run its 128-iteration smoke gate and
 8192-iteration soak gate, and confirm zero false-safe point checks and an exact
 match with the committed cross-platform logical digest. Inspect timing and
@@ -55,7 +58,7 @@ memory only as release diagnostics.
    source archive, and identify the Atlas schema version.
 4. Verify release downloads in clean Linux and Windows environments.
 
-Atlas, corridor, region-database, or version-store schema changes require an
+Atlas, corridor, region-database, version-store, or policy-feedback schema changes require an
 independent schema number, fixed-format fixtures, and a documented reader or
 explicit incompatibility error. A library version change must never silently
 reinterpret an existing storage schema.

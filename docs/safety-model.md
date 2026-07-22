@@ -198,7 +198,23 @@ velocity, acceleration, and swept-time collision are not certified. Monitor
 outputs therefore remain `Unknown`, `CertifiedRegion`, or
 `CertifiedConnectivity`, never `RuntimeExecutable`.
 
-## Explicit exclusions in v1.0
+## Learning-policy safety claims
+
+The v2.0 policy gate applies caller-configured confidence, uncertainty,
+observation-age, and inference-latency thresholds before invoking the runtime
+shield. Passing a threshold means only that the supplied numeric metadata met
+that policy. RBF-Safe neither derives nor calibrates these values and cannot
+verify that a policy or sensor reported them honestly.
+
+`SelectedAccepted` and `SelectedRepaired` feedback records bind the exact
+shield decision and geometric evidence. `EligibleNotSelected`,
+`PolicyRejected`, and `ShieldRejected` are deterministic learning/audit labels,
+not collision labels. Feedback persistence checks integrity and identity but
+does not make a dataset statistically representative, private, authenticated,
+or safe for online adaptation. Policy decisions and feedback never carry
+`RuntimeExecutable`.
+
+## Explicit exclusions in v2.0
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -220,6 +236,10 @@ outputs therefore remain `Unknown`, `CertifiedRegion`, or
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic
   observation timestamps do not model real-time deadlines or authorize motor
   execution.
+- Policy confidence, uncertainty, task/episode identity, observation age, and
+  inference latency are caller assertions. The gate does not authenticate,
+  calibrate, or independently measure them, and persisted feedback is not an
+  online-learning or cross-task safety-memory guarantee.
 - Named release fixtures and benchmark success demonstrate deterministic API
   integration and regression behavior only. They are synthetic, uncalibrated,
   and do not validate a physical robot, workcell, payload, or deployment.

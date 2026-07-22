@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 1.0 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 2.0 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 1.0 |
+| Format | Read | Write | Migration in 2.0 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -13,6 +13,7 @@ RapidBoxForest cache as RBF-Safe data.
 | HiPaC corridor | 1 | 1 | None required |
 | Region database | 1 | 1 | None required |
 | Atlas version store | 1 | 1 | Contained Atlas versions retain their own schema |
+| Policy feedback | 1 | 1 | New independent format; no legacy format is interpreted |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -44,12 +45,12 @@ inherited, `certificates_inherited` is zero and every retained region appears
 in `regions_revalidated`. The fixed `data/atlas_schema1` artifact is loaded,
 byte-preserved, migrated this way, and validated on Linux and Windows CI.
 
-## 1.x format policy
+## 2.x format policy
 
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 1.0 remain available throughout 1.x.
+- Readers for schemas supported by 2.0 remain available throughout 2.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -57,5 +58,5 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
   needed to justify inheritance.
 
 Schema removal or reinterpretation requires a major library release. A future
-writer may introduce a new schema in 1.x only while preserving these reader
+writer may introduce a new schema in 2.x only while preserving these reader
 and migration guarantees.

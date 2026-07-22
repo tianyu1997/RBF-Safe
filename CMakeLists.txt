@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 1.0.0
+    VERSION 2.0.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -163,10 +163,21 @@ target_include_directories(rbfsafe_shield
 target_link_libraries(rbfsafe_shield PUBLIC rbfsafe_ik)
 rbfsafe_configure_target(rbfsafe_shield)
 
+add_library(rbfsafe_policy src/policy.cpp src/policy_persistence.cpp)
+add_library(RBFSafe::policy ALIAS rbfsafe_policy)
+set_target_properties(rbfsafe_policy PROPERTIES EXPORT_NAME policy)
+target_include_directories(rbfsafe_policy
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(rbfsafe_policy PUBLIC rbfsafe_shield)
+rbfsafe_configure_target(rbfsafe_policy)
+
 add_library(rbfsafe INTERFACE)
 add_library(RBFSafe::rbfsafe ALIAS rbfsafe)
 set_target_properties(rbfsafe PROPERTIES EXPORT_NAME rbfsafe)
-target_link_libraries(rbfsafe INTERFACE rbfsafe_optimization rbfsafe_shield rbfsafe_update rbfsafe_planning)
+target_link_libraries(rbfsafe INTERFACE rbfsafe_optimization rbfsafe_policy rbfsafe_update rbfsafe_planning)
 
 set(RBFSAFE_OMPL_BUILT 0)
 if(RBFSAFE_BUILD_OMPL)
@@ -234,6 +245,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_shield_quickstart examples/shield_quickstart.cpp)
     target_link_libraries(rbfsafe_shield_quickstart PRIVATE RBFSafe::shield)
     rbfsafe_configure_target(rbfsafe_shield_quickstart)
+    add_executable(rbfsafe_policy_safety_quickstart examples/policy_safety_quickstart.cpp)
+    target_link_libraries(rbfsafe_policy_safety_quickstart PRIVATE RBFSafe::policy)
+    rbfsafe_configure_target(rbfsafe_policy_safety_quickstart)
     if(RBFSAFE_BUILD_OMPL)
         add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
         target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
@@ -271,7 +285,7 @@ endif()
 if(RBFSAFE_BUILD_PYTHON)
     find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
-    pybind11_add_module(_rbfsafe python/bindings.cpp)
+    pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp)
     target_link_libraries(_rbfsafe PRIVATE RBFSafe::rbfsafe)
     target_include_directories(_rbfsafe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     install(TARGETS _rbfsafe LIBRARY DESTINATION rbfsafe RUNTIME DESTINATION rbfsafe)
@@ -282,7 +296,7 @@ if(NOT SKBUILD)
     install(FILES LICENSE README.md CHANGELOG.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe)
 
-    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe
+    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe_policy rbfsafe
         EXPORT RBFSafeTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

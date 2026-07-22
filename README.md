@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 1.0
+geometric safety certificates in robot configuration space. Version 2.0
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -33,6 +33,10 @@ TrajOpt/CHOMP/STOMP/MPC constraints.
 The runtime shield checks joint, end-effector, and trajectory proposals,
 performs bounded certified repair, batches VLA proposals, records telemetry,
 and monitors execution observations without overstating runtime evidence.
+The learning-policy safety layer additionally gates proposals on declared
+confidence, uncertainty, freshness, and inference latency, deterministically
+selects a shield-accepted or repaired action, and persists aligned,
+identity-bound training feedback.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -75,13 +79,17 @@ certificate.
 - Public `RBFSafe::shield` action checks with deterministic
   `ACCEPT`/`REPAIR`/`REJECT` decisions, bounded repair, VLA proposal batching,
   synchronized telemetry, and an Atlas-backed runtime monitor.
-- Reviewed 1.x public source API, documented storage migrations, deterministic
+- Public `RBFSafe::policy` uncertainty/freshness gates, deterministic
+  learned-policy selection, aligned feedback labels, telemetry, bounded
+  queries, and checksummed schema-1 feedback persistence.
+- Reviewed 2.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
-continuous-time obstacle motion, execution guarantees, and legacy
-RapidBoxForest cache compatibility remain outside v1.0.
+continuous-time obstacle motion, authenticated/calibrated policy metadata,
+execution guarantees, and legacy RapidBoxForest cache compatibility remain
+outside v2.0.
 
 ## Quick start
 
@@ -146,6 +154,24 @@ decision = shield.check_joint_action(
 print(decision.outcome, decision.output_trajectory)
 ```
 
+Gate and select a metadata-bearing learned-policy batch:
+
+```python
+metadata = rbfsafe.PolicyProposalMetadata()
+metadata.policy_id = "vla-primary"
+metadata.task_id = "shelf-pick"
+metadata.confidence = 0.92
+proposal = rbfsafe.PolicyProposal(
+    rbfsafe.JointDeltaAction([0.1, -0.05]), metadata
+)
+options = rbfsafe.PolicyGateOptions()
+options.minimum_confidence = 0.7
+report = rbfsafe.LearningPolicySafetyGate().check_proposals(
+    robot, scene, result.atlas, [0.0, 0.0], [proposal], options
+)
+rbfsafe.PolicyFeedbackDatabase.create(report.feedback).save("policy-feedback")
+```
+
 Incrementally update a schema-2 Atlas:
 
 ```python
@@ -163,6 +189,7 @@ rbfsafe-inspect atlas 0.0 0.0          # C++ executable
 rbfsafe-inspect atlas --trajectory data/trajectory_2r.json  # Python entry point
 rbfsafe-inspect corridor --query 0.0 0.0  # Atlas/corridor auto-detection
 rbfsafe-inspect region-database --query 0.0 0.0 --include-portals
+rbfsafe-inspect policy-feedback --policy-id vla-primary
 rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
   --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
 ```
@@ -174,13 +201,15 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Input formats](docs/input-formats.md)
 - [Architecture](docs/architecture.md)
 - [API overview](docs/api.md)
-- [1.x API stability policy](docs/api-stability.md)
+- [API stability policy](docs/api-stability.md)
 - [Safety model](docs/safety-model.md)
 - [Trajectory auditor](docs/trajectory-auditor.md)
 - [OMPL adapter](docs/ompl-adapter.md)
 - [Certified planning consumers](docs/planning-consumers.md)
 - [Optimization adapters](docs/optimization.md)
 - [Runtime action shield](docs/runtime-shield.md)
+- [Learning-policy safety](docs/policy-safety.md)
+- [Policy feedback schema v1](docs/policy-feedback-format.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)
@@ -205,7 +234,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing rules,
 [SUPPORT.md](SUPPORT.md) for support channels, and [SECURITY.md](SECURITY.md)
 for private vulnerability and incorrect-certificate reports.
 
-RBF-Safe is available under the [MIT License](LICENSE). The 1.x public C++ and
+RBF-Safe is available under the [MIT License](LICENSE). The 2.x public C++ and
 Python surfaces follow the documented source-compatibility policy; a universal
 C++ binary ABI is not promised. Storage schemas are versioned independently.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

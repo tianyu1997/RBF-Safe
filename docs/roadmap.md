@@ -30,17 +30,23 @@
   deterministic `ACCEPT`, `REPAIR`, and `REJECT`; component-constrained
   bounded repair; ordered VLA proposal batches; synchronized telemetry; and a
   runtime state monitor. All evidence remains below `RuntimeExecutable`.
-- **v1.0 (current) - Stable geometric safety library:** reviewed public source
+- **v1.0 - Stable geometric safety library:** reviewed public source
   API with a 1.x compatibility policy and automated surface gate; documented
   schema migration matrix; deterministic public-API benchmark and bounded soak
   gates; and reproducible IIWA, UR5, Panda/Franka, shelf, clutter,
   industrial-cell, and mobile-manipulation regression fixtures.
+- **v2.0 (current) - Learning-policy safety:** uncertainty-, freshness-, and
+  latency-aware proposal gating above the runtime shield; deterministic
+  accept/repair selection; identity-bound aligned training feedback; bounded
+  queryable schema-1 feedback persistence; C++/Python APIs, inspection tools,
+  examples, telemetry, and fail-closed evidence rules.
 
 ## Remaining `project.md` product phases
 
-- **v2.x - Intelligent safety layer:** uncertainty-aware runtime policies,
-  persistent cross-task safety memory, policy-learning integrations, and
-  execution evidence for explicitly supported deployment profiles.
+- **later v2.x - Intelligent safety expansion:** authenticated persistent
+  cross-task memory, online/offline policy-learning adapters, calibrated
+  uncertainty profiles, and execution evidence only for explicitly modeled
+  deployment profiles.
 - **v3.x - Safety memory infrastructure:** cross-task reuse, multi-robot
   coordination, fleet versioning, and industrial lifecycle tooling.
 

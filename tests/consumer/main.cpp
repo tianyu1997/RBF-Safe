@@ -13,12 +13,14 @@ int main() {
     const rbfsafe::CertifiedRoadmapOptions roadmap_options;
     const rbfsafe::ConstraintProjectionOptions projection_options;
     const rbfsafe::ShieldOptions shield_options;
+    const rbfsafe::PolicyGateOptions policy_options;
     (void)updater;
     return interval.contains(0.0) && options.maximum_region_tests > 0 &&
                    hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
                    update_options.maximum_validations > 0 && obb_atlas_options.maximum_validations > 0 &&
                    sampler_options.maximum_attempts > 0 && roadmap_options.maximum_nodes > 0 &&
                    projection_options.maximum_iterations > 0 && shield_options.maximum_input_waypoints > 0 &&
+                   policy_options.maximum_proposals > 0 &&
                    report.status == rbfsafe::TrajectoryAuditStatus::Invalid
                ? 0
                : 1;

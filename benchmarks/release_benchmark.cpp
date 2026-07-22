@@ -44,6 +44,7 @@ struct CaseMetrics {
     std::size_t false_safe = 0;
     std::size_t estimated_memory_bytes = 0;
     std::size_t inherited_certificates = 0;
+    std::size_t policy_feedback_records = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -312,6 +313,45 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
         return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
                                                      "release fixture action was not accepted", fixture.name);
     }
+    rbfsafe::PolicyProposalMetadata policy_metadata;
+    policy_metadata.policy_id = "release-policy";
+    policy_metadata.task_id = fixture.name;
+    policy_metadata.episode_id = "release-fixture";
+    policy_metadata.sequence = 1;
+    policy_metadata.confidence = 0.9;
+    policy_metadata.state_uncertainty = 0.05;
+    policy_metadata.action_uncertainty = 0.05;
+    policy_metadata.observation_age_seconds = 0.01;
+    policy_metadata.inference_latency_seconds = 0.02;
+    auto rejected_metadata = policy_metadata;
+    rejected_metadata.sequence = 2;
+    rejected_metadata.confidence = 0.1;
+    const std::vector<rbfsafe::PolicyProposal> proposals{
+        {rbfsafe::JointDeltaAction{delta}, policy_metadata},
+        {rbfsafe::JointDeltaAction{delta}, rejected_metadata},
+    };
+    rbfsafe::PolicyGateOptions policy_options;
+    policy_options.minimum_confidence = 0.5;
+    policy_options.maximum_state_uncertainty = 0.2;
+    policy_options.maximum_action_uncertainty = 0.2;
+    policy_options.maximum_observation_age_seconds = 0.1;
+    policy_options.maximum_inference_latency_seconds = 0.1;
+    policy_options.selection_mode = rbfsafe::PolicySelectionMode::HighestConfidence;
+    rbfsafe::LearningPolicySafetyGate policy_gate;
+    auto policy_report = policy_gate.check_proposals(robot.value(), scene.value(), atlas, fixture.start,
+                                                     proposals, policy_options);
+    if (!policy_report)
+        return policy_report.error();
+    if (policy_report.value().selected_index != 0 ||
+        policy_report.value().feedback[0].label != rbfsafe::PolicyFeedbackLabel::SelectedAccepted ||
+        policy_report.value().feedback[1].label != rbfsafe::PolicyFeedbackLabel::PolicyRejected) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture policy gate was inconsistent", fixture.name);
+    }
+    auto feedback_database = rbfsafe::PolicyFeedbackDatabase::create(policy_report.value().feedback);
+    if (!feedback_database)
+        return feedback_database.error();
+    metrics.policy_feedback_records = feedback_database.value().records().size();
     rbfsafe::SceneSnapshot next_scene(scene.value().obstacles(), scene.value().version() + "-refresh");
     rbfsafe::Result<rbfsafe::AtlasUpdateResult> updated =
         rbfsafe::Result<rbfsafe::AtlasUpdateResult>::failure(rbfsafe::StatusCode::InternalError,
@@ -340,6 +380,9 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.inherited_certificates));
     hash_field(logical_hash, "trajectory-certified");
     hash_field(logical_hash, "shield-accept");
+    hash_field(logical_hash, "policy-selected-accept");
+    hash_field(logical_hash, "policy-rejected-low-confidence");
+    hash_field(logical_hash, std::to_string(metrics.policy_feedback_records));
     hash_field(logical_hash, "updated-compatible-and-covered");
     return metrics;
 }
@@ -358,6 +401,7 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"queries\":" << item.queries << ",\"false_safe\":" << item.false_safe
                   << ",\"estimated_memory_bytes\":" << item.estimated_memory_bytes
                   << ",\"inherited_certificates\":" << item.inherited_certificates
+                  << ",\"policy_feedback_records\":" << item.policy_feedback_records
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -372,6 +416,7 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
         std::cout << item.name << " dimension=" << item.dimension << " regions=" << item.regions
                   << " false_safe=" << item.false_safe << " coverage=" << item.certified_path_ratio
                   << " estimated_memory_bytes=" << item.estimated_memory_bytes
+                  << " policy_feedback_records=" << item.policy_feedback_records
                   << " build_ms=" << item.build_ms << " query_ms=" << item.query_ms
                   << " update_ms=" << item.update_ms << '\n';
     }

@@ -8,7 +8,7 @@ RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
           |-> RBFSafe::update
-          |-> RBFSafe::ik -> RBFSafe::shield
+          |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
                                       `-> RBFSafe::optimization
@@ -94,6 +94,14 @@ telemetry, and the runtime observation monitor. It has no learned-model,
 network, controller, ROS, or hardware dependency and does not issue
 `RuntimeExecutable` evidence.
 
+### Learning-policy safety
+
+`RBFSafe::policy` adds uncertainty/latency gates and deterministic learned-
+policy selection above `RBFSafe::shield`. It owns proposal metadata, aligned
+training feedback, aggregate gate telemetry, and the independent checksummed
+policy-feedback schema. It does not load model weights, call inference
+services, update policies, execute commands, or promote shield evidence.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -169,7 +177,10 @@ components and bind subject digests.
 - Shield decisions and telemetry are derived, in-memory v0.9 artifacts. They
   do not alter any persisted schema or promote geometric evidence to an
   execution guarantee.
-- The v1.0 API-surface snapshot is a source-review gate, not a binary ABI
+- Policy proposals, decisions, and feedback are v2.0 application-facing
+  artifacts. Only the feedback database is persistent, under its independent
+  schema 1; its labels remain below execution evidence.
+- The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not
   part of any certificate.

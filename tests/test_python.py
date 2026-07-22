@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "1.0.0"
+    assert rbfsafe.__version__ == "2.0.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -421,6 +421,86 @@ def test_runtime_shield_batch_telemetry_and_monitor() -> None:
     assert deviation.evidence == rbfsafe.EvidenceLevel.CERTIFIED_REGION
     assert monitor.observe([2.0, 2.0], 3.0).state == rbfsafe.MonitorState.UNCERTIFIED_STATE
     assert monitor.stats.observations == 3
+
+
+def test_learning_policy_gate_feedback_and_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    robot = make_robot()
+    scene = rbfsafe.SceneSnapshot([], "python-policy-v1")
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
+
+    def proposal_metadata(
+        policy_id: str, sequence: int, confidence: float
+    ) -> rbfsafe.PolicyProposalMetadata:
+        metadata = rbfsafe.PolicyProposalMetadata()
+        metadata.policy_id = policy_id
+        metadata.task_id = "shelf-pick"
+        metadata.episode_id = "episode-4"
+        metadata.sequence = sequence
+        metadata.confidence = confidence
+        metadata.state_uncertainty = 0.05
+        metadata.action_uncertainty = 0.04
+        metadata.observation_age_seconds = 0.01
+        metadata.inference_latency_seconds = 0.02
+        return metadata
+
+    proposals = [
+        rbfsafe.PolicyProposal(
+            rbfsafe.JointDeltaAction([0.1, 0.0]),
+            proposal_metadata("vla-primary", 1, 0.95),
+        ),
+        rbfsafe.PolicyProposal(
+            rbfsafe.JointDeltaAction([0.05, 0.0]),
+            proposal_metadata("vla-fallback", 2, 0.8),
+        ),
+        rbfsafe.PolicyProposal(
+            rbfsafe.JointDeltaAction([0.05, 0.0]),
+            proposal_metadata("vla-low-confidence", 3, 0.2),
+        ),
+    ]
+    options = rbfsafe.PolicyGateOptions()
+    options.minimum_confidence = 0.7
+    options.maximum_state_uncertainty = 0.2
+    options.maximum_action_uncertainty = 0.2
+    options.maximum_observation_age_seconds = 0.1
+    options.maximum_inference_latency_seconds = 0.1
+    options.selection_mode = rbfsafe.PolicySelectionMode.HIGHEST_CONFIDENCE
+
+    gate = rbfsafe.LearningPolicySafetyGate()
+    report = gate.check_proposals(robot, scene, atlas, [0.0, 0.0], proposals, options)
+    assert report.selected_index == 0
+    assert report.decisions[0].selected
+    assert report.decisions[0].reason == rbfsafe.PolicyGateReason.SHIELD_ACCEPTED
+    assert report.feedback[0].label == rbfsafe.PolicyFeedbackLabel.SELECTED_ACCEPTED
+    assert report.feedback[1].label == rbfsafe.PolicyFeedbackLabel.ELIGIBLE_NOT_SELECTED
+    assert report.feedback[2].label == rbfsafe.PolicyFeedbackLabel.POLICY_REJECTED
+    assert all(
+        item.evidence != rbfsafe.EvidenceLevel.RUNTIME_EXECUTABLE
+        for item in report.feedback
+    )
+    assert gate.telemetry.proposals == 3
+    assert gate.telemetry.policy_rejections == 1
+
+    database = rbfsafe.PolicyFeedbackDatabase.create(report.feedback)
+    assert database.valid()
+    assert database.summary.records == 3
+    query = rbfsafe.PolicyFeedbackQuery()
+    query.policy_id = "vla-primary"
+    assert len(database.query(query)) == 1
+
+    destination = tmp_path / "policy-feedback"
+    database.save(destination)
+    loaded = rbfsafe.PolicyFeedbackDatabase.load(destination)
+    assert [record.id for record in loaded.records] == [record.id for record in report.feedback]
+
+    from rbfsafe.cli import main
+
+    assert main([str(destination), "--policy-id", "vla-primary"]) == 0
+    output = capsys.readouterr().out
+    assert "RBF-Safe policy-feedback schema=1" in output
+    assert "query_records=1" in output
+    assert "policy=vla-primary" in output
 
 
 def test_tool_link_and_specific_identity_error() -> None:

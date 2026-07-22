@@ -2,12 +2,14 @@
 
 ## Library versions
 
-RBF-Safe uses Semantic Versioning. Starting with 1.0, documented public C++
-declarations, installed CMake target names, and high-level Python names remain
-source compatible throughout the 1.x line. Additive API changes may appear in
-minor releases. Deprecated APIs remain functional through 1.x and may be
-removed only in 2.0. The exact policy and automated review gate are documented
-in [API stability](api-stability.md).
+RBF-Safe uses Semantic Versioning. Version 1.0 established the public source
+compatibility promise. Version 2.0 retains the complete documented 1.0 surface
+and adds the learning-policy safety module; documented public C++ declarations,
+installed CMake target names, and high-level Python names remain source
+compatible throughout the 2.x line. Additive API changes may appear in minor
+releases. Deprecated APIs remain functional through 2.x and may be removed
+only in 3.0. The exact policy and automated review gate are documented in
+[API stability](api-stability.md).
 
 C++ ABI compatibility is not promised across compilers, standard libraries,
 runtime-library selections, build modes, or RBF-Safe releases. Downstream C++
@@ -76,6 +78,13 @@ The v1.0 stabilization release also leaves all storage schemas unchanged. It
 adds an explicit schema support/migration matrix, fixed-format regression
 gates, reviewed public-source snapshot, and public-API release benchmark. See
 [Schema support and migrations](schema-migrations.md).
+
+The v2.0 learning-policy module adds an independent policy-feedback schema 1.
+It stores identity-bound, aligned gate/shield feedback records and is never
+interpreted as an Atlas, corridor, generalized region database, or execution
+log. Existing schemas and their bytes remain unchanged. The 2.0 reader applies
+record-count and payload-size limits, checksum and deterministic-ID checks,
+duplicate rejection, and label/evidence consistency validation.
 
 ## Identity compatibility
 

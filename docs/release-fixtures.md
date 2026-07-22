@@ -38,12 +38,15 @@ For each case the benchmark:
 3. continuously audits the start-to-goal path;
 4. performs bounded repeated membership and independent point-collision checks;
 5. verifies an accepted runtime-shield action; and
-6. advances the scene version, then checks conservative certificate inheritance
+6. gates an accepted and a low-confidence policy proposal and validates their
+   aligned feedback labels; and
+7. advances the scene version, then checks conservative certificate inheritance
    and retained endpoint coverage.
 
 The executable fails on any false-safe point check, identity mismatch,
 uncertified path/action, lost coverage, update failure, or missing inheritance.
-Its `logical_digest` covers canonical fixture identities, discrete counts, and
+Its `logical_digest` covers canonical fixture identities, discrete counts,
+runtime-shield and learning-policy feedback outcomes, and
 required outcomes while excluding wall-clock time, approximate memory, and
 floating-point-derived certificate IDs. CI compares it with the committed
 expected digest on every platform instead of applying a machine-dependent

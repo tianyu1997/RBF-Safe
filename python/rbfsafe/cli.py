@@ -11,6 +11,9 @@ from . import (
     AtlasUpdater,
     AtlasVersionStore,
     HipacCorridor,
+    PolicyFeedbackDatabase,
+    PolicyFeedbackLabel,
+    PolicyFeedbackQuery,
     Pose3d,
     RegionDatabase,
     RegionQueryOptions,
@@ -23,6 +26,7 @@ from . import (
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
+    policy_feedback_label_name,
 )
 
 
@@ -63,6 +67,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--dims", nargs=2, type=int, default=(0, 1), metavar=("X", "Y"))
     parser.add_argument("--fixed", nargs="*", type=float, help="fixed configuration for non-plotted dimensions")
+    parser.add_argument("--policy-id", help="filter a policy feedback database by policy ID")
+    parser.add_argument("--task-id", help="filter a policy feedback database by task ID")
+    parser.add_argument("--episode-id", help="filter a policy feedback database by episode ID")
+    parser.add_argument(
+        "--feedback-label",
+        choices=(
+            "selected_accepted",
+            "selected_repaired",
+            "eligible_not_selected",
+            "policy_rejected",
+            "shield_rejected",
+        ),
+        help="filter a policy feedback database by training label",
+    )
+    parser.add_argument(
+        "--max-feedback-results",
+        type=int,
+        default=100_000,
+        help="policy feedback query budget (default: 100000)",
+    )
     return parser
 
 
@@ -77,6 +101,62 @@ def main(argv: list[str] | None = None) -> int:
         store_manifest = json.loads((args.atlas / "store.json").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         store_manifest = {}
+    feedback_filters = (args.policy_id, args.task_id, args.episode_id, args.feedback_label)
+    if manifest.get("format") == "rbfsafe-policy-feedback":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+        )
+        if any(value is not None for value in unsupported) or args.include_portals or args.include_tubes:
+            parser.error("Atlas, region, update, trajectory, and Safe IK options do not apply to policy feedback")
+        if args.max_feedback_results <= 0:
+            parser.error("--max-feedback-results must be positive")
+        database = PolicyFeedbackDatabase.load(args.atlas)
+        query = PolicyFeedbackQuery()
+        query.policy_id = args.policy_id or ""
+        query.task_id = args.task_id or ""
+        query.episode_id = args.episode_id or ""
+        query.maximum_results = args.max_feedback_results
+        labels = {
+            "selected_accepted": PolicyFeedbackLabel.SELECTED_ACCEPTED,
+            "selected_repaired": PolicyFeedbackLabel.SELECTED_REPAIRED,
+            "eligible_not_selected": PolicyFeedbackLabel.ELIGIBLE_NOT_SELECTED,
+            "policy_rejected": PolicyFeedbackLabel.POLICY_REJECTED,
+            "shield_rejected": PolicyFeedbackLabel.SHIELD_REJECTED,
+        }
+        if args.feedback_label is not None:
+            query.label = labels[args.feedback_label]
+        records = database.query(query)
+        summary = database.summary
+        print("RBF-Safe policy-feedback schema=1")
+        print(
+            f"records={summary.records} selected_accepted={summary.selected_accepted} "
+            f"selected_repaired={summary.selected_repaired} "
+            f"eligible_not_selected={summary.eligible_not_selected} "
+            f"policy_rejected={summary.policy_rejected} shield_rejected={summary.shield_rejected}"
+        )
+        print(f"query_records={len(records)}")
+        for record in records:
+            print(
+                f"feedback={record.id} policy={record.metadata.policy_id} "
+                f"task={record.metadata.task_id} episode={record.metadata.episode_id} "
+                f"sequence={record.metadata.sequence} label={policy_feedback_label_name(record.label)}"
+            )
+        return 0
+    if any(value is not None for value in feedback_filters):
+        parser.error("policy feedback filters require a policy feedback database")
     if manifest.get("format") == "rbfsafe-region-database":
         unsupported = (
             args.plot,

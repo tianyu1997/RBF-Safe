@@ -75,7 +75,7 @@ std::string decision_id(const ShieldDecision& decision) {
     return internal::sha256(document.dump(false));
 }
 
-std::string action_digest(const ShieldAction& action) {
+std::string canonical_action_digest(const ShieldAction& action) {
     internal::Json document = std::visit(
         [](const auto& value) -> internal::Json {
             using Action = std::decay_t<decltype(value)>;
@@ -487,7 +487,7 @@ Result<ShieldDecision> RuntimeShield::check_action(const SerialRobotModel& robot
         },
         action);
     if (result) {
-        result.value().action_digest = action_digest(action);
+        result.value().action_digest = canonical_action_digest(action);
         result.value().id = decision_id(result.value());
         const bool repair_attempted =
             result.value().outcome == ShieldOutcome::Repair ||
@@ -742,5 +742,7 @@ std::string monitor_state_name(MonitorState state) {
     }
     return "inactive";
 }
+
+std::string shield_action_digest(const ShieldAction& action) { return canonical_action_digest(action); }
 
 } // namespace rbfsafe

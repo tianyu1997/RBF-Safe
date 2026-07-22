@@ -180,5 +180,6 @@ std::string shield_action_type_name(ShieldActionType type);
 std::string shield_outcome_name(ShieldOutcome outcome);
 std::string shield_reason_name(ShieldReason reason);
 std::string monitor_state_name(MonitorState state);
+std::string shield_action_digest(const ShieldAction& action);
 
 } // namespace rbfsafe
