@@ -39,14 +39,17 @@ For each case the benchmark:
 4. performs bounded repeated membership and independent point-collision checks;
 5. verifies an accepted runtime-shield action; and
 6. gates an accepted and a low-confidence policy proposal and validates their
-   aligned feedback labels; and
-7. advances the scene version, then checks conservative certificate inheritance
+   aligned feedback labels;
+7. registers, directly reuses, and audits an identity-bound safety-memory
+   artifact, then validates a source-bound single-robot fleet reservation; and
+8. advances the scene version, then checks conservative certificate inheritance
    and retained endpoint coverage.
 
 The executable fails on any false-safe point check, identity mismatch,
 uncertified path/action, lost coverage, update failure, or missing inheritance.
 Its `logical_digest` covers canonical fixture identities, discrete counts,
-runtime-shield and learning-policy feedback outcomes, and
+runtime-shield, learning-policy feedback, safety-memory reuse, and fleet
+coordination outcomes, and
 required outcomes while excluding wall-clock time, approximate memory, and
 floating-point-derived certificate IDs. CI compares it with the committed
 expected digest on every platform instead of applying a machine-dependent
@@ -56,3 +59,12 @@ The 128-iteration test is a quick integration gate. The 8192-iteration test is
 labelled `soak` and remains bounded by CTest timeout and benchmark resource
 limits. Use larger counts for local profiling only; they do not strengthen a
 geometric certificate.
+
+## Fixed safety-memory fixture
+
+`data/safety_memory_schema1` is the fixed RBF-Safe 3.0 memory fixture. It
+contains two active Atlas catalog entries and one audited cross-task reuse.
+The C++ memory test verifies its payload checksum, deterministic artifact and
+event IDs, sequence replay, state/generation summary, and a fixed first
+artifact ID on every supported platform. It is synthetic interoperability
+data, not physical-robot calibration or deployment certification.

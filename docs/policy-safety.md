@@ -129,4 +129,4 @@ a shield decision, but it also remains below execution evidence.
 A deployment must independently validate timing, state estimation, actuation,
 emergency stopping, and the mapping from the shield's output trajectory to
 controller commands. Persistent cross-task memory, online policy updates, and
-deployment-profile `RuntimeExecutable` evidence remain future v2.x work.
+deployment-profile `RuntimeExecutable` evidence remain future work.

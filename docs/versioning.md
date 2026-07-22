@@ -3,13 +3,14 @@
 ## Library versions
 
 RBF-Safe uses Semantic Versioning. Version 1.0 established the public source
-compatibility promise. Version 2.0 retains the complete documented 1.0 surface
-and adds the learning-policy safety module; documented public C++ declarations,
-installed CMake target names, and high-level Python names remain source
-compatible throughout the 2.x line. Additive API changes may appear in minor
-releases. Deprecated APIs remain functional through 2.x and may be removed
-only in 3.0. The exact policy and automated review gate are documented in
-[API stability](api-stability.md).
+compatibility promise. Version 2.0 retained it and added learning-policy
+safety. Version 3.0 retains the complete documented 2.0 surface and adds the
+persistent safety-memory and fleet-coordination module. Documented public C++
+declarations, installed CMake target names, and high-level Python names remain
+source compatible throughout the 3.x line. Additive API changes may appear in
+minor releases. Deprecated APIs remain functional through 3.x and may be
+removed only in 4.0. The exact policy and automated review gate are documented
+in [API stability](api-stability.md).
 
 C++ ABI compatibility is not promised across compilers, standard libraries,
 runtime-library selections, build modes, or RBF-Safe releases. Downstream C++
@@ -86,6 +87,15 @@ log. Existing schemas and their bytes remain unchanged. The 2.0 reader applies
 record-count and payload-size limits, checksum and deterministic-ID checks,
 duplicate rejection, and label/evidence consistency validation.
 
+The v3.0 memory module adds an independent safety-memory schema 1. It catalogs
+other artifacts by digest and locator but never embeds or reinterprets their
+payloads. Its reader verifies bounded counts and bytes, payload checksum,
+deterministic artifact/event IDs, strict sequence order, lifecycle generation,
+and a complete replay of final state. Fleet snapshots and schedule reports are
+deterministic in-memory coordination artifacts in 3.0; a fleet schedule may be
+registered by its report digest, but has no separate persistent format and is
+not an execution certificate.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -98,6 +108,8 @@ Use `SafeAtlas::verify_compatible(robot, scene)`,
 `HipacCorridor::verify_compatible(robot, scene)`, or
 `RegionDatabase::verify_compatible(robot, scene)` before reuse. Consumers must
 not bypass a mismatch by editing a manifest or substituting an obstacle set.
+`SafetyMemory::query_reuse` applies the same rule to deployment, robot, and
+scene identities; only `Direct` candidates may be recorded as reused.
 
 An inherited schema-2 regional certificate additionally binds its parent
 certificate and canonical `SceneDelta`. `AtlasVersionStore` verifies that the

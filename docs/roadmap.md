@@ -35,20 +35,26 @@
   schema migration matrix; deterministic public-API benchmark and bounded soak
   gates; and reproducible IIWA, UR5, Panda/Franka, shelf, clutter,
   industrial-cell, and mobile-manipulation regression fixtures.
-- **v2.0 (current) - Learning-policy safety:** uncertainty-, freshness-, and
+- **v2.0 - Learning-policy safety:** uncertainty-, freshness-, and
   latency-aware proposal gating above the runtime shield; deterministic
   accept/repair selection; identity-bound aligned training feedback; bounded
   queryable schema-1 feedback persistence; C++/Python APIs, inspection tools,
   examples, telemetry, and fail-closed evidence rules.
+- **v3.0 (current) - Robot safety memory:** deterministic persistent artifact
+  catalog, monotonic lifecycle and replayable audit log, exact-identity
+  cross-task reuse, scene-wide invalidation, multi-robot fleet snapshots, and
+  conservative time-window workspace-reservation analysis. The independent
+  schema-1 memory format, C++/Python/CLI interfaces, resource and cancellation
+  gates, and industrial deployment guidance are included.
 
-## Remaining `project.md` product phases
+## Continued product hardening
 
-- **later v2.x - Intelligent safety expansion:** authenticated persistent
-  cross-task memory, online/offline policy-learning adapters, calibrated
-  uncertainty profiles, and execution evidence only for explicitly modeled
+- **later v3.x:** authenticated artifact services, calibrated policy metadata,
+  transactional multi-process memory backends, fleet schedule persistence and
+  versioning, and execution evidence only for separately modeled and reviewed
   deployment profiles.
-- **v3.x - Safety memory infrastructure:** cross-task reuse, multi-robot
-  coordination, fleet versioning, and industrial lifecycle tooling.
+- **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
+  distributed fleet coordination, and certified hardware/deployment profiles.
 
 RBF-Safe remains safety infrastructure rather than another motion planner.
 Paper experiments and RapidBoxForest legacy caches stay outside the standalone

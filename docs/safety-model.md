@@ -214,7 +214,26 @@ does not make a dataset statistically representative, private, authenticated,
 or safe for online adaptation. Policy decisions and feedback never carry
 `RuntimeExecutable`.
 
-## Explicit exclusions in v2.0
+## Safety-memory and fleet claims
+
+The v3.0 memory catalog preserves the evidence level supplied by its source
+artifact. Checksums, deterministic IDs, lifecycle replay, and exact reuse
+identity protect integrity and compatibility; they do not re-run geometric
+validation, authenticate a remote locator, or make old evidence valid in a new
+scene. Only active artifacts with exact deployment, robot, and scene identities
+are eligible for direct reuse. `RequiresRevalidation` is explicitly not a
+safety acceptance.
+
+Fleet reservations require compatible region-certified source metadata, but
+their workspace occupancy AABBs are deployment declarations. Schedule analysis
+proves only that those declared boxes and requested margins do not conflict in
+overlapping logical windows. It does not derive swept link occupancy, clock
+synchronization, communication delay, controller behavior, or interactions
+with unmodeled objects. `ConflictFreeUnderDeclaredEnvelopes` therefore remains
+a coordination status, not `CertifiedConnectivity`, `RuntimeExecutable`, or a
+hardware command authorization.
+
+## Explicit exclusions in v3.0
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -238,8 +257,15 @@ or safe for online adaptation. Policy decisions and feedback never carry
   execution.
 - Policy confidence, uncertainty, task/episode identity, observation age, and
   inference latency are caller assertions. The gate does not authenticate,
-  calibrate, or independently measure them, and persisted feedback is not an
-  online-learning or cross-task safety-memory guarantee.
+  calibrate, or independently measure them, and persisted feedback alone is
+  not an online-learning or cross-task safety-memory guarantee.
+- Memory locators and content digests are caller-provided metadata. Loading a
+  catalog does not fetch, authenticate, decrypt, or revalidate referenced
+  artifacts. Multi-process mutation requires external serialization.
+- Fleet member envelopes and reservation occupancy are caller-supplied
+  conservative bounds. The v3.0 analyzer does not provide continuous-time
+  multi-robot geometry, distributed consensus, clock guarantees, or controller
+  interlocks.
 - Named release fixtures and benchmark success demonstrate deterministic API
   integration and regression behavior only. They are synthetic, uncalibrated,
   and do not validate a physical robot, workcell, payload, or deployment.

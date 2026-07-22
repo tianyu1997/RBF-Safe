@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "2.0.0"
+    assert rbfsafe.__version__ == "3.0.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -501,6 +501,113 @@ def test_learning_policy_gate_feedback_and_cli(
     assert "RBF-Safe policy-feedback schema=1" in output
     assert "query_records=1" in output
     assert "policy=vla-primary" in output
+
+
+def test_safety_memory_reuse_fleet_persistence_and_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def digest(value: str) -> str:
+        return value * 64
+
+    def box(lower: float, upper: float) -> rbfsafe.WorkspaceAabb:
+        return rbfsafe.WorkspaceAabb([lower, -0.1, -0.1], [upper, 0.1, 0.1])
+
+    def artifact(
+        deployment: str, robot: str, scene: str, content: str
+    ) -> rbfsafe.MemoryArtifactInput:
+        value = rbfsafe.MemoryArtifactInput()
+        value.type = rbfsafe.MemoryArtifactType.SAFE_ATLAS
+        value.deployment_id = deployment
+        value.robot_digest = robot
+        value.scene_digest = scene
+        value.task_id = "shelf-pick"
+        value.content_digest = content
+        value.locator = f"artifacts/{deployment}"
+        value.evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+        value.tags = ["production", "shelf"]
+        return value
+
+    scene = digest("c")
+    robot_a = digest("a")
+    robot_b = digest("b")
+    memory = rbfsafe.SafetyMemory()
+    source_a = memory.register_artifact(artifact("arm-a", robot_a, scene, digest("1")))
+    source_b = memory.register_artifact(artifact("arm-b", robot_b, scene, digest("2")))
+    assert memory.valid()
+    assert memory.summary.active == 2
+
+    query = rbfsafe.MemoryReuseQuery()
+    query.deployment_id = "arm-a"
+    query.robot_digest = robot_a
+    query.scene_digest = scene
+    query.target_task_id = "shelf-place"
+    query.minimum_evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+    query.required_tags = ["production"]
+    candidates = memory.query_reuse(query)
+    assert len(candidates) == 1
+    assert candidates[0].disposition == rbfsafe.ReuseDisposition.DIRECT
+    assert candidates[0].cross_task
+    memory.record_reuse(source_a.id, query, "deployment run")
+    assert memory.summary.recorded_reuses == 1
+
+    fleet = rbfsafe.make_fleet_snapshot(
+        "cell-1",
+        scene,
+        [
+            rbfsafe.FleetMember("arm-a", robot_a, box(-2.0, 2.0)),
+            rbfsafe.FleetMember("arm-b", robot_b, box(-2.0, 2.0)),
+        ],
+    )
+    reservation_a = rbfsafe.make_fleet_reservation(
+        fleet, memory, "arm-a", source_a.id, box(-1.0, -0.8), 0, 10, 0.05
+    )
+    reservation_b = rbfsafe.make_fleet_reservation(
+        fleet, memory, "arm-b", source_b.id, box(0.8, 1.0), 0, 10, 0.05
+    )
+    schedule = rbfsafe.analyze_fleet_schedule(fleet, memory, [reservation_b, reservation_a])
+    assert (
+        schedule.status
+        == rbfsafe.FleetScheduleStatus.CONFLICT_FREE_UNDER_DECLARED_ENVELOPES
+    )
+    assert not schedule.conflicts
+
+    colliding_b = rbfsafe.make_fleet_reservation(
+        fleet, memory, "arm-b", source_b.id, box(-0.9, -0.7), 0, 10
+    )
+    conflicted = rbfsafe.analyze_fleet_schedule(
+        fleet, memory, [reservation_a, colliding_b]
+    )
+    assert conflicted.status == rbfsafe.FleetScheduleStatus.CONFLICTED
+    assert conflicted.conflicts[0].reason == rbfsafe.FleetConflictReason.WORKSPACE_OVERLAP
+
+    destination = tmp_path / "safety-memory"
+    memory.save(destination)
+    loaded = rbfsafe.SafetyMemory.load(destination)
+    assert loaded.valid()
+    assert loaded.summary.artifacts == 2
+    assert loaded.summary.recorded_reuses == 1
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(destination),
+                "--deployment-id",
+                "arm-a",
+                "--task-id",
+                "shelf-pick",
+                "--include-memory-events",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "RBF-Safe safety-memory schema=1" in output
+    assert "query_artifacts=1" in output
+    assert "recorded_reuses=1" in output
+    assert "type=safe_atlas state=active deployment=arm-a" in output
+    assert "type=reuse_recorded" in output
 
 
 def test_tool_link_and_specific_identity_error() -> None:

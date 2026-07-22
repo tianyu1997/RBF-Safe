@@ -45,6 +45,9 @@ struct CaseMetrics {
     std::size_t estimated_memory_bytes = 0;
     std::size_t inherited_certificates = 0;
     std::size_t policy_feedback_records = 0;
+    std::size_t memory_artifacts = 0;
+    std::size_t memory_reuses = 0;
+    std::size_t fleet_schedule_checks = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -352,6 +355,63 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     if (!feedback_database)
         return feedback_database.error();
     metrics.policy_feedback_records = feedback_database.value().records().size();
+    rbfsafe::SafetyMemory memory;
+    rbfsafe::MemoryArtifactInput memory_input;
+    memory_input.type = rbfsafe::MemoryArtifactType::SafeAtlas;
+    memory_input.deployment_id = fixture.name + "-robot";
+    memory_input.robot_digest = robot.value().digest();
+    memory_input.scene_digest = scene.value().digest();
+    memory_input.task_id = fixture.name;
+    memory_input.content_digest = atlas.version_info().id;
+    memory_input.locator = "fixtures/" + fixture.name + "/atlas";
+    memory_input.evidence = rbfsafe::EvidenceLevel::CertifiedRegion;
+    memory_input.tags = {"release"};
+    auto memory_artifact = memory.register_artifact(std::move(memory_input));
+    if (!memory_artifact)
+        return memory_artifact.error();
+    rbfsafe::MemoryReuseQuery reuse_query;
+    reuse_query.deployment_id = fixture.name + "-robot";
+    reuse_query.robot_digest = robot.value().digest();
+    reuse_query.scene_digest = scene.value().digest();
+    reuse_query.target_task_id = fixture.name + "-reuse";
+    reuse_query.minimum_evidence = rbfsafe::EvidenceLevel::CertifiedRegion;
+    reuse_query.required_tags = {"release"};
+    auto reuse = memory.query_reuse(reuse_query);
+    if (!reuse || reuse.value().size() != 1 ||
+        reuse.value().front().disposition != rbfsafe::ReuseDisposition::Direct ||
+        !reuse.value().front().cross_task) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture memory reuse was inconsistent",
+                                                     fixture.name);
+    }
+    auto reuse_recorded =
+        memory.record_reuse(memory_artifact.value().id, reuse_query, "release benchmark reuse");
+    if (!reuse_recorded)
+        return reuse_recorded.error();
+    metrics.memory_artifacts = memory.summary().artifacts;
+    metrics.memory_reuses = memory.summary().recorded_reuses;
+
+    const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
+    auto fleet =
+        rbfsafe::make_fleet_snapshot(fixture.name + "-fleet", scene.value().digest(),
+                                     {{fixture.name + "-robot", robot.value().digest(), operating_envelope}});
+    if (!fleet)
+        return fleet.error();
+    const rbfsafe::WorkspaceAabb declared_occupancy{{-1.0, -1.0, -1.0}, {1.0, 1.0, 1.0}};
+    auto reservation =
+        rbfsafe::make_fleet_reservation(fleet.value(), memory, fixture.name + "-robot",
+                                        memory_artifact.value().id, declared_occupancy, 0, 1, 0.0);
+    if (!reservation)
+        return reservation.error();
+    const std::vector<rbfsafe::FleetReservation> reservations{reservation.value()};
+    auto schedule = rbfsafe::analyze_fleet_schedule(fleet.value(), memory, reservations);
+    if (!schedule ||
+        schedule.value().status != rbfsafe::FleetScheduleStatus::ConflictFreeUnderDeclaredEnvelopes) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture fleet schedule was inconsistent",
+                                                     fixture.name);
+    }
+    metrics.fleet_schedule_checks = 1;
     rbfsafe::SceneSnapshot next_scene(scene.value().obstacles(), scene.value().version() + "-refresh");
     rbfsafe::Result<rbfsafe::AtlasUpdateResult> updated =
         rbfsafe::Result<rbfsafe::AtlasUpdateResult>::failure(rbfsafe::StatusCode::InternalError,
@@ -383,6 +443,11 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, "policy-selected-accept");
     hash_field(logical_hash, "policy-rejected-low-confidence");
     hash_field(logical_hash, std::to_string(metrics.policy_feedback_records));
+    hash_field(logical_hash, "memory-direct-cross-task-reuse");
+    hash_field(logical_hash, std::to_string(metrics.memory_artifacts));
+    hash_field(logical_hash, std::to_string(metrics.memory_reuses));
+    hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
+    hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "updated-compatible-and-covered");
     return metrics;
 }

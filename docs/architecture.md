@@ -8,6 +8,7 @@ RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
           |-> RBFSafe::update
+          |-> RBFSafe::memory
           |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
@@ -102,6 +103,17 @@ training feedback, aggregate gate telemetry, and the independent checksummed
 policy-feedback schema. It does not load model weights, call inference
 services, update policies, execute commands, or promote shield evidence.
 
+### Persistent safety memory
+
+`RBFSafe::memory` depends only on the Atlas-level standard value, cancellation,
+save-option, and evidence types. It owns the deterministic artifact catalog,
+monotonic lifecycle state machine, chronological audit log, exact-identity
+cross-task reuse assessment, safety-memory schema-1 reader/writer, fleet
+identity, and conservative reservation conflict analysis. Artifact locators
+remain opaque; the module neither opens referenced payloads nor converts their
+certificates. Fleet analysis returns a coordination report rather than a
+geometric or runtime certificate.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -180,6 +192,10 @@ components and bind subject digests.
 - Policy proposals, decisions, and feedback are v2.0 application-facing
   artifacts. Only the feedback database is persistent, under its independent
   schema 1; its labels remain below execution evidence.
+- Safety-memory records are v3.0 identity/lifecycle metadata. Direct reuse
+  requires exact deployment, robot, and scene identity. Fleet reports reason
+  only about declared conservative workspace envelopes and logical time
+  windows; they never raise `EvidenceLevel`.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

@@ -656,6 +656,7 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def("reset_telemetry", &RuntimeShield::reset_telemetry);
 
     bind_policy(module);
+    bind_memory(module);
 
     py::enum_<MonitorState>(module, "MonitorState")
         .value("INACTIVE", MonitorState::Inactive)

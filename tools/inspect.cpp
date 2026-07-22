@@ -86,11 +86,30 @@ int main(int argc, char** argv) {
                       << "shield rejected: " << summary.shield_rejected << '\n';
             return 0;
         }
+        auto memory = rbfsafe::SafetyMemory::load(std::filesystem::path(argv[1]));
+        if (memory) {
+            if (argc > 2) {
+                std::cerr << "configuration queries do not apply to safety memory databases\n";
+                return 2;
+            }
+            const auto summary = memory.value().summary();
+            std::cout << "RBF-Safe safety memory\n"
+                      << "schema: 1\n"
+                      << "artifacts: " << summary.artifacts << '\n'
+                      << "active: " << summary.active << '\n'
+                      << "stale: " << summary.stale << '\n'
+                      << "quarantined: " << summary.quarantined << '\n'
+                      << "retired: " << summary.retired << '\n'
+                      << "events: " << summary.events << '\n'
+                      << "recorded reuses: " << summary.recorded_reuses << '\n';
+            return 0;
+        }
         auto corridor = rbfsafe::HipacCorridor::load(std::filesystem::path(argv[1]));
         if (!corridor) {
             std::cerr << "Atlas load failed: " << atlas.error().describe() << '\n'
                       << "region database load failed: " << database.error().describe() << '\n'
                       << "policy feedback load failed: " << feedback.error().describe() << '\n'
+                      << "safety memory load failed: " << memory.error().describe() << '\n'
                       << "corridor load failed: " << corridor.error().describe() << '\n';
             return 1;
         }

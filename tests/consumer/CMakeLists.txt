@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.23)
 project(RBFSafeConsumer LANGUAGES CXX)
-find_package(RBFSafe CONFIG REQUIRED)
+find_package(RBFSafe 3.0 CONFIG REQUIRED)
 add_executable(rbfsafe_consumer main.cpp)
-target_link_libraries(rbfsafe_consumer PRIVATE RBFSafe::rbfsafe RBFSafe::corridor RBFSafe::ik RBFSafe::update RBFSafe::regions RBFSafe::planning RBFSafe::optimization RBFSafe::shield RBFSafe::policy)
+target_link_libraries(rbfsafe_consumer PRIVATE RBFSafe::rbfsafe RBFSafe::corridor RBFSafe::ik RBFSafe::update RBFSafe::regions RBFSafe::planning RBFSafe::optimization RBFSafe::shield RBFSafe::policy RBFSafe::memory)
 target_compile_features(rbfsafe_consumer PRIVATE cxx_std_20)

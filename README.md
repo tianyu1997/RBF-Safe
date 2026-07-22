@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 2.0
+geometric safety certificates in robot configuration space. Version 3.0
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -37,6 +37,10 @@ The learning-policy safety layer additionally gates proposals on declared
 confidence, uncertainty, freshness, and inference latency, deterministically
 selects a shield-accepted or repaired action, and persists aligned,
 identity-bound training feedback.
+The persistent safety-memory layer catalogs immutable safety artifacts with
+monotonic lifecycle and replayable audit events, permits exact-identity
+cross-task reuse, and checks multi-robot workspace reservations under bounded
+declared-envelope assumptions.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -82,14 +86,17 @@ certificate.
 - Public `RBFSafe::policy` uncertainty/freshness gates, deterministic
   learned-policy selection, aligned feedback labels, telemetry, bounded
   queries, and checksummed schema-1 feedback persistence.
-- Reviewed 2.x public source API, documented storage migrations, deterministic
+- Public `RBFSafe::memory` persistent artifact catalog, lifecycle/audit log,
+  exact-identity cross-task reuse, scene invalidation, fleet snapshots,
+  reservation conflict analysis, and checksummed schema-1 persistence.
+- Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated/calibrated policy metadata,
-execution guarantees, and legacy RapidBoxForest cache compatibility remain
-outside v2.0.
+continuous-time fleet occupancy proofs, execution guarantees, and legacy
+RapidBoxForest cache compatibility remain outside v3.0.
 
 ## Quick start
 
@@ -172,6 +179,30 @@ report = rbfsafe.LearningPolicySafetyGate().check_proposals(
 rbfsafe.PolicyFeedbackDatabase.create(report.feedback).save("policy-feedback")
 ```
 
+Register and reuse a persistent safety artifact:
+
+```python
+artifact = rbfsafe.MemoryArtifactInput()
+artifact.type = rbfsafe.MemoryArtifactType.SAFE_ATLAS
+artifact.deployment_id = "arm-a"
+artifact.robot_digest = robot.digest
+artifact.scene_digest = scene.digest
+artifact.task_id = "shelf-pick"
+artifact.content_digest = result.atlas.version_info.id
+artifact.locator = "artifacts/shelf-atlas"
+artifact.evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+
+memory = rbfsafe.SafetyMemory()
+stored = memory.register_artifact(artifact)
+query = rbfsafe.MemoryReuseQuery()
+query.deployment_id = "arm-a"
+query.robot_digest = robot.digest
+query.scene_digest = scene.digest
+query.target_task_id = "shelf-place"
+print(memory.query_reuse(query)[0].disposition)
+memory.save("safety-memory")
+```
+
 Incrementally update a schema-2 Atlas:
 
 ```python
@@ -190,6 +221,7 @@ rbfsafe-inspect atlas --trajectory data/trajectory_2r.json  # Python entry point
 rbfsafe-inspect corridor --query 0.0 0.0  # Atlas/corridor auto-detection
 rbfsafe-inspect region-database --query 0.0 0.0 --include-portals
 rbfsafe-inspect policy-feedback --policy-id vla-primary
+rbfsafe-inspect safety-memory --deployment-id arm-a --include-memory-events
 rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
   --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
 ```
@@ -210,6 +242,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Runtime action shield](docs/runtime-shield.md)
 - [Learning-policy safety](docs/policy-safety.md)
 - [Policy feedback schema v1](docs/policy-feedback-format.md)
+- [Persistent safety memory and fleets](docs/safety-memory.md)
+- [Safety memory schema v1](docs/safety-memory-format.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)
@@ -234,7 +268,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing rules,
 [SUPPORT.md](SUPPORT.md) for support channels, and [SECURITY.md](SECURITY.md)
 for private vulnerability and incorrect-certificate reports.
 
-RBF-Safe is available under the [MIT License](LICENSE). The 2.x public C++ and
+RBF-Safe is available under the [MIT License](LICENSE). The 3.x public C++ and
 Python surfaces follow the documented source-compatibility policy; a universal
 C++ binary ABI is not promised. Storage schemas are versioned independently.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

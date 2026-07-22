@@ -1,0 +1,75 @@
+{
+  "artifacts": [
+    {
+      "content_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "deployment_id": "arm-a",
+      "evidence": 2,
+      "generation": "1",
+      "id": "91df3038bfb06c60b2436fd242da58c585a037ae10a19c36955c027aa3563f28",
+      "locator": "artifacts/shelf-atlas",
+      "registered_sequence": "1",
+      "robot_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scene_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "state": 0,
+      "tags": [
+        "production",
+        "shelf"
+      ],
+      "task_id": "shelf-pick",
+      "type": 0
+    },
+    {
+      "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "deployment_id": "arm-b",
+      "evidence": 2,
+      "generation": "1",
+      "id": "c377dc6fedd4e7e031ca2b2e18c6d77456e23fd7b7b188ddad899bf274b47cb5",
+      "locator": "artifacts/shelf-atlas",
+      "registered_sequence": "2",
+      "robot_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "scene_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "state": 0,
+      "tags": [
+        "production",
+        "shelf"
+      ],
+      "task_id": "shelf-pick",
+      "type": 0
+    }
+  ],
+  "events": [
+    {
+      "artifact_id": "91df3038bfb06c60b2436fd242da58c585a037ae10a19c36955c027aa3563f28",
+      "current_state": 0,
+      "detail": "registered",
+      "id": "7e63e4dd24d8e1cd56184e2a3f6020aac85d0c25be53b81d4dee9df4ebe74709",
+      "previous_state": 0,
+      "sequence": "1",
+      "task_id": "shelf-pick",
+      "type": 0
+    },
+    {
+      "artifact_id": "c377dc6fedd4e7e031ca2b2e18c6d77456e23fd7b7b188ddad899bf274b47cb5",
+      "current_state": 0,
+      "detail": "registered",
+      "id": "1ebbf0e0c260065af43b85ae41abdea041b02ac3c770f4207bad5a5696b2f128",
+      "previous_state": 0,
+      "sequence": "2",
+      "task_id": "shelf-pick",
+      "type": 0
+    },
+    {
+      "artifact_id": "91df3038bfb06c60b2436fd242da58c585a037ae10a19c36955c027aa3563f28",
+      "current_state": 0,
+      "detail": "shelf-place deployment validation",
+      "id": "3fe082cc268f6f7073ac12b5d1b1d856d15c7781c69fae8ff02bcbe33bb107e2",
+      "previous_state": 0,
+      "sequence": "3",
+      "task_id": "shelf-place",
+      "type": 2
+    }
+  ],
+  "format": "rbfsafe-safety-memory-records",
+  "next_sequence": "4",
+  "schema": 1
+}

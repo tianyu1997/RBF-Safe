@@ -1,23 +1,24 @@
 # Public API stability policy
 
 RBF-Safe 1.0 froze the initial reviewed public source surface. RBF-Safe 2.0
-retains it and adds `RBFSafe::policy`. Public headers under `include/rbfsafe`,
-installed CMake targets, and names exported from `rbfsafe.__init__` are tracked
-by the current `data/api_surface_v2.sha256` snapshot. The preserved v1 snapshot
-records the historical 1.0 contract; `tools/check_api_surface.py` selects the
-snapshot for the library's current major version.
+retained it and added `RBFSafe::policy`; RBF-Safe 3.0 retains both surfaces and
+adds `RBFSafe::memory`. Public headers under `include/rbfsafe`, installed CMake
+targets, and names exported from `rbfsafe.__init__` are tracked by the current
+`data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
+historical contracts; `tools/check_api_surface.py` selects the snapshot for the
+library's current major version.
 
 ## Compatibility promise
 
-Within the 2.x line:
+Within the 3.x line:
 
 - existing documented C++ declarations, enum values, defaults, target names,
   Python names, argument meanings, and exception categories remain source
   compatible;
 - new overloads, fields with safe defaults, targets, and Python names may be
   added in a minor release;
-- a deprecated API remains functional for the rest of 2.x and may be removed
-  only in 3.0;
+- a deprecated API remains functional for the rest of 3.x and may be removed
+  only in 4.0;
 - defect fixes may reject inputs that were always invalid, corrupt, identity
   mismatched, or unsupported; and
 - safety fixes may conservatively turn a former certificate outcome into an
@@ -38,12 +39,13 @@ platform tag and are tested as complete artifacts.
 
 ## Stable CMake targets
 
-The following installed target names are stable in 2.x:
+The following installed target names are stable in 3.x:
 
 - `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`;
 - `RBFSafe::update`, `RBFSafe::ik`, `RBFSafe::corridor`;
 - `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`;
-- `RBFSafe::shield`, `RBFSafe::policy`, and aggregate `RBFSafe::rbfsafe`; and
+- `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, and aggregate
+  `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 
 Every public C++ failure that is part of normal control flow remains a
@@ -53,8 +55,8 @@ machine-readable contract.
 
 ## Evidence compatibility
 
-Numeric values and ordering of `EvidenceLevel` are stable throughout 2.x.
-Consumers must compare enum values rather than parsing display names. No 2.x
+Numeric values and ordering of `EvidenceLevel` are stable throughout 3.x.
+Consumers must compare enum values rather than parsing display names. No 3.x
 component may issue `RuntimeExecutable` without a separately reviewed
 deployment-profile contract that models timing, tracking, uncertainty, and
 hardware assumptions.

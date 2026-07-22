@@ -3,6 +3,31 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.0.0] - 2026-07-22
+
+### Added
+
+- Public `RBFSafe::memory` target with deterministic safety-artifact
+  registration, exact deployment/robot/scene identity binding, monotonic
+  lifecycle states, optimistic generations, and replayable audit events.
+- Cross-task reuse assessment that distinguishes direct reuse, required
+  revalidation, and ineligible artifacts without promoting stored evidence.
+- Scene-wide memory invalidation and explicit reuse recording for long-lived
+  robot deployments.
+- Fleet snapshots, source-artifact-bound workspace reservations, and bounded,
+  cancellable multi-robot time-window conflict and separation analysis.
+- Atomic checksummed safety-memory schema-1 persistence with bounded loading,
+  deterministic-ID checks, full history replay, C++/Python APIs, inspection,
+  examples, and focused corruption and coordination tests.
+
+### Changed
+
+- C++, Python, citation, optional MoveIt package, and downstream package
+  requirements advance together to 3.0.0. The documented 2.0 surface remains
+  available and the 3.x source-compatibility line adds `RBFSafe::memory`.
+- `RBFSafe::rbfsafe` now aggregates `RBFSafe::memory`. All prior storage
+  schemas retain their existing bytes and independent version numbers.
+
 ## [2.0.0] - 2026-07-22
 
 ### Added

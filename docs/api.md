@@ -39,7 +39,7 @@ custom `RegionValidator` must attach one valid conservative workspace AABB per
 robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
-convergence remains `PointChecked`. No v2.0 component issues
+convergence remains `PointChecked`. No v3.0 component issues
 `RuntimeExecutable`.
 
 ## LECT
@@ -288,6 +288,32 @@ and saves/loads an independent checksummed schema 1. Neither policy decisions
 nor feedback exceed `CertifiedConnectivity`; they are not execution
 authorization. See [learning-policy safety](policy-safety.md) and the
 [feedback format](policy-feedback-format.md).
+
+## Persistent safety memory and fleets
+
+Include `<rbfsafe/memory.h>` and link `RBFSafe::memory`.
+`SafetyMemory::register_artifact` stores deterministic identity metadata for an
+external Atlas, region database, corridor, audit, policy-feedback database,
+runtime trace, or fleet report. Artifacts expose `Active`, `Stale`,
+`Quarantined`, and `Retired` lifecycle states plus optimistic generations.
+Every registration, transition, scene invalidation, and accepted reuse is a
+stable chronological `MemoryEvent`.
+
+`assess_reuse` explains one candidate. `query_reuse` returns deterministic
+direct and optionally revalidation-required candidates under exact deployment,
+robot, scene, type, tag, task, and minimum-evidence rules. `record_reuse`
+accepts only a direct candidate. `save` and `load` use the independent bounded,
+checksummed safety-memory schema 1 and replay the complete history.
+
+`make_fleet_snapshot` binds sorted fleet members to one scene.
+`make_fleet_reservation` requires an active, compatible, region-certified
+source artifact and bounds occupancy by the member operating envelope.
+`analyze_fleet_schedule` rechecks every source against the current memory and
+reports duplicate robot windows, declared workspace overlap, and
+separation-margin violations under pair and cancellation budgets.
+Its `ConflictFreeUnderDeclaredEnvelopes` status is not a `Certificate` or
+execution authorization. See [persistent safety memory](safety-memory.md) and
+the [memory format](safety-memory-format.md).
 
 ## Error model
 

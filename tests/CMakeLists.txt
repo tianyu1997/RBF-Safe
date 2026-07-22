@@ -24,6 +24,7 @@ rbfsafe_add_test(rbfsafe_test_planning test_planning.cpp)
 rbfsafe_add_test(rbfsafe_test_optimization test_optimization.cpp)
 rbfsafe_add_test(rbfsafe_test_shield test_shield.cpp)
 rbfsafe_add_test(rbfsafe_test_policy test_policy.cpp)
+rbfsafe_add_test(rbfsafe_test_memory test_memory.cpp)
 
 if(RBFSAFE_BUILD_OMPL)
     add_executable(rbfsafe_test_ompl test_ompl.cpp)

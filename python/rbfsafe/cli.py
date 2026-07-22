@@ -11,6 +11,8 @@ from . import (
     AtlasUpdater,
     AtlasVersionStore,
     HipacCorridor,
+    MemoryArtifactState,
+    MemoryArtifactType,
     PolicyFeedbackDatabase,
     PolicyFeedbackLabel,
     PolicyFeedbackQuery,
@@ -21,19 +23,23 @@ from . import (
     SafeAtlas,
     SafeIkSolver,
     SafeIkStatus,
+    SafetyMemory,
     SceneSnapshot,
     SerialRobotModel,
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
     policy_feedback_label_name,
+    memory_artifact_state_name,
+    memory_artifact_type_name,
+    memory_event_type_name,
 )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rbfsafe-inspect")
     parser.add_argument(
-        "atlas", type=Path, help="Atlas, version store, corridor, or region database directory"
+        "atlas", type=Path, help="Atlas, safety memory, version store, corridor, or region database directory"
     )
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
@@ -87,6 +93,32 @@ def build_parser() -> argparse.ArgumentParser:
         default=100_000,
         help="policy feedback query budget (default: 100000)",
     )
+    parser.add_argument("--deployment-id", help="filter a safety memory by deployment ID")
+    parser.add_argument(
+        "--memory-state",
+        choices=("active", "stale", "quarantined", "retired"),
+        help="filter a safety memory by lifecycle state",
+    )
+    parser.add_argument(
+        "--artifact-type",
+        choices=(
+            "safe_atlas",
+            "region_database",
+            "safe_corridor",
+            "trajectory_audit",
+            "policy_feedback",
+            "runtime_trace",
+            "fleet_schedule",
+        ),
+        help="filter a safety memory by artifact type",
+    )
+    parser.add_argument("--include-memory-events", action="store_true", help="list safety-memory audit events")
+    parser.add_argument(
+        "--max-memory-results",
+        type=int,
+        default=100_000,
+        help="safety-memory inspection budget (default: 100000)",
+    )
     return parser
 
 
@@ -102,6 +134,85 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, UnicodeError, json.JSONDecodeError):
         store_manifest = {}
     feedback_filters = (args.policy_id, args.task_id, args.episode_id, args.feedback_label)
+    memory_filters = (args.deployment_id, args.memory_state, args.artifact_type)
+    if manifest.get("format") == "rbfsafe-safety-memory":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.episode_id,
+            args.feedback_label,
+        )
+        if any(value is not None for value in unsupported) or args.include_portals or args.include_tubes:
+            parser.error("Atlas, policy-feedback, trajectory, and Safe IK options do not apply to safety memory")
+        if args.max_memory_results <= 0:
+            parser.error("--max-memory-results must be positive")
+        memory = SafetyMemory.load(args.atlas)
+        states = {
+            "active": MemoryArtifactState.ACTIVE,
+            "stale": MemoryArtifactState.STALE,
+            "quarantined": MemoryArtifactState.QUARANTINED,
+            "retired": MemoryArtifactState.RETIRED,
+        }
+        types = {
+            "safe_atlas": MemoryArtifactType.SAFE_ATLAS,
+            "region_database": MemoryArtifactType.REGION_DATABASE,
+            "safe_corridor": MemoryArtifactType.SAFE_CORRIDOR,
+            "trajectory_audit": MemoryArtifactType.TRAJECTORY_AUDIT,
+            "policy_feedback": MemoryArtifactType.POLICY_FEEDBACK,
+            "runtime_trace": MemoryArtifactType.RUNTIME_TRACE,
+            "fleet_schedule": MemoryArtifactType.FLEET_SCHEDULE,
+        }
+        artifacts = [
+            artifact
+            for artifact in memory.artifacts
+            if (args.deployment_id is None or artifact.deployment_id == args.deployment_id)
+            and (args.task_id is None or artifact.task_id == args.task_id)
+            and (args.memory_state is None or artifact.state == states[args.memory_state])
+            and (args.artifact_type is None or artifact.type == types[args.artifact_type])
+        ]
+        if len(artifacts) > args.max_memory_results:
+            parser.error("safety-memory result count exceeds --max-memory-results")
+        summary = memory.summary
+        print("RBF-Safe safety-memory schema=1")
+        print(
+            f"artifacts={summary.artifacts} active={summary.active} stale={summary.stale} "
+            f"quarantined={summary.quarantined} retired={summary.retired} "
+            f"events={summary.events} recorded_reuses={summary.recorded_reuses}"
+        )
+        print(f"query_artifacts={len(artifacts)}")
+        for artifact in artifacts:
+            print(
+                f"artifact={artifact.id} type={memory_artifact_type_name(artifact.type)} "
+                f"state={memory_artifact_state_name(artifact.state)} "
+                f"deployment={artifact.deployment_id} task={artifact.task_id} "
+                f"generation={artifact.generation} locator={artifact.locator}"
+            )
+        if args.include_memory_events:
+            selected_ids = {artifact.id for artifact in artifacts}
+            events = [event for event in memory.events if event.artifact_id in selected_ids]
+            if len(events) > args.max_memory_results:
+                parser.error("safety-memory event count exceeds --max-memory-results")
+            print(f"query_events={len(events)}")
+            for event in events:
+                print(
+                    f"event={event.id} sequence={event.sequence} "
+                    f"type={memory_event_type_name(event.type)} artifact={event.artifact_id} "
+                    f"task={event.task_id} detail={event.detail}"
+                )
+        return 0
     if manifest.get("format") == "rbfsafe-policy-feedback":
         unsupported = (
             args.plot,
@@ -118,8 +229,16 @@ def main(argv: list[str] | None = None) -> int:
             args.store_version,
             args.publish_atlas,
             args.rollback_version,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
         )
-        if any(value is not None for value in unsupported) or args.include_portals or args.include_tubes:
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
             parser.error("Atlas, region, update, trajectory, and Safe IK options do not apply to policy feedback")
         if args.max_feedback_results <= 0:
             parser.error("--max-feedback-results must be positive")
@@ -157,6 +276,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if any(value is not None for value in feedback_filters):
         parser.error("policy feedback filters require a policy feedback database")
+    if any(value is not None for value in memory_filters) or args.include_memory_events:
+        parser.error("safety-memory filters require a safety memory database")
     if manifest.get("format") == "rbfsafe-region-database":
         unsupported = (
             args.plot,

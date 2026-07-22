@@ -1,0 +1,8 @@
+{
+  "artifacts": 2,
+  "events": 3,
+  "format": "rbfsafe-safety-memory",
+  "library_version": "3.0.0",
+  "payload_sha256": "4bac096d009b8f4e430d51eea6668ba9b602f22e6b3d17afa0800662cac873f7",
+  "schema": 1
+}

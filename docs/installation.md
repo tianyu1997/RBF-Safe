@@ -57,7 +57,8 @@ target_link_libraries(my_consumer PRIVATE RBFSafe::rbfsafe)
 Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
 targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
 `RBFSafe::update`, `RBFSafe::corridor`, `RBFSafe::ik`, and
-`RBFSafe::regions`, `RBFSafe::planning`, and `RBFSafe::optimization` are
+`RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`,
+`RBFSafe::shield`, `RBFSafe::policy`, and `RBFSafe::memory` are
 available when the aggregate target is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
@@ -75,6 +76,10 @@ version-store APIs without adding third-party dependencies.
 construction. `RBFSafe::optimization` provides solver-neutral linear region
 constraints and trajectory assignment. Both are dependency-free beyond the
 RBF-Safe targets they consume and are included by `RBFSafe::rbfsafe`.
+
+`RBFSafe::memory` provides persistent artifact lifecycle, cross-task reuse,
+and fleet reservation analysis. It depends only on RBF-Safe core targets and
+is included by `RBFSafe::rbfsafe`.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

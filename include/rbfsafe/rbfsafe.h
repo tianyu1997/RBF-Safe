@@ -7,6 +7,7 @@
 #include <rbfsafe/geometry.h>
 #include <rbfsafe/higher_order.h>
 #include <rbfsafe/lect.h>
+#include <rbfsafe/memory.h>
 #include <rbfsafe/model.h>
 #include <rbfsafe/optimization.h>
 #include <rbfsafe/planning.h>

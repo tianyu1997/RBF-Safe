@@ -177,3 +177,29 @@ For persistent history, create `AtlasVersionStore` from the initial Atlas and
 publish each derived version in parent order. Read
 [dynamic updates](dynamic-updates.md) before using certificate inheritance or
 rollback.
+
+## 9. Register reusable safety memory
+
+After saving an immutable artifact, catalog its exact identities and content
+digest:
+
+```python
+item = rbfsafe.MemoryArtifactInput()
+item.type = rbfsafe.MemoryArtifactType.SAFE_ATLAS
+item.deployment_id = "arm-a"
+item.robot_digest = robot.digest
+item.scene_digest = scene.digest
+item.task_id = "shelf-pick"
+item.content_digest = atlas.version_info.id
+item.locator = "artifacts/shelf-atlas"
+item.evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+
+memory = rbfsafe.SafetyMemory()
+artifact = memory.register_artifact(item)
+memory.save("safety-memory")
+```
+
+Cross-task direct reuse still requires exact deployment, robot, and scene
+identity. Scene changes must invalidate old records and publish a newly
+validated artifact. Read [persistent safety memory](safety-memory.md) before
+using the catalog or fleet coordination APIs.
