@@ -31,6 +31,9 @@ and version, obstacle padding, evidence level, and clearance with SHA-256.
 Changing any bound input invalidates direct reuse. Loaded Atlases must be
 checked with `verify_compatible` against the current robot and scene.
 
+Schema-2 regional certificates also bind their exact C-space AABB. A derived
+certificate binds its parent certificate and complete scene transition.
+
 Checksums detect accidental corruption and ordinary tampering; they are not
 digital signatures and do not establish publisher authenticity.
 
@@ -42,9 +45,28 @@ digital signatures and do not establish publisher authenticity.
   between adjacent DH origins expanded by its configured radius.
 - Every relevant static environment object is conservatively covered by a
   workspace AABB in the same coordinate frame and length unit.
-- The scene does not change between certification and use.
+- The active scene exactly matches the snapshot bound by the selected Atlas
+  version between certification/update and use.
 - Supported compiler and floating-point modes preserve ordinary IEEE-754
   double behavior; unsafe fast-math transformations are not supported.
+
+## Dynamic update claims
+
+`AtlasUpdater` never accepts scene-digest substitution as proof. It inherits a
+region only when the exact prior subject and policy match and every added or
+modified obstacle is disjoint from the stored conservative link envelope.
+Removed obstacles cannot invalidate freedom. The inherited clearance is
+conservatively reduced by distances to new obstacle bounds.
+
+All other regions are directly revalidated. An undetermined result removes the
+region and may trigger bounded local refinement. Persisted unresolved domains
+permit later recovery when obstacles move away or are removed. Repair samples
+guide which unresolved children continue splitting; they do not certify them.
+
+Derived Atlas versions store the complete `SceneDelta`. The version store
+checks parent identity, scene endpoints, dependencies, changed-obstacle
+separation, certificate parent IDs, and clearance before accepting inherited
+claims. Checksums and hashes remain integrity mechanisms, not signatures.
 
 ## Trajectory audit claims
 
@@ -117,13 +139,14 @@ equivalence cannot be derived automatically in v0.5 and remains an explicit
 deployment assumption. The plugins therefore issue no `RuntimeExecutable`
 evidence.
 
-## Explicit exclusions in v0.5
+## Explicit exclusions in v0.6
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
   by the supplied link radii and optional tool link.
-- Dynamic obstacles, localization/calibration uncertainty, control error,
-  deformation, and latency are not modeled automatically.
+- Continuous-time dynamic obstacles, swept motion, localization/calibration
+  uncertainty, control error, deformation, and latency are not modeled
+  automatically. v0.6 updates only between explicit static AABB snapshots.
 - AABB separation is the only workspace collision proof; OBB certification
   uses a conservative C-space enclosure rather than a correlated workspace
   proof, and no mesh, KDOP, or swept-time validation is performed.

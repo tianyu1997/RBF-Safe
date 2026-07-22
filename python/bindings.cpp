@@ -282,6 +282,30 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_property_readonly("version", &SceneSnapshot::version)
         .def_property_readonly("digest", &SceneSnapshot::digest);
 
+    py::enum_<SceneChangeKind>(module, "SceneChangeKind")
+        .value("ADDED", SceneChangeKind::Added)
+        .value("REMOVED", SceneChangeKind::Removed)
+        .value("MODIFIED", SceneChangeKind::Modified);
+
+    py::class_<SceneObstacleChange>(module, "SceneObstacleChange")
+        .def_readonly("kind", &SceneObstacleChange::kind)
+        .def_readonly("obstacle_id", &SceneObstacleChange::obstacle_id)
+        .def_readonly("before", &SceneObstacleChange::before)
+        .def_readonly("after", &SceneObstacleChange::after);
+
+    py::class_<SceneDelta>(module, "SceneDelta")
+        .def_readonly("from_version", &SceneDelta::from_version)
+        .def_readonly("to_version", &SceneDelta::to_version)
+        .def_readonly("from_digest", &SceneDelta::from_digest)
+        .def_readonly("to_digest", &SceneDelta::to_digest)
+        .def_readonly("changes", &SceneDelta::changes)
+        .def_readonly("digest", &SceneDelta::digest)
+        .def_property_readonly("geometry_changed", &SceneDelta::geometry_changed);
+
+    module.def("compare_scenes", [](const SceneSnapshot& before, const SceneSnapshot& after) {
+        return unwrap(compare_scenes(before, after));
+    });
+
     py::enum_<EvidenceLevel>(module, "EvidenceLevel")
         .value("UNKNOWN", EvidenceLevel::Unknown)
         .value("POINT_CHECKED", EvidenceLevel::PointChecked)
@@ -301,7 +325,9 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_readonly("scene_digest", &Certificate::scene_digest)
         .def_readonly("policy", &Certificate::policy)
         .def_readonly("clearance_lower_bound", &Certificate::clearance_lower_bound)
-        .def_readonly("subject_digest", &Certificate::subject_digest);
+        .def_readonly("subject_digest", &Certificate::subject_digest)
+        .def_readonly("parent_certificate_id", &Certificate::parent_certificate_id)
+        .def_readonly("transition_digest", &Certificate::transition_digest);
 
     py::class_<LectNodeKey>(module, "LectNodeKey")
         .def(py::init<std::string>(), py::arg("path") = "")
@@ -382,6 +408,26 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_readonly("component", &SafeRegion::component)
         .def_readonly("source_node", &SafeRegion::source_node);
 
+    py::class_<LinkEnvelope>(module, "LinkEnvelope")
+        .def_property_readonly("links", [](const LinkEnvelope& value) { return value.links; });
+
+    py::class_<RegionDependency>(module, "RegionDependency")
+        .def_readonly("region_id", &RegionDependency::region_id)
+        .def_readonly("envelope", &RegionDependency::envelope);
+
+    py::class_<AtlasRepairDomain>(module, "AtlasRepairDomain")
+        .def_readonly("id", &AtlasRepairDomain::id)
+        .def_readonly("bounds", &AtlasRepairDomain::bounds)
+        .def_readonly("source_node", &AtlasRepairDomain::source_node);
+
+    py::class_<AtlasVersionInfo>(module, "AtlasVersionInfo")
+        .def_readonly("sequence", &AtlasVersionInfo::sequence)
+        .def_readonly("id", &AtlasVersionInfo::id)
+        .def_readonly("parent_id", &AtlasVersionInfo::parent_id)
+        .def_readonly("scene_version", &AtlasVersionInfo::scene_version)
+        .def_readonly("scene_digest", &AtlasVersionInfo::scene_digest)
+        .def_readonly("transition_digest", &AtlasVersionInfo::transition_digest);
+
     py::class_<SaveOptions>(module, "SaveOptions")
         .def(py::init<>())
         .def_readwrite("overwrite", &SaveOptions::overwrite);
@@ -398,7 +444,12 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_property_readonly("scene_digest", &SafeAtlas::scene_digest)
         .def_property_readonly("regions", &SafeAtlas::regions)
         .def_property_readonly("certificates", &SafeAtlas::certificates)
+        .def_property_readonly("dependencies", &SafeAtlas::dependencies)
+        .def_property_readonly("repair_domains", &SafeAtlas::repair_domains)
         .def_property_readonly("lect", &SafeAtlas::lect)
+        .def_property_readonly("version_info", &SafeAtlas::version_info)
+        .def_property_readonly("transition", &SafeAtlas::transition)
+        .def_property_readonly("storage_schema", &SafeAtlas::storage_schema)
         .def("regions_at",
              [](const SafeAtlas& atlas, const Configuration& q) { return unwrap(atlas.regions_at(q)); })
         .def("contains", [](const SafeAtlas& atlas, const Configuration& q) { return atlas.contains(q); })
@@ -639,4 +690,73 @@ PYBIND11_MODULE(_rbfsafe, module) {
                 return unwrap(std::move(result));
             },
             py::arg("robot"), py::arg("scene"), py::arg("samples"), py::arg("options") = BuildOptions{});
+
+    py::class_<AtlasUpdateOptions>(module, "AtlasUpdateOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_repair_depth", &AtlasUpdateOptions::maximum_repair_depth)
+        .def_readwrite("maximum_repair_nodes", &AtlasUpdateOptions::maximum_repair_nodes)
+        .def_readwrite("maximum_validations", &AtlasUpdateOptions::maximum_validations)
+        .def_readwrite("minimum_normalized_width", &AtlasUpdateOptions::minimum_normalized_width)
+        .def_readwrite("adjacency_tolerance", &AtlasUpdateOptions::adjacency_tolerance)
+        .def_readwrite("obstacle_padding", &AtlasUpdateOptions::obstacle_padding)
+        .def_readwrite("repair_invalidated_regions", &AtlasUpdateOptions::repair_invalidated_regions)
+        .def_readwrite("cancellation", &AtlasUpdateOptions::cancellation);
+
+    py::class_<AtlasUpdateStats>(module, "AtlasUpdateStats")
+        .def_readonly("regions_examined", &AtlasUpdateStats::regions_examined)
+        .def_readonly("certificates_inherited", &AtlasUpdateStats::certificates_inherited)
+        .def_readonly("regions_revalidated", &AtlasUpdateStats::regions_revalidated)
+        .def_readonly("regions_invalidated", &AtlasUpdateStats::regions_invalidated)
+        .def_readonly("repair_nodes_visited", &AtlasUpdateStats::repair_nodes_visited)
+        .def_readonly("repaired_regions", &AtlasUpdateStats::repaired_regions)
+        .def_readonly("unresolved_repair_nodes", &AtlasUpdateStats::unresolved_repair_nodes)
+        .def_readonly("validations", &AtlasUpdateStats::validations);
+
+    py::class_<AtlasUpdateResult>(module, "AtlasUpdateResult")
+        .def_readonly("atlas", &AtlasUpdateResult::atlas)
+        .def_readonly("delta", &AtlasUpdateResult::delta)
+        .def_readonly("stats", &AtlasUpdateResult::stats)
+        .def_readonly("retained_region_ids", &AtlasUpdateResult::retained_region_ids)
+        .def_readonly("invalidated_region_ids", &AtlasUpdateResult::invalidated_region_ids)
+        .def_readonly("repaired_region_ids", &AtlasUpdateResult::repaired_region_ids);
+
+    py::class_<AtlasUpdater>(module, "AtlasUpdater")
+        .def(py::init<>())
+        .def(
+            "update",
+            [](const AtlasUpdater& updater, const SerialRobotModel& robot,
+               const SceneSnapshot& previous_scene, const SceneSnapshot& next_scene,
+               const SafeAtlas& previous_atlas, std::vector<Configuration> repair_samples,
+               const AtlasUpdateOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return updater.update(robot, previous_scene, next_scene, previous_atlas,
+                                          std::move(repair_samples), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("previous_scene"), py::arg("next_scene"), py::arg("previous_atlas"),
+            py::arg("repair_samples") = std::vector<Configuration>{},
+            py::arg("options") = AtlasUpdateOptions{});
+
+    py::class_<AtlasVersionStore>(module, "AtlasVersionStore")
+        .def_static("create",
+                    [](const std::filesystem::path& path, const SafeAtlas& atlas) {
+                        return unwrap(AtlasVersionStore::create(path, atlas));
+                    })
+        .def_static("open",
+                    [](const std::filesystem::path& path) { return unwrap(AtlasVersionStore::open(path)); })
+        .def_property_readonly("directory", &AtlasVersionStore::directory)
+        .def_property_readonly("current_version_id", &AtlasVersionStore::current_version_id)
+        .def_property_readonly("versions", &AtlasVersionStore::versions)
+        .def("load_current", [](const AtlasVersionStore& store) { return unwrap(store.load_current()); })
+        .def("load_version",
+             [](const AtlasVersionStore& store, const std::string& version_id) {
+                 return unwrap(store.load_version(version_id));
+             })
+        .def("publish",
+             [](AtlasVersionStore& store, const SafeAtlas& atlas) { unwrap_void(store.publish(atlas)); })
+        .def("rollback", [](AtlasVersionStore& store, const std::string& version_id) {
+            unwrap_void(store.rollback(version_id));
+        });
 }

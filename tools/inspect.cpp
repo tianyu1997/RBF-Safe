@@ -12,6 +12,18 @@ int main(int argc, char** argv) {
         return 2;
     }
     auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[1]));
+    bool loaded_from_store = false;
+    std::size_t stored_versions = 0;
+    std::string store_head;
+    if (!atlas) {
+        auto store = rbfsafe::AtlasVersionStore::open(std::filesystem::path(argv[1]));
+        if (store) {
+            stored_versions = store.value().versions().size();
+            store_head = store.value().current_version_id();
+            atlas = store.value().load_current();
+            loaded_from_store = static_cast<bool>(atlas);
+        }
+    }
     if (!atlas) {
         auto corridor = rbfsafe::HipacCorridor::load(std::filesystem::path(argv[1]));
         if (!corridor) {
@@ -57,11 +69,20 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
+    if (loaded_from_store) {
+        std::cout << "RBF-Safe version store\n"
+                  << "versions: " << stored_versions << '\n'
+                  << "current: " << store_head << '\n';
+    }
     std::cout << "RBF-Safe atlas\n"
+              << "schema: " << atlas.value().storage_schema() << '\n'
               << "dimension: " << atlas.value().dimension() << '\n'
               << "regions: " << atlas.value().regions().size() << '\n'
               << "certificates: " << atlas.value().certificates().size() << '\n'
+              << "repair domains: " << atlas.value().repair_domains().size() << '\n'
               << "lect nodes: " << atlas.value().lect().size() << '\n'
+              << "version: " << atlas.value().version_info().id << '\n'
+              << "sequence: " << atlas.value().version_info().sequence << '\n'
               << "robot: " << atlas.value().robot_digest() << '\n'
               << "scene: " << atlas.value().scene_digest() << '\n';
     if (argc > 2) {

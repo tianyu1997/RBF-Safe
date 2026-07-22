@@ -16,14 +16,14 @@ Run the CI-equivalent matrix from a clean checkout:
 - Ubuntu 22.04/24.04 with GCC and Clang;
 - ASan and UBSan with Clang;
 - Windows with MSVC;
-- Python 3.10–3.12 installed-wheel tests on Linux and Windows;
+- Python 3.10-3.12 installed-wheel tests on Linux and Windows;
 - independent downstream CMake `find_package(RBFSafe)` consumption;
 - clang-format and warnings-as-errors.
 
 Inspect the source tree for build products, absolute paths, paper assets,
 legacy caches, generated Atlas directories, and old-library dependencies.
-Run the C++ and Python quickstarts, save/load/query an Atlas, and verify the
-fixed schema-v1 payload hashes.
+Run the C++ and Python quickstarts, save/load/query/update an Atlas, and verify
+the fixed schema-v1 compatibility fixture and schema-v2 payload hashes.
 
 ## 3. Package
 
@@ -44,4 +44,4 @@ fixed schema-v1 payload hashes.
 
 Atlas schema changes require a new schema number, fixed-format fixtures, and a
 documented reader or explicit incompatibility error. A library version change
-must never silently reinterpret schema v1.
+must never silently reinterpret an existing Atlas schema.

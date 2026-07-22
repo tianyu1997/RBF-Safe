@@ -1,92 +1,122 @@
-# Atlas directory format v1
+# Atlas directory format
 
-## Directory layout
+## Schema 2 layout
 
 ```text
 atlas/
 ├── manifest.json
 ├── certificates.json
+├── dependencies.bin
 ├── regions.bin
 ├── graph.bin
+├── transition.json          # derived versions only
 └── lect/
     └── nodes.bin
 ```
 
-`manifest.json` records format and schema versions, library version, dimension,
-robot/scene SHA-256 digests, record counts, and the SHA-256 of every payload.
-`certificates.json` keeps the safety policy and identity records reviewable.
+`manifest.json` records the independent Atlas schema, library version,
+dimension, robot and scene SHA-256 identities, record counts, Atlas version
+metadata, transition presence, and the SHA-256 of every payload. A missing,
+truncated, or checksum-mismatched required payload is rejected before its
+records are used.
+
+Schema 2 adds four safety-relevant concepts to schema 1:
+
+- every regional certificate binds the exact C-space AABB subject;
+- `dependencies.bin` stores the conservative per-link workspace envelope used
+  for obstacle-level invalidation;
+- unresolved repair domains remain available when later scene changes make
+  previously unknown space certifiable; and
+- derived versions store the complete canonical `SceneDelta`, not only its
+  digest.
 
 ## Primitive binary encoding
 
 All integers and IEEE-754 binary64 values are explicitly little endian. Files
-have no alignment padding. `u8`, `u32`, and `u64` are unsigned widths in bits;
-`f64` is the bit representation of a finite C++ `double`. A string is a `u32`
-byte length followed by that many UTF-8 bytes.
-
-No native C++ object layout is written to disk.
+have no native alignment padding. `u8`, `u32`, and `u64` are unsigned widths;
+`f64` is a finite C++ `double` bit pattern. A string is a `u32` byte length
+followed by that many UTF-8 bytes. Native C++ object layouts are never dumped.
 
 ## `lect/nodes.bin`
 
-Header:
+LECT remains schema 1 and is independently versioned. Its header contains
+magic `RBFLECT1`, schema `u32`, dimension, node count, split policy, minimum
+normalized width, and root axes. Each node records its stable split path,
+leaf flag, split dimension, and bounds.
 
-| Field | Encoding |
-|---|---|
-| magic | 8 bytes: `RBFLECT1` |
-| schema | `u32`, value `1` |
-| dimension | `u32` |
-| node count | `u64` |
-| split strategy | `u8`, normalized-longest-axis is `0` |
-| minimum normalized width | `f64` |
-| root axes | `dimension` pairs of lower/upper `f64` |
+## `regions.bin` and `graph.bin`
 
-Each node then stores its path string, leaf flag (`u8`), split dimension
-(`u32`), and `dimension` lower/upper `f64` pairs. Nodes are stored in stable
-tree insertion order; child keys are derived by appending `0` or `1`.
+`regions.bin` retains magic `RBFREGN1`; its embedded schema must match the
+Atlas manifest. Each record stores region ID, certificate index, component ID,
+source LECT path, and C-space AABB.
 
-## `regions.bin`
+`graph.bin` retains magic `RBFGRPH1` and deterministic CSR encoding. Neighbor
+indices are sorted and strictly increasing. The graph must be symmetric and
+contain neither self-edges nor out-of-range indices.
 
-Header: 8-byte magic `RBFREGN1`, schema `u32`, dimension `u32`, and region
-count `u64`.
+## `dependencies.bin`
 
-Each region stores region ID `u64`, certificate index `u64`, component ID
-`u64`, source LECT path string, and `dimension` lower/upper `f64` pairs.
+The payload begins with magic `RBFDEPS1`, schema `u32`, and the region count.
+For every region in stored order it records:
 
-## `graph.bin`
+1. matching region ID `u64`;
+2. link-envelope count `u64`; and
+3. six `f64` values per workspace AABB (three lower then three upper).
 
-Header: 8-byte magic `RBFGRPH1`, schema `u32`, and vertex count `u64`. The
-remaining payload is deterministic CSR:
-
-1. `vertex_count + 1` offset values as `u64`, beginning with zero;
-2. total directed adjacency count as `u64`, equal to the last offset;
-3. that many neighbor indices as sorted `u64` values.
-
-The graph must be symmetric, contain no self edges, and use strictly increasing
-neighbor lists. Each undirected edge therefore appears twice.
+The second section records unresolved repair domains: count `u64`, then stable
+domain ID, source LECT path, and `dimension` lower/upper pairs. Counts and
+aggregate link allocations are bounded before allocation.
 
 ## `certificates.json`
 
-The document has `format: "rbfsafe-certificates"`, `schema: 1`, and a
-`certificates` array. Every record contains its deterministic certificate ID,
-evidence level, robot and scene digests, clearance lower bound, and validation
-policy (`algorithm`, `algorithm_version`, and `obstacle_padding`). v1 accepts
-only `certified_region` records.
+Schema-2 records include the schema-1 policy and identity fields plus:
+
+- `subject_digest`, binding the exact regional C-space AABB;
+- `parent_certificate_id`, empty for direct validation; and
+- `transition_digest`, empty for direct validation.
+
+The last two fields must either both be empty or both be valid SHA-256 values.
+An inherited certificate ID covers the parent ID and transition digest.
+
+## `transition.json`
+
+Every non-initial Atlas version has one checksummed transition document. It
+contains old/new scene versions and digests plus a sorted obstacle-ID change
+list. Each change is exactly one of:
+
+- `added`: only new bounds are present;
+- `removed`: only old bounds are present; or
+- `modified`: distinct old and new bounds are present.
+
+The transition digest covers the complete canonical document. Loading rejects
+invalid kind/bounds combinations, duplicate or unsorted IDs, identity
+mismatches, or disagreement with Atlas version metadata.
+
+## Atlas version identity
+
+`manifest.json` stores sequence, version ID, parent ID, scene version and
+digest, and transition digest. The deterministic version ID covers these
+fields together with ordered regions, certificates, dependencies, repair
+domains, components, and graph neighbors. Initial versions have sequence zero
+and no parent/transition. Derived versions require both.
 
 ## Publication and loading
 
-`save()` writes a uniquely named sibling temporary directory, flushes all
-payloads, computes checksums, writes the manifest, validates publication state,
-and only then renames the directory into place. Existing destinations are
-rejected unless overwrite is explicit; overwrite uses a recoverable sibling
-backup during publication.
+`save()` writes a unique sibling temporary directory, computes all checksums,
+self-loads the result, and only then publishes it. Existing destinations are
+rejected unless overwrite is explicit; overwrite stages a sibling backup.
 
-`load()` validates the manifest before allocation, verifies every checksum,
-enforces dimension/count/file-size limits, decodes explicit fields, rejects
-non-finite or invalid bounds, checks certificate identity and graph symmetry,
-and rejects truncated or trailing bytes.
+`load()` validates schema, checksums, counts, finite bounds, certificate and
+version identities, dependency alignment, repair-domain containment, graph
+symmetry, transition consistency, and trailing bytes before returning.
 
-## Compatibility
+## Schema-1 compatibility
 
-Schema v1 is independent of the C++ library version and legacy
-RapidBoxForest/LECT caches. Unknown schemas return `IncompatibleFormat` rather
-than being guessed. Any future incompatible layout requires a new schema and a
-documented migration or explicit rejection path.
+v0.6 reads and preserves schema-1 Atlases. Because schema 1 did not bind
+regional subjects or store link dependencies, it cannot inherit certificates
+during a dynamic update. `AtlasUpdater` conservatively revalidates every
+schema-1 region and emits schema 2. The committed `data/atlas_schema1` fixture
+is generated by v0.5 and exercised on all CI platforms.
+
+Unknown schemas return `IncompatibleFormat`. RapidBoxForest caches are never
+interpreted as RBF-Safe Atlas data.

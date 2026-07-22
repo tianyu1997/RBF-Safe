@@ -1,0 +1,18 @@
+{
+  "certificates": [
+    {
+      "clearance_lower_bound": 0,
+      "id": "64e221391e21c6ac809089f23b68f2080360872e81903db6e3b642d268cf1097",
+      "level": "certified_region",
+      "policy": {
+        "algorithm": "ifk-aa-link-iaabb",
+        "algorithm_version": "1",
+        "obstacle_padding": 0
+      },
+      "robot_digest": "3c7ec874345f27baa1a829a629e32dc5a94ba446a9d8b8d12de995641b4e0784",
+      "scene_digest": "2db8e218b3320e1d897feee7af7cd71693b3fa3ad7146eb50137b4b2844e2e76"
+    }
+  ],
+  "format": "rbfsafe-certificates",
+  "schema": 1
+}

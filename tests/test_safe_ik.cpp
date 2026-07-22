@@ -10,16 +10,19 @@ class SplitValidator final : public rbfsafe::RegionValidator {
   public:
     explicit SplitValidator(bool gap) : gap_(gap) {}
 
-    rbfsafe::Result<rbfsafe::RegionValidation> validate(const rbfsafe::SerialRobotModel&,
+    rbfsafe::Result<rbfsafe::RegionValidation> validate(const rbfsafe::SerialRobotModel& robot,
                                                         const rbfsafe::SceneSnapshot&,
                                                         const rbfsafe::CspaceAabb& domain) const override {
         const auto& axis = domain.axes().front();
         const bool certified =
             gap_ ? (axis.width() <= 0.5 && std::abs(axis.center()) >= 0.75) : axis.width() <= 1.0;
-        return rbfsafe::RegionValidation{certified ? rbfsafe::ValidationDisposition::CertifiedFree
-                                                   : rbfsafe::ValidationDisposition::Undetermined,
-                                         certified ? 0.5 : 0.0,
-                                         {}};
+        if (!certified)
+            return rbfsafe::RegionValidation{};
+        auto envelope = rbfsafe::compute_ifk_aa_link_envelope(robot, domain);
+        if (!envelope)
+            return envelope.error();
+        return rbfsafe::RegionValidation{rbfsafe::ValidationDisposition::CertifiedFree, 0.5,
+                                         std::move(envelope).value()};
     }
 
     std::string algorithm_name() const override { return gap_ ? "test-gap" : "test-split"; }

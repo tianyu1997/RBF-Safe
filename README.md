@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.5
+geometric safety certificates in robot configuration space. Version 0.6
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -20,6 +20,9 @@ The Safe IK component solves end-effector pose targets inside certified Atlas
 regions and returns an explicit Atlas connectivity certificate. An optional
 ROS 2 Jazzy package exposes fail-closed MoveIt 2 request, response, and
 kinematics plugins without adding ROS dependencies to the core library.
+The dynamic-update component compares versioned scenes, conservatively
+inherits or invalidates regional evidence, locally repairs affected space, and
+publishes auditable immutable Atlas versions with rollback.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -34,7 +37,7 @@ certificate.
 - Seed-guided `SafeAtlas` construction, region lookup, nearest-region lookup,
   certificate-connectivity queries, and an immutable region query BVH.
 - Robot/scene identity binding with SHA-256.
-- Checksummed, explicitly little-endian atlas schema v1.
+- Checksummed, explicitly little-endian Atlas schema 2 with schema-1 loading.
 - CMake install/export targets and a high-level `rbfsafe` Python package.
 - `rbfsafe-inspect` metadata, validation, query, and optional 2-D slice tools.
 - Continuous piecewise-linear trajectory auditing with explicit uncovered
@@ -47,10 +50,12 @@ certificate.
   certificates for region-constrained Safe IK.
 - Optional ROS 2 Jazzy `rbfsafe_moveit` package with certified start-state,
   final-trajectory, and connected Safe IK gates.
+- Public `RBFSafe::update` scene differences, envelope-backed certificate
+  inheritance, local repair/recovery, and immutable Atlas version stores.
 
-RBF-Safe does not implement an OMPL planner. Dynamic scene repair, arbitrary
-OBB-intersection portals, execution-time guarantees, and legacy cache
-compatibility remain outside v0.5.
+RBF-Safe does not implement an OMPL planner. Arbitrary OBB-intersection
+portals, continuous-time obstacle motion, execution guarantees, and legacy
+RapidBoxForest cache compatibility remain outside v0.6.
 
 ## Quick start
 
@@ -101,6 +106,15 @@ result.atlas.save("atlas")
 print(result.atlas.contains([0.0, 0.0]))
 ```
 
+Incrementally update a schema-2 Atlas:
+
+```python
+updated = rbfsafe.AtlasUpdater().update(
+    robot, previous_scene, next_scene, result.atlas
+)
+updated.atlas.save("atlas-v2")
+```
+
 Inspect the result with either installed CLI:
 
 ```bash
@@ -125,7 +139,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)
-- [Atlas schema v1](docs/atlas-format.md)
+- [Dynamic updates and version stores](docs/dynamic-updates.md)
+- [Atlas schemas 1 and 2](docs/atlas-format.md)
 - [Corridor schema v1](docs/corridor-format.md)
 - [Versioning and compatibility](docs/versioning.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)

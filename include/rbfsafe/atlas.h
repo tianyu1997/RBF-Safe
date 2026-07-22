@@ -4,14 +4,17 @@
 #include <rbfsafe/lect.h>
 #include <rbfsafe/model.h>
 #include <rbfsafe/result.h>
+#include <rbfsafe/scene_delta.h>
 #include <rbfsafe/types.h>
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace rbfsafe {
@@ -19,6 +22,9 @@ namespace rbfsafe {
 namespace detail {
 class RegionQueryIndex;
 }
+
+class AtlasUpdater;
+class AtlasVersionStore;
 
 class CancellationToken {
   public:
@@ -57,6 +63,26 @@ struct SafeRegion {
     LectNodeKey source_node;
 };
 
+struct RegionDependency {
+    RegionId region_id = 0;
+    LinkEnvelope envelope;
+};
+
+struct AtlasRepairDomain {
+    RegionId id = 0;
+    CspaceAabb bounds;
+    LectNodeKey source_node;
+};
+
+struct AtlasVersionInfo {
+    std::uint64_t sequence = 0;
+    std::string id;
+    std::string parent_id;
+    std::string scene_version;
+    std::string scene_digest;
+    std::string transition_digest;
+};
+
 struct SaveOptions {
     bool overwrite = false;
 };
@@ -76,8 +102,13 @@ class SafeAtlas {
     const std::string& scene_digest() const noexcept { return scene_digest_; }
     const std::vector<SafeRegion>& regions() const noexcept { return regions_; }
     const std::vector<Certificate>& certificates() const noexcept { return certificates_; }
+    const std::vector<RegionDependency>& dependencies() const noexcept { return dependencies_; }
+    const std::vector<AtlasRepairDomain>& repair_domains() const noexcept { return repair_domains_; }
     const std::vector<std::vector<std::size_t>>& adjacency() const noexcept { return adjacency_; }
     const LectSnapshot& lect() const noexcept { return lect_; }
+    const AtlasVersionInfo& version_info() const noexcept { return version_info_; }
+    const std::optional<SceneDelta>& transition() const noexcept { return transition_; }
+    std::uint32_t storage_schema() const noexcept { return storage_schema_; }
 
     Result<std::vector<SafeRegion>> regions_at(std::span<const double> configuration) const;
     Result<std::vector<SafeRegion>> regions_at(const Configuration& configuration) const {
@@ -98,6 +129,8 @@ class SafeAtlas {
 
   private:
     friend class AtlasBuilder;
+    friend class AtlasUpdater;
+    friend class AtlasVersionStore;
     friend Result<void> save_atlas_directory(const SafeAtlas&, const std::filesystem::path&,
                                              const SaveOptions&);
     friend Result<SafeAtlas> load_atlas_directory(const std::filesystem::path&);
@@ -110,8 +143,13 @@ class SafeAtlas {
     LectSnapshot lect_;
     std::vector<SafeRegion> regions_;
     std::vector<Certificate> certificates_;
+    std::vector<RegionDependency> dependencies_;
+    std::vector<AtlasRepairDomain> repair_domains_;
     std::vector<std::vector<std::size_t>> adjacency_;
+    AtlasVersionInfo version_info_;
+    std::optional<SceneDelta> transition_;
     std::shared_ptr<const detail::RegionQueryIndex> query_index_;
+    std::uint32_t storage_schema_ = 0;
 };
 
 struct AtlasBuildResult {

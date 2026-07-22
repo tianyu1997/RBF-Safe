@@ -1,12 +1,12 @@
 #pragma once
 
 #define RBFSAFE_VERSION_MAJOR 0
-#define RBFSAFE_VERSION_MINOR 5
+#define RBFSAFE_VERSION_MINOR 6
 #define RBFSAFE_VERSION_PATCH 0
-#define RBFSAFE_VERSION_STRING "0.5.0"
+#define RBFSAFE_VERSION_STRING "0.6.0"
 
 namespace rbfsafe {
 inline constexpr const char* kVersion = RBFSAFE_VERSION_STRING;
-inline constexpr unsigned kAtlasSchemaVersion = 1;
+inline constexpr unsigned kAtlasSchemaVersion = 2;
 inline constexpr unsigned kLectSchemaVersion = 1;
 } // namespace rbfsafe

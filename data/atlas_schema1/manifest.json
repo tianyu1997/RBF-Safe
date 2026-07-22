@@ -1,0 +1,17 @@
+{
+  "certificates": 1,
+  "dimension": 2,
+  "format": "rbfsafe-atlas",
+  "lect_nodes": 1,
+  "library_version": "0.5.0",
+  "payloads": {
+    "certificates.json": "2c69733d77a5bee143d5b8984051a668199f755c994d8f7a0505ea6c7960f4c9",
+    "graph.bin": "d102e92e2620eb355012ffad743727f9ceb81017fb058afe01c0d0c88f71fbd3",
+    "lect/nodes.bin": "9a88166372941a9978b5ff15ad7fb900fdccb7b031e37ece950a0377acf95354",
+    "regions.bin": "6a131441c02c20c53dcc0f2b8285879806145c3706667f93a7106b4f0c5557c2"
+  },
+  "regions": 1,
+  "robot_digest": "3c7ec874345f27baa1a829a629e32dc5a94ba446a9d8b8d12de995641b4e0784",
+  "scene_digest": "2db8e218b3320e1d897feee7af7cd71693b3fa3ad7146eb50137b4b2844e2e76",
+  "schema": 1
+}

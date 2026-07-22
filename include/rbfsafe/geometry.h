@@ -33,6 +33,9 @@ enum class ValidationDisposition : std::uint8_t {
 struct RegionValidation {
     ValidationDisposition disposition = ValidationDisposition::Undetermined;
     double clearance_lower_bound = 0.0;
+    // CertifiedFree results must provide one valid conservative workspace
+    // AABB per robot link. Schema-2 Atlases persist this dependency for safe
+    // scene-delta invalidation.
     LinkEnvelope envelope;
 };
 

@@ -1,5 +1,7 @@
 #include <rbfsafe/atlas.h>
+#include <rbfsafe/version.h>
 
+#include "internal/atlas_identity.h"
 #include "internal/certificate_utils.h"
 #include "internal/region_index.h"
 
@@ -27,6 +29,7 @@ struct PendingRegion {
     CspaceAabb bounds;
     LectNodeKey source;
     double clearance = 0.0;
+    LinkEnvelope envelope;
 };
 
 std::string box_identity(const CspaceAabb& box) {
@@ -40,6 +43,20 @@ RegionId stable_region_id(const std::string& robot_digest, const std::string& sc
                           const PendingRegion& region) {
     const auto digest = internal::sha256(robot_digest + "|" + scene_digest + "|" +
                                          box_identity(region.bounds) + "|" + region.source.path());
+    RegionId result = 0;
+    for (std::size_t index = 0; index < 16; ++index) {
+        const char digit = digest[index];
+        const unsigned value = digit >= '0' && digit <= '9' ? static_cast<unsigned>(digit - '0')
+                                                            : static_cast<unsigned>(digit - 'a' + 10);
+        result = (result << 4u) | value;
+    }
+    return result == 0 ? 1 : result;
+}
+
+RegionId stable_repair_domain_id(const std::string& robot_digest, const std::string& scene_digest,
+                                 const CspaceAabb& bounds, const LectNodeKey& source) {
+    const auto digest = internal::sha256(robot_digest + "|" + scene_digest + "|repair-domain|" +
+                                         box_identity(bounds) + "|" + source.path());
     RegionId result = 0;
     for (std::size_t index = 0; index < 16; ++index) {
         const char digit = digest[index];
@@ -178,6 +195,7 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
     std::iota(all_samples.begin(), all_samples.end(), 0);
     work.push_back({tree.root_key(), std::move(all_samples), true, std::nullopt});
     std::vector<PendingRegion> pending;
+    std::vector<AtlasRepairDomain> unresolved_domains;
 
     while (!work.empty()) {
         if (options.cancellation.cancelled()) {
@@ -195,11 +213,13 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
         if (!validation)
             return validation.error();
         if (validation.value().disposition == ValidationDisposition::CertifiedFree) {
-            pending.push_back({node.value().box, node.value().key, validation.value().clearance_lower_bound});
+            pending.push_back({node.value().box, node.value().key, validation.value().clearance_lower_bound,
+                               std::move(validation).value().envelope});
             ++stats.certified_nodes;
             continue;
         }
         if (!current.may_split || current.samples.empty() || current.key.depth() >= options.maximum_depth) {
+            unresolved_domains.push_back({0, node.value().box, node.value().key});
             ++stats.unresolved_nodes;
             continue;
         }
@@ -211,6 +231,7 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
         auto children = tree.split(current.key);
         if (!children) {
             if (children.error().code == StatusCode::ResourceLimit) {
+                unresolved_domains.push_back({0, node.value().box, node.value().key});
                 ++stats.unresolved_nodes;
                 continue;
             }
@@ -278,6 +299,7 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
                 pending[left].bounds = std::move(*merged_box);
                 pending[left].source = std::min(pending[left].source, pending[right].source);
                 pending[left].clearance = validation.value().clearance_lower_bound;
+                pending[left].envelope = std::move(validation).value().envelope;
                 pending.erase(pending.begin() + static_cast<std::ptrdiff_t>(right));
                 ++stats.merged_regions;
                 changed = true;
@@ -288,18 +310,21 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
 
     SafeAtlas atlas;
     atlas.dimension_ = robot.dimension();
+    atlas.storage_schema_ = kAtlasSchemaVersion;
     atlas.robot_digest_ = robot.digest();
     atlas.scene_digest_ = scene.digest();
     atlas.lect_ = LectSnapshot::from_tree(std::move(tree));
     atlas.regions_.reserve(pending.size());
     atlas.certificates_.reserve(pending.size());
+    atlas.dependencies_.reserve(pending.size());
     std::set<RegionId> ids;
     for (const auto& region : pending) {
         RegionValidation validation;
         validation.disposition = ValidationDisposition::CertifiedFree;
         validation.clearance_lower_bound = region.clearance;
-        auto certificate =
-            make_region_certificate(robot, scene, *validator, validation, options.obstacle_padding);
+        validation.envelope = region.envelope;
+        auto certificate = make_region_certificate(robot, scene, region.bounds, *validator, validation,
+                                                   options.obstacle_padding);
         if (!certificate)
             return certificate.error();
         const auto certificate_index = atlas.certificates_.size();
@@ -308,17 +333,33 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
         while (!ids.insert(id).second)
             ++id;
         atlas.regions_.push_back({id, region.bounds, certificate_index, 0, region.source});
+        atlas.dependencies_.push_back({id, region.envelope});
     }
     std::sort(atlas.regions_.begin(), atlas.regions_.end(),
               [](const auto& left, const auto& right) { return left.id < right.id; });
     // Reorder certificates to remain aligned with the sorted regions.
     std::vector<Certificate> sorted_certificates;
+    std::vector<RegionDependency> sorted_dependencies;
     sorted_certificates.reserve(atlas.certificates_.size());
+    sorted_dependencies.reserve(atlas.dependencies_.size());
     for (auto& region : atlas.regions_) {
         sorted_certificates.push_back(atlas.certificates_[region.certificate_index]);
+        sorted_dependencies.push_back(atlas.dependencies_[region.certificate_index]);
+        sorted_dependencies.back().region_id = region.id;
         region.certificate_index = sorted_certificates.size() - 1;
     }
     atlas.certificates_ = std::move(sorted_certificates);
+    atlas.dependencies_ = std::move(sorted_dependencies);
+    std::set<RegionId> repair_ids;
+    for (auto& domain : unresolved_domains) {
+        domain.id = stable_repair_domain_id(atlas.robot_digest_, atlas.scene_digest_, domain.bounds,
+                                            domain.source_node);
+        while (!repair_ids.insert(domain.id).second)
+            ++domain.id;
+    }
+    std::sort(unresolved_domains.begin(), unresolved_domains.end(),
+              [](const auto& left, const auto& right) { return left.id < right.id; });
+    atlas.repair_domains_ = std::move(unresolved_domains);
 
     atlas.adjacency_.assign(atlas.regions_.size(), {});
     for (std::size_t left = 0; left < atlas.regions_.size(); ++left) {
@@ -350,6 +391,10 @@ Result<AtlasBuildResult> AtlasBuilder::build(const SerialRobotModel& robot, cons
             }
         }
     }
+    atlas.version_info_.sequence = 0;
+    atlas.version_info_.scene_version = scene.version();
+    atlas.version_info_.scene_digest = scene.digest();
+    atlas.version_info_.id = internal::atlas_version_identity(atlas);
     atlas.rebuild_query_index();
     return AtlasBuildResult{std::move(atlas), stats};
 }

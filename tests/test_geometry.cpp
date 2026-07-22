@@ -71,6 +71,14 @@ int main() {
     CHECK(certificate);
     CHECK(certificate.value().level == EvidenceLevel::CertifiedRegion);
     CHECK(certificate.value().id.size() == 64);
+    auto bound_certificate = make_region_certificate(robot, empty, domain, validator, certified.value(), 0.0);
+    CHECK(bound_certificate);
+    CHECK(bound_certificate.value().subject_digest.size() == 64);
+    auto incomplete = certified.value();
+    incomplete.envelope.links.clear();
+    auto rejected_incomplete = make_region_certificate(robot, empty, domain, validator, incomplete, 0.0);
+    CHECK(!rejected_incomplete);
+    CHECK(rejected_incomplete.error().code == StatusCode::InternalError);
 
     SceneSnapshot blocked({{"block", {{0.4, -0.2, -0.2}, {1.2, 0.2, 0.2}}}}, "blocked-v1");
     CHECK(blocked.validate());

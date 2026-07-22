@@ -7,7 +7,7 @@ usable without the Atlas layer:
 RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
-       -> RBFSafe::corridor and RBFSafe::ik
+       -> RBFSafe::update, RBFSafe::corridor, and RBFSafe::ik
        -> RBFSafe::rbfsafe (aggregate target)
 ```
 
@@ -28,8 +28,16 @@ array position. `LectTree` is mutable; `LectSnapshot` is read-only.
 ### Atlas
 
 Owns certificates, seed-guided construction, safe regions, revalidated merges,
-adjacency, connected components, an immutable region query BVH, schema-v1
+adjacency, connected components, an immutable region query BVH, schema-2
 persistence, and continuous trajectory coverage auditing.
+
+### Dynamic update
+
+`RBFSafe::update` owns obstacle-ID scene differences, certificate inheritance,
+local LECT repair, unresolved repair-domain recovery, and immutable Atlas
+version stores. It consumes Atlas schema-2 link-envelope dependencies but does
+not flow into geometry, LECT, or Atlas construction. Complete `SceneDelta`
+records and parent certificate IDs keep derived claims auditable.
 
 ### Corridor
 
@@ -89,6 +97,12 @@ state is passed into the affine-arithmetic kernel in v0.4.
 7. Build deterministic overlap/touch adjacency and connected components.
 8. Bind certificates and stable region IDs to the resulting Atlas.
 
+The update flow compares stable obstacle IDs, checks each region's stored
+envelope, inherits or revalidates its exact subject, locally partitions
+invalidated domains, rebuilds the graph, and binds the result to an immutable
+parent/version transition. Removed or moved obstacles also trigger retries of
+persisted unresolved domains.
+
 HiPaC is a separate construction flow: validate a candidate polyline,
 recursively certify or split segment OBBs, grow successful cells within a hard
 validation budget, add portals only at shared certified witnesses, then label
@@ -102,5 +116,5 @@ components and bind subject digests.
 - No C++ struct is written directly to disk.
 - The current validator is deliberately singular; adding another backend
   requires an explicit certificate and compatibility design.
-- Atlas schema 1 and corridor schema 1 are independent. OBB and portal records
+- Atlas schema 2 and corridor schema 1 are independent. OBB and portal records
   are never injected into the Atlas binary files.

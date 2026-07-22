@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "0.5.0"
+    assert rbfsafe.__version__ == "0.6.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -58,6 +58,125 @@ def test_safe_ik() -> None:
     assert report.orientation_error <= 1e-3
     assert report.region_certificate.level == rbfsafe.EvidenceLevel.CERTIFIED_REGION
     assert report.connectivity_route.certificate.level == rbfsafe.EvidenceLevel.CERTIFIED_CONNECTIVITY
+
+
+def test_dynamic_update_and_version_store(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    robot = rbfsafe.SerialRobotModel(
+        "python-dynamic-prismatic",
+        [rbfsafe.DhJoint(0.0, 0.0, 0.0, 0.0, rbfsafe.JointType.PRISMATIC)],
+        [rbfsafe.Interval(0.0, 2.0)],
+        [0.05],
+    )
+    empty = rbfsafe.SceneSnapshot([], "python-dynamic-empty-v1")
+    blocked = rbfsafe.SceneSnapshot(
+        [
+            rbfsafe.SceneObstacle(
+                "block", rbfsafe.WorkspaceAabb([-0.1, -0.1, 1.1], [0.1, 0.1, 1.2])
+            )
+        ],
+        "python-dynamic-blocked-v1",
+    )
+    initial = rbfsafe.AtlasBuilder().build(robot, empty, [[0.25]]).atlas
+    assert initial.storage_schema == 2
+    assert initial.version_info.sequence == 0
+    assert len(initial.dependencies[0].envelope.links) == 1
+    delta = rbfsafe.compare_scenes(empty, blocked)
+    assert delta.geometry_changed
+    assert delta.changes[0].kind == rbfsafe.SceneChangeKind.ADDED
+
+    update = rbfsafe.AtlasUpdater().update(robot, empty, blocked, initial)
+    assert update.stats.regions_invalidated == 1
+    assert update.stats.repaired_regions == 1
+    assert update.atlas.contains([0.25])
+    assert not update.atlas.contains([1.5])
+    assert len(update.atlas.repair_domains) == 1
+    assert update.atlas.version_info.parent_id == initial.version_info.id
+
+    reopened = rbfsafe.SceneSnapshot([], "python-dynamic-empty-v2")
+    recovered = rbfsafe.AtlasUpdater().update(robot, blocked, reopened, update.atlas)
+    assert recovered.atlas.contains([1.5])
+    assert not recovered.atlas.repair_domains
+
+    store = rbfsafe.AtlasVersionStore.create(tmp_path / "versions", initial)
+    store.publish(update.atlas)
+    assert len(store.versions) == 2
+    assert store.load_current().scene_digest == blocked.digest
+    store.rollback(initial.version_info.id)
+    assert store.load_current().scene_digest == empty.digest
+    reopened_store = rbfsafe.AtlasVersionStore.open(tmp_path / "versions")
+    assert reopened_store.current_version_id == initial.version_info.id
+
+    initial_path = tmp_path / "initial-atlas"
+    initial.save(initial_path)
+    robot_path = tmp_path / "dynamic-robot.json"
+    previous_scene_path = tmp_path / "previous-scene.json"
+    next_scene_path = tmp_path / "next-scene.json"
+    update_path = tmp_path / "cli-update"
+    robot_path.write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "name": "python-dynamic-prismatic",
+                "joints": [
+                    {
+                        "alpha": 0.0,
+                        "a": 0.0,
+                        "d": 0.0,
+                        "theta": 0.0,
+                        "type": "prismatic",
+                    }
+                ],
+                "joint_limits": [[0.0, 2.0]],
+                "link_radii": [0.05],
+                "tool_frame": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    previous_scene_path.write_text(
+        json.dumps({"schema": 1, "version": empty.version, "obstacles": []}),
+        encoding="utf-8",
+    )
+    next_scene_path.write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "version": blocked.version,
+                "obstacles": [
+                    {
+                        "id": "block",
+                        "lower": [-0.1, -0.1, 1.1],
+                        "upper": [0.1, 0.1, 1.2],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(initial_path),
+                "--robot",
+                str(robot_path),
+                "--previous-scene",
+                str(previous_scene_path),
+                "--next-scene",
+                str(next_scene_path),
+                "--update-output",
+                str(update_path),
+            ]
+        )
+        == 0
+    )
+    assert "invalidated=1 repaired=1" in capsys.readouterr().out
+    assert rbfsafe.SafeAtlas.load(update_path).scene_digest == blocked.digest
+    assert main([str(tmp_path / "versions")]) == 0
+    assert "RBF-Safe version-store versions=2" in capsys.readouterr().out
 
 
 def test_safe_ik_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

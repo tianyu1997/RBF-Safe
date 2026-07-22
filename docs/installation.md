@@ -56,12 +56,15 @@ target_link_libraries(my_consumer PRIVATE RBFSafe::rbfsafe)
 
 Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
 targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
-`RBFSafe::corridor`, and `RBFSafe::ik` are available when the aggregate target
+`RBFSafe::update`, `RBFSafe::corridor`, and `RBFSafe::ik` are available when the aggregate target
 is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
 party dependency. It provides OBB, Portal, and HiPaC APIs. The aggregate
 `RBFSafe::rbfsafe` target now includes it.
+
+`RBFSafe::update` provides dynamic scene differences, local Atlas repair, and
+version-store APIs without adding third-party dependencies.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

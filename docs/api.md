@@ -34,10 +34,13 @@ Certificate evidence levels are explicit:
 | `CertifiedConnectivity` | A subject-bound convex-cell/portal chain proves connectivity |
 | `RuntimeExecutable` | Reserved for runtime execution guarantees |
 
-`AtlasBuilder` issues only `CertifiedRegion` certificates. The corridor and
-Atlas route APIs issue `CertifiedConnectivity` only for explicit cell/witness
-subjects. Safe IK pose convergence remains `PointChecked`. No v0.5 component
-issues `RuntimeExecutable`.
+`AtlasBuilder` and `AtlasUpdater` issue only `CertifiedRegion` certificates. A
+custom `RegionValidator` must attach one valid conservative workspace AABB per
+robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
+incomplete dependencies. Corridor and Atlas route APIs issue
+`CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
+convergence remains `PointChecked`. No v0.6 component issues
+`RuntimeExecutable`.
 
 ## LECT
 
@@ -80,13 +83,36 @@ depth or width limits leave affected branches unresolved and are reflected in
 - `connected(q1, q2)` is true only when `route` can recover that certified
   chain; adjacency tolerance alone cannot bridge a geometric gap.
 - `verify_compatible(robot, scene)` checks exact identity digests.
-- `save(path)` publishes schema v1 without overwriting by default.
-- `load(path)` validates schema, bounds, counts, checksums, graph invariants,
-  certificate identities, and trailing bytes before returning an Atlas.
+- `save(path)` publishes the Atlas's schema without overwriting by default;
+  new builds use schema 2.
+- `load(path)` accepts Atlas schemas 1 and 2 and validates bounds, counts,
+  checksums, graph invariants, certificates, dependencies, transitions, and
+  version identities.
 
 Membership and nearest-region calls use a deterministic immutable BVH rebuilt
 after Atlas construction or loading. Candidate results retain stable region
 order, and the index is not serialized or included in schema identity.
+
+## Dynamic scene updates
+
+Include `<rbfsafe/dynamic.h>` and link `RBFSafe::update`.
+
+- `compare_scenes(before, after)` returns a deterministic obstacle-ID
+  `SceneDelta` with exact old/new bounds and identities.
+- `AtlasUpdater::update` inherits a region only when its parent certificate,
+  policy, subject, and stored link envelope prove every added/modified
+  obstacle disjoint.
+- Failed inheritance triggers direct validation. Undetermined regions are
+  removed and optionally refined in bounded local LECTs.
+- `repair_domains()` exposes unresolved domains retained for later recovery.
+- `AtlasUpdateResult` reports retained, invalidated, and repaired IDs plus
+  exact validation and repair statistics.
+
+Initial Atlas versions have sequence zero. Derived versions bind the parent
+version and complete scene transition. `AtlasVersionStore` publishes only a
+valid child of the active head, loads historical versions, and atomically
+rolls the head back without deleting descendants. See
+[dynamic updates](dynamic-updates.md).
 
 ## Trajectory auditing
 

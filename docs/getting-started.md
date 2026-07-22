@@ -155,3 +155,25 @@ print(report.status, report.coverage_ratio)
 
 Read the [trajectory auditor guide](trajectory-auditor.md) before interpreting
 `PARTIAL` or `INVALID`.
+
+## 8. Update a changed scene
+
+Given the exact previous snapshot and a new snapshot:
+
+```python
+update = rbfsafe.AtlasUpdater().update(
+    robot,
+    previous_scene,
+    next_scene,
+    atlas,
+    repair_samples=[[0.0, 0.0]],
+)
+update.atlas.save("atlas-v2")
+print(update.stats.certificates_inherited)
+print(update.invalidated_region_ids)
+```
+
+For persistent history, create `AtlasVersionStore` from the initial Atlas and
+publish each derived version in parent order. Read
+[dynamic updates](dynamic-updates.md) before using certificate inheritance or
+rollback.

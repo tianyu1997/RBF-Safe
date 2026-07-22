@@ -3,6 +3,31 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [0.6.0] - 2026-07-22
+
+### Added
+
+- Public `RBFSafe::update` target with deterministic obstacle-ID
+  `SceneDelta`, conservative region invalidation, bounded local LECT repair,
+  cooperative cancellation, resource budgets, and C++/Python APIs.
+- Envelope-backed certificate inheritance with exact regional subject,
+  parent-certificate, transition, policy, scene, and clearance binding.
+- Persisted unresolved repair domains so coverage can recover when obstacles
+  move away or are removed.
+- Immutable `AtlasVersionStore` publication, historical loading, parent-chain
+  validation, branching rollback, and Python/C++ inspection support.
+- Dynamic-update quickstart, CLI update/store operations, schema-1 fixture,
+  transition corruption tests, and cross-version migration tests.
+
+### Changed
+
+- New Atlas builds use schema 2 with `dependencies.bin`, optional
+  `transition.json`, Atlas version metadata, certificate lineage, and exact
+  region subject digests.
+- The Atlas reader accepts both schemas 1 and 2. Updating schema-1 data forces
+  direct revalidation before writing schema 2.
+- The aggregate target now includes `RBFSafe::update`.
+
 ## [0.5.0] - 2026-07-22
 
 ### Added

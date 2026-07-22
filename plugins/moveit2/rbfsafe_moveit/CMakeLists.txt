@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(rbfsafe_moveit VERSION 0.5.0 LANGUAGES CXX)
+project(rbfsafe_moveit VERSION 0.6.0 LANGUAGES CXX)
 
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)

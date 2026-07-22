@@ -8,6 +8,8 @@ import math
 from pathlib import Path
 
 from . import (
+    AtlasUpdater,
+    AtlasVersionStore,
     HipacCorridor,
     Pose3d,
     SafeAtlas,
@@ -23,12 +25,19 @@ from . import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rbfsafe-inspect")
-    parser.add_argument("atlas", type=Path, help="Atlas or corridor directory")
+    parser.add_argument("atlas", type=Path, help="Atlas, version store, or corridor directory")
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
     parser.add_argument("--trajectory", type=Path, help="audit a JSON waypoint array")
     parser.add_argument("--robot", type=Path, help="robot JSON used for a Safe IK query")
     parser.add_argument("--scene", type=Path, help="scene JSON used for a Safe IK query")
+    parser.add_argument("--previous-scene", type=Path, help="scene JSON currently bound to the Atlas")
+    parser.add_argument("--next-scene", type=Path, help="new scene JSON for an incremental update")
+    parser.add_argument("--update-output", type=Path, help="save the incrementally updated Atlas here")
+    parser.add_argument("--repair-samples", type=Path, help="optional JSON array of local repair samples")
+    parser.add_argument("--store-version", help="load a specific version from an Atlas version store")
+    parser.add_argument("--publish-atlas", type=Path, help="publish an Atlas into a version store")
+    parser.add_argument("--rollback-version", help="move a version store head to an existing version")
     parser.add_argument(
         "--ik-target",
         nargs=7,
@@ -55,6 +64,10 @@ def main(argv: list[str] | None = None) -> int:
         manifest = json.loads((args.atlas / "manifest.json").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         manifest = {}
+    try:
+        store_manifest = json.loads((args.atlas / "store.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        store_manifest = {}
     if manifest.get("format") == "rbfsafe-corridor":
         if (
             args.plot is not None
@@ -63,8 +76,15 @@ def main(argv: list[str] | None = None) -> int:
             or args.scene is not None
             or args.ik_target is not None
             or args.seed is not None
+            or args.previous_scene is not None
+            or args.next_scene is not None
+            or args.update_output is not None
+            or args.repair_samples is not None
+            or args.store_version is not None
+            or args.publish_atlas is not None
+            or args.rollback_version is not None
         ):
-            parser.error("plot, trajectory, and Safe IK options apply only to Atlas directories")
+            parser.error("update, store, plot, trajectory, and Safe IK options do not apply to corridors")
         corridor = HipacCorridor.load(args.atlas)
         components = {region.component for region in corridor.regions}
         print(f"RBF-Safe corridor schema=1 dimension={corridor.dimension}")
@@ -84,11 +104,66 @@ def main(argv: list[str] | None = None) -> int:
             print("query_regions=" + ",".join(str(region) for region in regions))
         return 0
 
-    atlas = SafeAtlas.load(args.atlas)
+    store = None
+    if store_manifest.get("format") == "rbfsafe-atlas-version-store":
+        store = AtlasVersionStore.open(args.atlas)
+        if args.publish_atlas is not None:
+            store.publish(SafeAtlas.load(args.publish_atlas))
+        if args.rollback_version is not None:
+            store.rollback(args.rollback_version)
+        atlas = (
+            store.load_version(args.store_version)
+            if args.store_version is not None
+            else store.load_current()
+        )
+        print(
+            f"RBF-Safe version-store versions={len(store.versions)} "
+            f"current={store.current_version_id}"
+        )
+    else:
+        if (
+            args.store_version is not None
+            or args.publish_atlas is not None
+            or args.rollback_version is not None
+        ):
+            parser.error("--store-version, --publish-atlas, and --rollback-version require a version store")
+        atlas = SafeAtlas.load(args.atlas)
+
+    update_arguments = (args.previous_scene, args.next_scene, args.update_output)
+    if any(argument is not None for argument in update_arguments):
+        if args.robot is None or not all(argument is not None for argument in update_arguments):
+            parser.error(
+                "--robot, --previous-scene, --next-scene, and --update-output must be used together"
+            )
+        repair_samples = []
+        if args.repair_samples is not None:
+            try:
+                repair_samples = json.loads(args.repair_samples.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as error:
+                parser.error(f"cannot read --repair-samples: {error}")
+            if not isinstance(repair_samples, list):
+                parser.error("--repair-samples must contain a JSON array")
+        robot = SerialRobotModel.from_json(args.robot)
+        previous_scene = SceneSnapshot.from_json(args.previous_scene)
+        next_scene = SceneSnapshot.from_json(args.next_scene)
+        update = AtlasUpdater().update(robot, previous_scene, next_scene, atlas, repair_samples)
+        update.atlas.save(args.update_output)
+        atlas = update.atlas
+        print(
+            f"update_delta={update.delta.digest} inherited={update.stats.certificates_inherited} "
+            f"revalidated={update.stats.regions_revalidated} "
+            f"invalidated={update.stats.regions_invalidated} repaired={update.stats.repaired_regions}"
+        )
+    elif args.repair_samples is not None:
+        parser.error("--repair-samples requires an incremental update")
+
     components = {region.component for region in atlas.regions}
-    print(f"RBF-Safe atlas schema=1 dimension={atlas.dimension}")
+    print(f"RBF-Safe atlas schema={atlas.storage_schema} dimension={atlas.dimension}")
     print(f"regions={len(atlas.regions)} certificates={len(atlas.certificates)} components={len(components)}")
-    print(f"lect_nodes={atlas.lect.size}")
+    print(
+        f"lect_nodes={atlas.lect.size} repair_domains={len(atlas.repair_domains)} "
+        f"version={atlas.version_info.id} sequence={atlas.version_info.sequence}"
+    )
     print(f"robot={atlas.robot_digest}")
     print(f"scene={atlas.scene_digest}")
     if args.query is not None:
@@ -143,9 +218,9 @@ def main(argv: list[str] | None = None) -> int:
                 for interval in report.uncovered_intervals
             )
         )
-    ik_arguments = (args.robot, args.scene, args.ik_target, args.seed)
+    ik_arguments = (args.scene, args.ik_target, args.seed)
     if any(argument is not None for argument in ik_arguments):
-        if not all(argument is not None for argument in ik_arguments):
+        if args.robot is None or not all(argument is not None for argument in ik_arguments):
             parser.error("--robot, --scene, --ik-target, and --seed must be used together")
         if len(args.seed) != atlas.dimension or not all(math.isfinite(value) for value in args.seed):
             parser.error(f"--seed requires {atlas.dimension} finite coordinates")
