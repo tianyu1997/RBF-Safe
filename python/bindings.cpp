@@ -218,6 +218,10 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_readwrite("upper", &WorkspaceAabb::upper)
         .def("valid", &WorkspaceAabb::valid);
 
+    py::class_<EnvelopeOptions>(module, "EnvelopeOptions")
+        .def(py::init<>())
+        .def_readwrite("obstacle_padding", &EnvelopeOptions::obstacle_padding);
+
     py::enum_<JointType>(module, "JointType")
         .value("REVOLUTE", JointType::Revolute)
         .value("PRISMATIC", JointType::Prismatic);
@@ -672,6 +676,286 @@ PYBIND11_MODULE(_rbfsafe, module) {
                 return unwrap(std::move(result));
             },
             py::arg("robot"), py::arg("scene"), py::arg("path"), py::arg("options") = HipacOptions{});
+
+    py::class_<CspaceZonotope>(module, "CspaceZonotope")
+        .def(py::init([](Configuration center, std::size_t generator_count, std::vector<double> generators) {
+                 return unwrap(
+                     CspaceZonotope::create(std::move(center), generator_count, std::move(generators)));
+             }),
+             py::arg("center"), py::arg("generator_count"), py::arg("generators"))
+        .def_property_readonly("dimension", &CspaceZonotope::dimension)
+        .def_property_readonly("generator_count", &CspaceZonotope::generator_count)
+        .def_property_readonly("center", &CspaceZonotope::center)
+        .def_property_readonly("generators", &CspaceZonotope::generators)
+        .def_property_readonly("enclosing_aabb", &CspaceZonotope::enclosing_aabb)
+        .def(
+            "contains",
+            [](const CspaceZonotope& region, const Configuration& configuration, double tolerance,
+               std::size_t maximum_iterations) {
+                return unwrap(region.contains(view(configuration), tolerance, maximum_iterations));
+            },
+            py::arg("configuration"), py::arg("tolerance") = 1e-10, py::arg("maximum_iterations") = 512)
+        .def("valid", &CspaceZonotope::valid);
+
+    py::class_<CspaceTaylorRegion>(module, "CspaceTaylorRegion")
+        .def(py::init([](Configuration center, std::size_t variable_count, std::vector<double> linear,
+                         Configuration remainder_radii) {
+                 return unwrap(CspaceTaylorRegion::create(std::move(center), variable_count,
+                                                          std::move(linear), std::move(remainder_radii)));
+             }),
+             py::arg("center"), py::arg("variable_count"), py::arg("linear"), py::arg("remainder_radii"))
+        .def_static(
+            "from_zonotope",
+            [](const CspaceZonotope& region) { return unwrap(CspaceTaylorRegion::from_zonotope(region)); })
+        .def_property_readonly("dimension", &CspaceTaylorRegion::dimension)
+        .def_property_readonly("variable_count", &CspaceTaylorRegion::variable_count)
+        .def_property_readonly("center", &CspaceTaylorRegion::center)
+        .def_property_readonly("linear", &CspaceTaylorRegion::linear)
+        .def_property_readonly("remainder_radii", &CspaceTaylorRegion::remainder_radii)
+        .def_property_readonly("enclosing_aabb", &CspaceTaylorRegion::enclosing_aabb)
+        .def(
+            "contains",
+            [](const CspaceTaylorRegion& region, const Configuration& configuration, double tolerance,
+               std::size_t maximum_iterations) {
+                return unwrap(region.contains(view(configuration), tolerance, maximum_iterations));
+            },
+            py::arg("configuration"), py::arg("tolerance") = 1e-10, py::arg("maximum_iterations") = 512)
+        .def("valid", &CspaceTaylorRegion::valid);
+
+    py::class_<HigherOrderValidation>(module, "HigherOrderValidation")
+        .def_readonly("disposition", &HigherOrderValidation::disposition)
+        .def_readonly("clearance_lower_bound", &HigherOrderValidation::clearance_lower_bound)
+        .def_readonly("conservative_enclosure", &HigherOrderValidation::conservative_enclosure)
+        .def_readonly("envelope", &HigherOrderValidation::envelope);
+
+    py::class_<HigherOrderRegionValidator>(module, "HigherOrderRegionValidator")
+        .def(py::init<EnvelopeOptions>(), py::arg("options") = EnvelopeOptions{})
+        .def("validate",
+             [](const HigherOrderRegionValidator& validator, const SerialRobotModel& robot,
+                const SceneSnapshot& scene,
+                const CspaceZonotope& region) { return unwrap(validator.validate(robot, scene, region)); })
+        .def("validate", [](const HigherOrderRegionValidator& validator, const SerialRobotModel& robot,
+                            const SceneSnapshot& scene, const CspaceTaylorRegion& region) {
+            return unwrap(validator.validate(robot, scene, region));
+        });
+
+    module.def(
+        "make_higher_order_region_certificate",
+        [](const SerialRobotModel& robot, const SceneSnapshot& scene, const CspaceZonotope& region,
+           const HigherOrderRegionValidator& validator, const HigherOrderValidation& validation,
+           double obstacle_padding) {
+            return unwrap(make_higher_order_region_certificate(robot, scene, region, validator, validation,
+                                                               obstacle_padding));
+        },
+        py::arg("robot"), py::arg("scene"), py::arg("region"), py::arg("validator"), py::arg("validation"),
+        py::arg("obstacle_padding") = 0.0);
+    module.def(
+        "make_higher_order_region_certificate",
+        [](const SerialRobotModel& robot, const SceneSnapshot& scene, const CspaceTaylorRegion& region,
+           const HigherOrderRegionValidator& validator, const HigherOrderValidation& validation,
+           double obstacle_padding) {
+            return unwrap(make_higher_order_region_certificate(robot, scene, region, validator, validation,
+                                                               obstacle_padding));
+        },
+        py::arg("robot"), py::arg("scene"), py::arg("region"), py::arg("validator"), py::arg("validation"),
+        py::arg("obstacle_padding") = 0.0);
+
+    py::enum_<RegionType>(module, "RegionType")
+        .value("AABB", RegionType::Aabb)
+        .value("OBB", RegionType::Obb)
+        .value("PORTAL", RegionType::Portal)
+        .value("TRAJECTORY_TUBE", RegionType::TrajectoryTube)
+        .value("ZONOTOPE", RegionType::Zonotope)
+        .value("TAYLOR", RegionType::Taylor);
+
+    py::class_<PortalIntersectionOptions>(module, "PortalIntersectionOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_iterations", &PortalIntersectionOptions::maximum_iterations)
+        .def_readwrite("feasibility_tolerance", &PortalIntersectionOptions::feasibility_tolerance)
+        .def_readwrite("cancellation", &PortalIntersectionOptions::cancellation);
+
+    py::class_<CspacePortal>(module, "CspacePortal")
+        .def_static(
+            "intersect",
+            [](const CspaceObb& first, const CspaceObb& second, const PortalIntersectionOptions& options) {
+                return unwrap(CspacePortal::intersect(first, second, options));
+            },
+            py::arg("first"), py::arg("second"), py::arg("options") = PortalIntersectionOptions{})
+        .def_property_readonly("dimension", &CspacePortal::dimension)
+        .def_property_readonly("constraint_count", &CspacePortal::constraint_count)
+        .def_property_readonly("normals", &CspacePortal::normals)
+        .def_property_readonly("offsets", &CspacePortal::offsets)
+        .def_property_readonly("witness", &CspacePortal::witness)
+        .def_property_readonly("enclosing_aabb", &CspacePortal::enclosing_aabb)
+        .def(
+            "contains",
+            [](const CspacePortal& portal, const Configuration& configuration, double tolerance) {
+                return portal.contains(view(configuration), tolerance);
+            },
+            py::arg("configuration"), py::arg("tolerance") = 0.0)
+        .def("valid", &CspacePortal::valid);
+
+    py::class_<PortalGeometry>(module, "PortalGeometry")
+        .def_readonly("left_region", &PortalGeometry::left_region)
+        .def_readonly("right_region", &PortalGeometry::right_region)
+        .def_readonly("intersection", &PortalGeometry::intersection);
+
+    py::class_<TrajectoryTubeGeometry>(module, "TrajectoryTubeGeometry")
+        .def_readonly("cell_ids", &TrajectoryTubeGeometry::cell_ids)
+        .def_readonly("portal_ids", &TrajectoryTubeGeometry::portal_ids)
+        .def_readonly("centerline", &TrajectoryTubeGeometry::centerline);
+
+    py::class_<RegionRecord>(module, "RegionRecord")
+        .def_readonly("id", &RegionRecord::id)
+        .def_readonly("geometry", &RegionRecord::geometry)
+        .def_readonly("certificate_index", &RegionRecord::certificate_index)
+        .def_readonly("component", &RegionRecord::component)
+        .def_readonly("dependency", &RegionRecord::dependency)
+        .def_readonly("source", &RegionRecord::source)
+        .def_property_readonly("type",
+                               [](const RegionRecord& record) { return region_type(record.geometry); });
+
+    py::class_<CertifiedRegionInput>(module, "CertifiedRegionInput")
+        .def(py::init<RegionGeometry, Certificate, LinkEnvelope, std::string>(), py::arg("geometry"),
+             py::arg("certificate"), py::arg("dependency"), py::arg("source") = "")
+        .def_readwrite("geometry", &CertifiedRegionInput::geometry)
+        .def_readwrite("certificate", &CertifiedRegionInput::certificate)
+        .def_readwrite("dependency", &CertifiedRegionInput::dependency)
+        .def_readwrite("source", &CertifiedRegionInput::source);
+
+    py::class_<RegionQueryOptions>(module, "RegionQueryOptions")
+        .def(py::init<>())
+        .def_readwrite("include_portals", &RegionQueryOptions::include_portals)
+        .def_readwrite("include_trajectory_tubes", &RegionQueryOptions::include_trajectory_tubes)
+        .def_readwrite("tolerance", &RegionQueryOptions::tolerance);
+
+    py::class_<PortalDiscoveryOptions>(module, "PortalDiscoveryOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_candidate_pairs", &PortalDiscoveryOptions::maximum_candidate_pairs)
+        .def_readwrite("maximum_portals", &PortalDiscoveryOptions::maximum_portals)
+        .def_readwrite("maximum_iterations", &PortalDiscoveryOptions::maximum_iterations)
+        .def_readwrite("feasibility_tolerance", &PortalDiscoveryOptions::feasibility_tolerance)
+        .def_readwrite("cancellation", &PortalDiscoveryOptions::cancellation);
+
+    py::class_<PortalDiscoveryStats>(module, "PortalDiscoveryStats")
+        .def_readonly("candidate_pairs", &PortalDiscoveryStats::candidate_pairs)
+        .def_readonly("aabb_rejections", &PortalDiscoveryStats::aabb_rejections)
+        .def_readonly("feasibility_tests", &PortalDiscoveryStats::feasibility_tests)
+        .def_readonly("portals_created", &PortalDiscoveryStats::portals_created);
+
+    py::class_<ObbAtlasBuildOptions>(module, "ObbAtlasBuildOptions")
+        .def(py::init<>())
+        .def_readwrite("initial_half_width", &ObbAtlasBuildOptions::initial_half_width)
+        .def_readwrite("maximum_half_width", &ObbAtlasBuildOptions::maximum_half_width)
+        .def_readwrite("bridge_longitudinal_margin", &ObbAtlasBuildOptions::bridge_longitudinal_margin)
+        .def_readwrite("nearest_bridge_neighbors", &ObbAtlasBuildOptions::nearest_bridge_neighbors)
+        .def_readwrite("growth_iterations", &ObbAtlasBuildOptions::growth_iterations)
+        .def_readwrite("maximum_samples", &ObbAtlasBuildOptions::maximum_samples)
+        .def_readwrite("maximum_pair_evaluations", &ObbAtlasBuildOptions::maximum_pair_evaluations)
+        .def_readwrite("maximum_validations", &ObbAtlasBuildOptions::maximum_validations)
+        .def_readwrite("obstacle_padding", &ObbAtlasBuildOptions::obstacle_padding)
+        .def_readwrite("portal", &ObbAtlasBuildOptions::portal)
+        .def_readwrite("cancellation", &ObbAtlasBuildOptions::cancellation);
+
+    py::class_<ObbAtlasBuildStats>(module, "ObbAtlasBuildStats")
+        .def_readonly("unique_samples", &ObbAtlasBuildStats::unique_samples)
+        .def_readonly("point_regions", &ObbAtlasBuildStats::point_regions)
+        .def_readonly("bridge_regions", &ObbAtlasBuildStats::bridge_regions)
+        .def_readonly("rejected_candidates", &ObbAtlasBuildStats::rejected_candidates)
+        .def_readonly("validations", &ObbAtlasBuildStats::validations)
+        .def_readonly("growth_attempts", &ObbAtlasBuildStats::growth_attempts)
+        .def_readonly("portal", &ObbAtlasBuildStats::portal);
+
+    py::class_<RegionDatabase>(module, "RegionDatabase")
+        .def_static("load",
+                    [](const std::filesystem::path& path) { return unwrap(RegionDatabase::load(path)); })
+        .def_static(
+            "from_atlas",
+            [](const SafeAtlas& atlas, std::string scene_version, const PortalDiscoveryOptions& options) {
+                return unwrap(RegionDatabase::from_atlas(atlas, std::move(scene_version), options));
+            },
+            py::arg("atlas"), py::arg("scene_version") = "", py::arg("options") = PortalDiscoveryOptions{})
+        .def_static(
+            "from_corridor",
+            [](const HipacCorridor& corridor, std::string scene_version,
+               const PortalDiscoveryOptions& options) {
+                return unwrap(RegionDatabase::from_corridor(corridor, std::move(scene_version), options));
+            },
+            py::arg("corridor"), py::arg("scene_version"), py::arg("options") = PortalDiscoveryOptions{})
+        .def_static(
+            "create",
+            [](const SerialRobotModel& robot, const SceneSnapshot& scene,
+               std::vector<CertifiedRegionInput> regions, const PortalDiscoveryOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return RegionDatabase::create(robot, scene, std::move(regions), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("regions"),
+            py::arg("options") = PortalDiscoveryOptions{})
+        .def_property_readonly("dimension", &RegionDatabase::dimension)
+        .def_property_readonly("robot_digest", &RegionDatabase::robot_digest)
+        .def_property_readonly("scene_digest", &RegionDatabase::scene_digest)
+        .def_property_readonly("scene_version", &RegionDatabase::scene_version)
+        .def_property_readonly("records", &RegionDatabase::records)
+        .def_property_readonly("certificates", &RegionDatabase::certificates)
+        .def("region",
+             [](const RegionDatabase& database, RegionId id) { return unwrap(database.region(id)); })
+        .def("certificate", [](const RegionDatabase& database,
+                               const std::string& id) { return unwrap(database.certificate(id)); })
+        .def(
+            "regions_at",
+            [](const RegionDatabase& database, const Configuration& configuration,
+               const RegionQueryOptions& options) {
+                return unwrap(database.regions_at(view(configuration), options));
+            },
+            py::arg("configuration"), py::arg("options") = RegionQueryOptions{})
+        .def(
+            "contains",
+            [](const RegionDatabase& database, const Configuration& configuration,
+               const RegionQueryOptions& options) { return database.contains(view(configuration), options); },
+            py::arg("configuration"), py::arg("options") = RegionQueryOptions{})
+        .def(
+            "nearest_region",
+            [](const RegionDatabase& database, const Configuration& configuration,
+               const RegionQueryOptions& options) {
+                return unwrap(database.nearest_region(view(configuration), options));
+            },
+            py::arg("configuration"), py::arg("options") = RegionQueryOptions{})
+        .def("connected",
+             [](const RegionDatabase& database, const Configuration& first, const Configuration& second) {
+                 return unwrap(database.connected(view(first), view(second)));
+             })
+        .def("verify_compatible",
+             [](const RegionDatabase& database, const SerialRobotModel& robot, const SceneSnapshot& scene) {
+                 unwrap_void(database.verify_compatible(robot, scene));
+             })
+        .def(
+            "save",
+            [](const RegionDatabase& database, const std::filesystem::path& path, bool overwrite) {
+                unwrap_void(database.save(path, SaveOptions{overwrite}));
+            },
+            py::arg("path"), py::arg("overwrite") = false);
+
+    py::class_<ObbAtlasBuildResult>(module, "ObbAtlasBuildResult")
+        .def_readonly("database", &ObbAtlasBuildResult::database)
+        .def_readonly("stats", &ObbAtlasBuildResult::stats);
+
+    py::class_<ObbAtlasBuilder>(module, "ObbAtlasBuilder")
+        .def(py::init<>())
+        .def(
+            "build",
+            [](const ObbAtlasBuilder& builder, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               std::vector<Configuration> samples, const ObbAtlasBuildOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return builder.build(robot, scene, std::move(samples), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("samples"),
+            py::arg("options") = ObbAtlasBuildOptions{});
 
     py::class_<AtlasBuildResult>(module, "AtlasBuildResult")
         .def_readonly("atlas", &AtlasBuildResult::atlas)

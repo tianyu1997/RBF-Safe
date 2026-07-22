@@ -3,6 +3,30 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [0.7.0] - 2026-07-22
+
+### Added
+
+- Public `RBFSafe::regions` target and unified `RegionDatabase` records for
+  AABB, OBB, convex Portal, TrajectoryTube, zonotope, and first-order Taylor
+  geometry with deterministic IDs and certificate lookup.
+- Arbitrary AABB/OBB pair Portal discovery using conservative AABB pruning and
+  deterministic half-space feasibility, rather than only consecutive path
+  cells.
+- Seed-driven OBB Atlas growth with point cells, nearest-neighbor segment
+  tubes, bounded growth/validation/pair budgets, cancellation, deterministic
+  ordering, and connected-component construction.
+- Correlation-preserving first-order Taylor IFK for zonotope/Taylor regions,
+  conservative nonlinear remainders, higher-order certificate issuance, and
+  containment property tests.
+- Checksummed, atomic region-database schema 1 persistence and matching C++,
+  Python, and `rbfsafe-inspect` load/query support.
+
+### Changed
+
+- `RBFSafe::rbfsafe` now aggregates `RBFSafe::regions`; Atlas schema 2 and
+  corridor schema 1 remain unchanged and independently versioned.
+
 ## [0.6.0] - 2026-07-22
 
 ### Added

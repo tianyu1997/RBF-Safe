@@ -22,8 +22,9 @@ Run the CI-equivalent matrix from a clean checkout:
 
 Inspect the source tree for build products, absolute paths, paper assets,
 legacy caches, generated Atlas directories, and old-library dependencies.
-Run the C++ and Python quickstarts, save/load/query/update an Atlas, and verify
-the fixed schema-v1 compatibility fixture and schema-v2 payload hashes.
+Run the C++ and Python quickstarts, save/load/query/update an Atlas,
+save/load/query a generalized region database, and verify the fixed Atlas
+schema-v1 compatibility fixture and schema-v2 payload hashes.
 
 ## 3. Package
 
@@ -42,6 +43,7 @@ the fixed schema-v1 compatibility fixture and schema-v2 payload hashes.
    source archive, and identify the Atlas schema version.
 4. Verify release downloads in clean Linux and Windows environments.
 
-Atlas schema changes require a new schema number, fixed-format fixtures, and a
-documented reader or explicit incompatibility error. A library version change
-must never silently reinterpret an existing Atlas schema.
+Atlas, corridor, region-database, or version-store schema changes require an
+independent schema number, fixed-format fixtures, and a documented reader or
+explicit incompatibility error. A library version change must never silently
+reinterpret an existing storage schema.

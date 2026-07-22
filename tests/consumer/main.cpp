@@ -8,10 +8,11 @@ int main() {
     const rbfsafe::SafeIkOptions safe_ik_options;
     const rbfsafe::AtlasUpdateOptions update_options;
     const rbfsafe::AtlasUpdater updater;
+    const rbfsafe::ObbAtlasBuildOptions obb_atlas_options;
     (void)updater;
     return interval.contains(0.0) && options.maximum_region_tests > 0 &&
                    hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
-                   update_options.maximum_validations > 0 &&
+                   update_options.maximum_validations > 0 && obb_atlas_options.maximum_validations > 0 &&
                    report.status == rbfsafe::TrajectoryAuditStatus::Invalid
                ? 0
                : 1;

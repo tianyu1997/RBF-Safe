@@ -8,7 +8,7 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "usage: rbfsafe-inspect <atlas-or-corridor-directory> [q0 q1 ...]\n";
+        std::cerr << "usage: rbfsafe-inspect <atlas-corridor-or-region-database> [q0 q1 ...]\n";
         return 2;
     }
     auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[1]));
@@ -25,9 +25,54 @@ int main(int argc, char** argv) {
         }
     }
     if (!atlas) {
+        auto database = rbfsafe::RegionDatabase::load(std::filesystem::path(argv[1]));
+        if (database) {
+            std::cout << "RBF-Safe region database\n"
+                      << "schema: 1\n"
+                      << "dimension: " << database.value().dimension() << '\n'
+                      << "records: " << database.value().records().size() << '\n'
+                      << "certificates: " << database.value().certificates().size() << '\n'
+                      << "robot: " << database.value().robot_digest() << '\n'
+                      << "scene: " << database.value().scene_digest() << '\n'
+                      << "scene version: " << database.value().scene_version() << '\n';
+            if (argc > 2) {
+                if (static_cast<std::size_t>(argc - 2) != database.value().dimension()) {
+                    std::cerr << "query dimension does not match database dimension\n";
+                    return 2;
+                }
+                rbfsafe::Configuration query;
+                try {
+                    for (int index = 2; index < argc; ++index) {
+                        std::size_t consumed = 0;
+                        const double value = std::stod(argv[index], &consumed);
+                        if (consumed != std::string(argv[index]).size() || !std::isfinite(value))
+                            throw std::invalid_argument("invalid coordinate");
+                        query.push_back(value);
+                    }
+                } catch (const std::exception&) {
+                    std::cerr << "query coordinates must be finite decimal numbers\n";
+                    return 2;
+                }
+                auto records = database.value().regions_at(query);
+                auto nearest = database.value().nearest_region(query);
+                if (!records || !nearest) {
+                    std::cerr << (!records ? records.error().describe() : nearest.error().describe()) << '\n';
+                    return 1;
+                }
+                std::cout << "query contains: " << (!records.value().empty() ? "true" : "false")
+                          << "\nquery regions:";
+                for (const auto& record : records.value())
+                    std::cout << ' ' << record.id;
+                std::cout << '\n';
+                if (nearest.value())
+                    std::cout << "nearest region: " << nearest.value()->id << '\n';
+            }
+            return 0;
+        }
         auto corridor = rbfsafe::HipacCorridor::load(std::filesystem::path(argv[1]));
         if (!corridor) {
             std::cerr << "Atlas load failed: " << atlas.error().describe() << '\n'
+                      << "region database load failed: " << database.error().describe() << '\n'
                       << "corridor load failed: " << corridor.error().describe() << '\n';
             return 1;
         }

@@ -39,7 +39,7 @@ custom `RegionValidator` must attach one valid conservative workspace AABB per
 robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
-convergence remains `PointChecked`. No v0.6 component issues
+convergence remains `PointChecked`. No v0.7 component issues
 `RuntimeExecutable`.
 
 ## LECT
@@ -184,6 +184,31 @@ numerical step into the active region. Its `SafeIkReport` distinguishes:
 The report keeps the destination `CertifiedRegion`, the `PointChecked` pose
 evidence, numerical errors/statistics, and, when present, the
 `CertifiedConnectivity` route as separate claims. See [Safe IK](safe-ik.md).
+
+## Generalized region database
+
+Include `<rbfsafe/region_database.h>` and link `RBFSafe::regions`.
+
+- `RegionDatabase` stores stable AABB, OBB, Portal, TrajectoryTube, zonotope,
+  and Taylor records with separate certificate lookup and component labels.
+- `from_atlas` and `from_corridor` import existing producers without changing
+  their formats; `create` accepts independently certified primary regions.
+- `ObbAtlasBuilder::build` grows point cells and nearest-neighbor segment
+  tubes, then discovers arbitrary intersecting AABB/OBB pairs under hard
+  budgets.
+- `CspacePortal` retains the complete convex half-space intersection and a
+  verified shared witness.
+- `regions_at`, `contains`, `nearest_region`, `connected`, `region`, and
+  `certificate` provide deterministic high-level queries.
+- `save` and `load` use the independent checksummed region-database schema 1.
+
+`CspaceZonotope`, `CspaceTaylorRegion`, and
+`HigherOrderRegionValidator` preserve shared first-order variables through DH
+FK and add conservative nonlinear remainders. A successful
+`make_higher_order_region_certificate` binds the exact correlated region.
+These APIs are experimental in v0.7; arbitrary Portal discovery currently
+accepts only AABB/OBB parents. See the [region database guide](region-database.md)
+and [format specification](region-database-format.md).
 
 ## Error model
 

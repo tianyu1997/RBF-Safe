@@ -1,4 +1,4 @@
-"""Inspect and optionally visualize RBF-Safe Atlas or corridor data."""
+"""Inspect and optionally visualize RBF-Safe certificate databases."""
 
 from __future__ import annotations
 
@@ -12,6 +12,9 @@ from . import (
     AtlasVersionStore,
     HipacCorridor,
     Pose3d,
+    RegionDatabase,
+    RegionQueryOptions,
+    RegionType,
     SafeAtlas,
     SafeIkSolver,
     SafeIkStatus,
@@ -25,9 +28,15 @@ from . import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rbfsafe-inspect")
-    parser.add_argument("atlas", type=Path, help="Atlas, version store, or corridor directory")
+    parser.add_argument(
+        "atlas", type=Path, help="Atlas, version store, corridor, or region database directory"
+    )
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
+    parser.add_argument("--include-portals", action="store_true", help="include portal records in a query")
+    parser.add_argument(
+        "--include-tubes", action="store_true", help="include trajectory-tube records in a query"
+    )
     parser.add_argument("--trajectory", type=Path, help="audit a JSON waypoint array")
     parser.add_argument("--robot", type=Path, help="robot JSON used for a Safe IK query")
     parser.add_argument("--scene", type=Path, help="scene JSON used for a Safe IK query")
@@ -68,6 +77,72 @@ def main(argv: list[str] | None = None) -> int:
         store_manifest = json.loads((args.atlas / "store.json").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         store_manifest = {}
+    if manifest.get("format") == "rbfsafe-region-database":
+        unsupported = (
+            args.plot,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+        )
+        if any(value is not None for value in unsupported):
+            parser.error("update, store, plot, trajectory, and Safe IK options do not apply to region databases")
+        database = RegionDatabase.load(args.atlas)
+        counts = {
+            RegionType.AABB: 0,
+            RegionType.OBB: 0,
+            RegionType.PORTAL: 0,
+            RegionType.TRAJECTORY_TUBE: 0,
+            RegionType.ZONOTOPE: 0,
+            RegionType.TAYLOR: 0,
+        }
+        for record in database.records:
+            counts[record.type] += 1
+        components = {record.component for record in database.records if record.component != 0}
+        print(f"RBF-Safe region-database schema=1 dimension={database.dimension}")
+        print(
+            f"records={len(database.records)} certificates={len(database.certificates)} "
+            f"components={len(components)}"
+        )
+        print(
+            "types="
+            + ",".join(
+                f"{name}:{counts[value]}"
+                for name, value in (
+                    ("aabb", RegionType.AABB),
+                    ("obb", RegionType.OBB),
+                    ("portal", RegionType.PORTAL),
+                    ("trajectory_tube", RegionType.TRAJECTORY_TUBE),
+                    ("zonotope", RegionType.ZONOTOPE),
+                    ("taylor", RegionType.TAYLOR),
+                )
+            )
+        )
+        print(f"robot={database.robot_digest}")
+        print(f"scene={database.scene_digest} version={database.scene_version}")
+        if args.query is not None:
+            if len(args.query) != database.dimension or not all(
+                math.isfinite(value) for value in args.query
+            ):
+                parser.error(f"--query requires {database.dimension} coordinates")
+            query_options = RegionQueryOptions()
+            query_options.include_portals = args.include_portals
+            query_options.include_trajectory_tubes = args.include_tubes
+            regions = database.regions_at(args.query, query_options)
+            nearest = database.nearest_region(args.query, query_options)
+            print(f"query_contains={str(bool(regions)).lower()}")
+            print("query_regions=" + ",".join(str(region.id) for region in regions))
+            if nearest is not None:
+                print(f"nearest_region={nearest.id}")
+        return 0
     if manifest.get("format") == "rbfsafe-corridor":
         if (
             args.plot is not None
@@ -83,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
             or args.store_version is not None
             or args.publish_atlas is not None
             or args.rollback_version is not None
+            or args.include_portals
+            or args.include_tubes
         ):
             parser.error("update, store, plot, trajectory, and Safe IK options do not apply to corridors")
         corridor = HipacCorridor.load(args.atlas)
@@ -105,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     store = None
+    if args.include_portals or args.include_tubes:
+        parser.error("--include-portals and --include-tubes require a region database")
     if store_manifest.get("format") == "rbfsafe-atlas-version-store":
         store = AtlasVersionStore.open(args.atlas)
         if args.publish_atlas is not None:

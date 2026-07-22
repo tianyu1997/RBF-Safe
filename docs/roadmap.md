@@ -14,17 +14,16 @@
 - **v0.5:** deterministic region-constrained Safe IK, explicit Atlas routes,
   and fail-closed ROS 2 Jazzy / MoveIt 2 request, response, and kinematics
   plugins.
-- **v0.6 (current):** obstacle-ID scene differences, envelope-backed
-  certificate inheritance, conservative invalidation, bounded local repair,
-  coverage recovery, Atlas schema 2, and immutable version stores with
-  rollback.
+- **v0.6:** obstacle-ID scene differences, envelope-backed certificate
+  inheritance, conservative invalidation, bounded local repair, coverage
+  recovery, Atlas schema 2, and immutable version stores with rollback.
+- **v0.7 (current):** unified AABB/OBB/Portal/TrajectoryTube/zonotope/Taylor
+  certificate records, arbitrary AABB/OBB Portal discovery, deterministic OBB
+  Atlas growth, correlation-preserving first-order Taylor IFK, schema-1
+  region-database persistence, and C++/Python/CLI queries.
 
 ## Remaining `project.md` product phases
 
-- **v0.7 — Generalized region and corridor database:** first-class AABB, OBB,
-  Portal, and TrajectoryTube records in a unified certificate database;
-  arbitrary certified portal discovery; OBB Atlas growth; and an experimental
-  conservative zonotope/Taylor-region backend.
 - **v0.8 — Planning and optimization consumers:** Atlas-guided OMPL
   RRT/RRT*/PRM/BIT* helpers, MoveIt certified sampling/roadmap acceleration,
   and solver-neutral convex-region constraints with TrajOpt, CHOMP, STOMP,

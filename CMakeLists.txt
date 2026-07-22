@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 0.6.0
+    VERSION 0.7.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -113,10 +113,26 @@ target_include_directories(rbfsafe_corridor
 target_link_libraries(rbfsafe_corridor PUBLIC rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_corridor)
 
+add_library(rbfsafe_regions
+    src/higher_order.cpp
+    src/portal.cpp
+    src/region_database.cpp
+    src/region_database_persistence.cpp
+    src/region_identity.cpp)
+add_library(RBFSafe::regions ALIAS rbfsafe_regions)
+set_target_properties(rbfsafe_regions PROPERTIES EXPORT_NAME regions)
+target_include_directories(rbfsafe_regions
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(rbfsafe_regions PUBLIC rbfsafe_corridor)
+rbfsafe_configure_target(rbfsafe_regions)
+
 add_library(rbfsafe INTERFACE)
 add_library(RBFSafe::rbfsafe ALIAS rbfsafe)
 set_target_properties(rbfsafe PROPERTIES EXPORT_NAME rbfsafe)
-target_link_libraries(rbfsafe INTERFACE rbfsafe_corridor rbfsafe_ik rbfsafe_update)
+target_link_libraries(rbfsafe INTERFACE rbfsafe_regions rbfsafe_ik rbfsafe_update)
 
 set(RBFSAFE_OMPL_BUILT 0)
 if(RBFSAFE_BUILD_OMPL)
@@ -172,6 +188,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_dynamic_update_quickstart examples/dynamic_update_quickstart.cpp)
     target_link_libraries(rbfsafe_dynamic_update_quickstart PRIVATE RBFSafe::update)
     rbfsafe_configure_target(rbfsafe_dynamic_update_quickstart)
+    add_executable(rbfsafe_region_database_quickstart examples/region_database_quickstart.cpp)
+    target_link_libraries(rbfsafe_region_database_quickstart PRIVATE RBFSafe::regions)
+    rbfsafe_configure_target(rbfsafe_region_database_quickstart)
     if(RBFSAFE_BUILD_OMPL)
         add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
         target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
@@ -199,7 +218,7 @@ if(NOT SKBUILD)
     install(FILES LICENSE README.md CHANGELOG.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe)
 
-    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe
+    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe
         EXPORT RBFSafeTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.6
+geometric safety certificates in robot configuration space. Version 0.7
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -23,6 +23,9 @@ kinematics plugins without adding ROS dependencies to the core library.
 The dynamic-update component compares versioned scenes, conservatively
 inherits or invalidates regional evidence, locally repairs affected space, and
 publishes auditable immutable Atlas versions with rollback.
+The generalized region layer unifies AABB, OBB, Portal, TrajectoryTube,
+zonotope, and first-order Taylor records, discovers arbitrary certified
+AABB/OBB intersections, and builds deterministic seed-driven OBB Atlases.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -52,10 +55,13 @@ certificate.
   final-trajectory, and connected Safe IK gates.
 - Public `RBFSafe::update` scene differences, envelope-backed certificate
   inheritance, local repair/recovery, and immutable Atlas version stores.
+- Public `RBFSafe::regions` unified certificate database, arbitrary convex
+  AABB/OBB Portals, OBB Atlas builder, higher-order correlated IFK, and
+  checksummed schema-1 persistence.
 
-RBF-Safe does not implement an OMPL planner. Arbitrary OBB-intersection
-portals, continuous-time obstacle motion, execution guarantees, and legacy
-RapidBoxForest cache compatibility remain outside v0.6.
+RBF-Safe does not implement an OMPL planner. Higher-order Portal discovery,
+continuous-time obstacle motion, execution guarantees, and legacy
+RapidBoxForest cache compatibility remain outside v0.7.
 
 ## Quick start
 
@@ -122,6 +128,7 @@ rbfsafe-inspect atlas --query 0.0 0.0  # Python entry point
 rbfsafe-inspect atlas 0.0 0.0          # C++ executable
 rbfsafe-inspect atlas --trajectory data/trajectory_2r.json  # Python entry point
 rbfsafe-inspect corridor --query 0.0 0.0  # Atlas/corridor auto-detection
+rbfsafe-inspect region-database --query 0.0 0.0 --include-portals
 rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
   --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
 ```
@@ -140,6 +147,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)
 - [Dynamic updates and version stores](docs/dynamic-updates.md)
+- [Unified region database](docs/region-database.md)
+- [Region database schema v1](docs/region-database-format.md)
 - [Atlas schemas 1 and 2](docs/atlas-format.md)
 - [Corridor schema v1](docs/corridor-format.md)
 - [Versioning and compatibility](docs/versioning.md)

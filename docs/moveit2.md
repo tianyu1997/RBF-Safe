@@ -119,9 +119,9 @@ region budgets provide the hard work bounds. Approximate IK is never returned.
 
 ## Deployment boundary
 
-The scene used by MoveIt is not automatically converted into or compared with
-the RBF-Safe AABB snapshot in v0.5. Updating the planning scene without loading
-a matching Atlas makes the configured certificate stale even if MoveIt itself
-continues planning. v0.6 is intended to add explicit scene versions,
-invalidation, and local repair. Until then, deployment code must atomically
-coordinate scene and Atlas selection and retain independent runtime safeguards.
+The scene used by MoveIt is not automatically converted into an RBF-Safe AABB
+snapshot. Updating the planning scene without loading or generating a matching
+Atlas makes the configured certificate stale even if MoveIt itself continues
+planning. v0.6 added explicit scene versions, invalidation, and local repair,
+but deployment code must still atomically coordinate the active MoveIt scene
+and selected Atlas version and retain independent runtime safeguards.

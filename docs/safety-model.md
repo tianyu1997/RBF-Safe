@@ -139,19 +139,34 @@ equivalence cannot be derived automatically in v0.5 and remains an explicit
 deployment assumption. The plugins therefore issue no `RuntimeExecutable`
 evidence.
 
-## Explicit exclusions in v0.6
+## Generalized region database claims
+
+The v0.7 database does not raise evidence by converting data. Imported primary
+records retain their exact subject-bound `CertifiedRegion` certificates.
+Portal records are issued only for a verified point in the complete convex
+intersection of two certified AABB/OBB parents. A TrajectoryTube is a certified
+cell/Portal chain; it does not add timing or dynamics evidence.
+
+The experimental higher-order validator preserves shared affine variables and
+adds interval bounds for every omitted nonlinear term. A successful result is
+a regional geometric proof for the represented zonotope or Taylor region.
+Membership optimization may conservatively return false when it exhausts its
+iteration budget; it cannot create a false certificate because certification
+covers the full region independently of membership queries.
+
+## Explicit exclusions in v0.7
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
   by the supplied link radii and optional tool link.
 - Continuous-time dynamic obstacles, swept motion, localization/calibration
   uncertainty, control error, deformation, and latency are not modeled
-  automatically. v0.6 updates only between explicit static AABB snapshots.
+  automatically. v0.7 updates only between explicit static AABB snapshots.
 - AABB separation is the only workspace collision proof; OBB certification
   uses a conservative C-space enclosure rather than a correlated workspace
   proof, and no mesh, KDOP, or swept-time validation is performed.
-- Arbitrary OBB intersection portals are not discovered; portals are
-  shared witnesses between consecutive path-cover cells.
+- Arbitrary AABB/OBB intersection portals are discovered, but zonotope/Taylor
+  Portal intersections and continuous-time portals are not.
 - Pose tolerances, MoveIt callback acceptance, and trajectory coverage do not
   certify dynamics, controller tracking, or runtime execution.
 - `contains`, `connected`, Safe IK, and MoveIt plugin acceptance are not

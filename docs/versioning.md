@@ -48,6 +48,12 @@ The Atlas version-store format has its own schema 1. Immutable Atlas versions
 retain their independent schema and payload checksums; `store.json` records
 the validated parent graph and active head.
 
+The v0.7 region database has another independent schema 1. It stores complete
+AABB, OBB, Portal, TrajectoryTube, zonotope, and Taylor geometry in a
+checksummed JSON payload and rebuilds its graph on load. It neither changes
+Atlas schema 2 nor corridor schema 1. Conversion from those formats is an
+explicit in-memory import, not transparent reinterpretation.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -56,8 +62,9 @@ corridor certificates additionally bind the exact OBB, portal, or route
 subject. Compatibility means exact digest equality, not merely equal
 dimensions or names.
 
-Use `SafeAtlas::verify_compatible(robot, scene)` or
-`HipacCorridor::verify_compatible(robot, scene)` before reuse. Consumers must
+Use `SafeAtlas::verify_compatible(robot, scene)`,
+`HipacCorridor::verify_compatible(robot, scene)`, or
+`RegionDatabase::verify_compatible(robot, scene)` before reuse. Consumers must
 not bypass a mismatch by editing a manifest or substituting an obstacle set.
 
 An inherited schema-2 regional certificate additionally binds its parent

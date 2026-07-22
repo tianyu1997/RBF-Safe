@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "0.6.0"
+    assert rbfsafe.__version__ == "0.7.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -259,6 +259,58 @@ def test_hipac_corridor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
 
     assert main([str(destination), "--query", "-0.5", "-0.5"]) == 0
     assert "RBF-Safe corridor" in capsys.readouterr().out
+
+
+def test_region_database_and_higher_order(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    robot = make_robot()
+    scene = rbfsafe.SceneSnapshot([], "python-region-database-v1")
+    options = rbfsafe.ObbAtlasBuildOptions()
+    options.initial_half_width = 0.01
+    options.maximum_half_width = 0.05
+    result = rbfsafe.ObbAtlasBuilder().build(
+        robot, scene, [[-0.5, -0.2], [0.0, 0.0], [0.5, 0.2]], options
+    )
+    database = result.database
+    assert database.contains([0.0, 0.0])
+    assert database.connected([-0.5, -0.2], [0.5, 0.2])
+    assert any(record.type == rbfsafe.RegionType.PORTAL for record in database.records)
+    destination = tmp_path / "region-database"
+    database.save(destination)
+    loaded = rbfsafe.RegionDatabase.load(destination)
+    loaded.verify_compatible(robot, scene)
+    assert [record.id for record in loaded.records] == [record.id for record in database.records]
+
+    portal_options = rbfsafe.RegionQueryOptions()
+    portal_options.include_portals = True
+    assert len(loaded.regions_at([0.0, 0.0], portal_options)) >= len(
+        loaded.regions_at([0.0, 0.0])
+    )
+    from rbfsafe.cli import main
+
+    assert main([str(destination), "--query", "0.0", "0.0", "--include-portals"]) == 0
+    assert "RBF-Safe region-database" in capsys.readouterr().out
+
+    zonotope = rbfsafe.CspaceZonotope([0.0, 0.0], 1, [0.15, -0.15])
+    validator = rbfsafe.HigherOrderRegionValidator()
+    validation = validator.validate(robot, scene, zonotope)
+    assert validation.disposition == rbfsafe.ValidationDisposition.CERTIFIED_FREE
+    certificate = rbfsafe.make_higher_order_region_certificate(
+        robot, scene, zonotope, validator, validation
+    )
+    higher_order = rbfsafe.RegionDatabase.create(
+        robot,
+        scene,
+        [
+            rbfsafe.CertifiedRegionInput(
+                zonotope, certificate, validation.envelope, "python-correlated-seed"
+            )
+        ],
+    )
+    assert higher_order.contains([0.1, -0.1])
+    assert not higher_order.contains([0.1, 0.1])
+    assert higher_order.records[0].type == rbfsafe.RegionType.ZONOTOPE
 
 
 def test_tool_link_and_specific_identity_error() -> None:

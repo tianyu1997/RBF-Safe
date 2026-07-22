@@ -7,8 +7,11 @@ usable without the Atlas layer:
 RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
-       -> RBFSafe::update, RBFSafe::corridor, and RBFSafe::ik
-       -> RBFSafe::rbfsafe (aggregate target)
+          |-> RBFSafe::update
+          |-> RBFSafe::ik
+          `-> RBFSafe::corridor -> RBFSafe::regions
+
+All core targets -> RBFSafe::rbfsafe (aggregate target)
 ```
 
 ## Modules
@@ -55,6 +58,15 @@ an immutable Atlas. A successful connected result combines point-checked pose
 evidence, the destination region certificate, and an explicit Atlas route
 whose subject digest binds every region and witness waypoint.
 
+### Generalized regions
+
+`RBFSafe::regions` owns the unified region/certificate database, arbitrary
+AABB/OBB half-space Portal discovery, deterministic OBB Atlas growth, and the
+experimental correlation-preserving zonotope/Taylor IFK backend. It consumes
+the Atlas and corridor public models but does not alter their storage schemas.
+Its own schema-1 directory persists every generalized geometry and rebuilds
+the connectivity graph during validated loading.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -83,6 +95,8 @@ planners, or storage internals.
 The corridor layer consumes robot and scene models directly. Its OBB validator
 delegates the enclosing AABB to the geometry validator; no correlated OBB
 state is passed into the affine-arithmetic kernel in v0.4.
+The v0.7 higher-order backend is separate: it retains shared affine variables
+through a first-order Taylor model and adds conservative nonlinear remainders.
 
 ## Construction flow
 
@@ -118,3 +132,5 @@ components and bind subject digests.
   requires an explicit certificate and compatibility design.
 - Atlas schema 2 and corridor schema 1 are independent. OBB and portal records
   are never injected into the Atlas binary files.
+- Region-database schema 1 is a third independent format and imports producers
+  only through explicit validated conversion.
