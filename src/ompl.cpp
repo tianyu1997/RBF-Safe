@@ -3,19 +3,32 @@
 #include <rbfsafe/trajectory.h>
 
 #include <ompl/base/MotionValidator.h>
+#include <ompl/base/PlannerData.h>
+#include <ompl/base/PlannerTerminationCondition.h>
+#include <ompl/base/ProblemDefinition.h>
+#include <ompl/base/ScopedState.h>
 #include <ompl/base/StateSampler.h>
 #include <ompl/base/StateValidityChecker.h>
+#include <ompl/geometric/PathGeometric.h>
+#include <ompl/geometric/planners/informedtrees/BITstar.h>
+#include <ompl/geometric/planners/prm/PRM.h>
+#include <ompl/geometric/planners/rrt/RRT.h>
+#include <ompl/geometric/planners/rrt/RRTstar.h>
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <random>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -23,6 +36,7 @@ namespace rbfsafe {
 namespace {
 
 namespace ob = ompl::base;
+namespace og = ompl::geometric;
 
 constexpr double bounds_tolerance = 1e-12;
 
@@ -360,6 +374,11 @@ Result<void> validate_installation(const ob::SpaceInformationPtr& space_informat
         return Result<void>::failure(StatusCode::InvalidArgument,
                                      "OMPL region sampling policy is unsupported", "ompl");
     }
+    if (options.sampling_mode != OmplSamplingMode::OmplDefault &&
+        options.sampling_mode != OmplSamplingMode::AtlasGuided) {
+        return Result<void>::failure(StatusCode::InvalidArgument, "OMPL sampling mode is unsupported",
+                                     "ompl");
+    }
     if (space_information->isSetup()) {
         return Result<void>::failure(StatusCode::InvalidArgument,
                                      "install the OMPL adapter before SpaceInformation::setup", "ompl");
@@ -373,7 +392,7 @@ Result<void> validate_installation(const ob::SpaceInformationPtr& space_informat
         std::dynamic_pointer_cast<ob::RealVectorStateSpace>(space_information->getStateSpace());
     if (!vector_space) {
         return Result<void>::failure(StatusCode::InvalidArgument,
-                                     "v0.3 supports only OMPL RealVectorStateSpace", "ompl");
+                                     "the OMPL adapter supports only RealVectorStateSpace", "ompl");
     }
     if (vector_space->getDimension() != atlas->dimension()) {
         return Result<void>::failure(StatusCode::DimensionMismatch,
@@ -389,6 +408,92 @@ Result<void> validate_installation(const ob::SpaceInformationPtr& space_informat
         }
     }
     return Result<void>::success();
+}
+
+Result<void> validate_planner_options(const OmplPlannerOptions& options) {
+    if (options.planner != OmplPlannerKind::Rrt && options.planner != OmplPlannerKind::RrtStar &&
+        options.planner != OmplPlannerKind::Prm && options.planner != OmplPlannerKind::BitStar) {
+        return Result<void>::failure(StatusCode::InvalidArgument, "OMPL planner kind is unsupported",
+                                     "ompl planning");
+    }
+    if (!std::isfinite(options.maximum_planning_time) || options.maximum_planning_time <= 0.0 ||
+        options.maximum_planning_time > 86'400.0 || !std::isfinite(options.goal_tolerance) ||
+        options.goal_tolerance < 0.0 || !std::isfinite(options.range) || options.range < 0.0 ||
+        options.maximum_solution_states == 0) {
+        return Result<void>::failure(StatusCode::InvalidArgument, "invalid OMPL planning options",
+                                     "ompl planning");
+    }
+    if (options.range > 0.0 &&
+        (options.planner == OmplPlannerKind::Prm || options.planner == OmplPlannerKind::BitStar)) {
+        return Result<void>::failure(StatusCode::InvalidArgument,
+                                     "explicit range is supported only by the RRT and RRT* helpers",
+                                     "ompl planning");
+    }
+    return Result<void>::success();
+}
+
+Result<ob::PlannerPtr> make_seeded_prm(const ob::SpaceInformationPtr& space_information,
+                                       const CertifiedRoadmap& roadmap) {
+    if (!space_information->isSetup()) {
+        return Result<ob::PlannerPtr>::failure(
+            StatusCode::InvalidArgument,
+            "SpaceInformation must be set up before importing a certified roadmap", "ompl");
+    }
+    if (!roadmap.valid() || space_information->getStateDimension() != roadmap.dimension()) {
+        return Result<ob::PlannerPtr>::failure(StatusCode::DimensionMismatch,
+                                               "OMPL space and certified roadmap dimensions differ", "ompl");
+    }
+
+    ob::PlannerData data(space_information);
+    std::vector<ob::State*> allocated;
+    allocated.reserve(roadmap.nodes().size());
+    std::vector<unsigned int> vertex_indices;
+    vertex_indices.reserve(roadmap.nodes().size());
+    auto release = [&]() {
+        for (auto* state : allocated)
+            space_information->freeState(state);
+        allocated.clear();
+    };
+    try {
+        for (const auto& node : roadmap.nodes()) {
+            auto* state = space_information->allocState();
+            allocated.push_back(state);
+            configuration_to_state(node.configuration, state);
+            if (!space_information->satisfiesBounds(state) || !space_information->isValid(state)) {
+                release();
+                return Result<ob::PlannerPtr>::failure(
+                    StatusCode::IdentityMismatch,
+                    "certified roadmap node is not valid under the installed Atlas", "ompl");
+            }
+            vertex_indices.push_back(data.addVertex(ob::PlannerDataVertex(state)));
+        }
+        for (const auto& edge : roadmap.edges()) {
+            const std::size_t first = static_cast<std::size_t>(edge.first - 1);
+            const std::size_t second = static_cast<std::size_t>(edge.second - 1);
+            if (first >= allocated.size() || second >= allocated.size()) {
+                release();
+                return Result<ob::PlannerPtr>::failure(StatusCode::CorruptData,
+                                                       "certified roadmap edge endpoint is invalid", "ompl");
+            }
+            if (!space_information->checkMotion(allocated[first], allocated[second])) {
+                release();
+                return Result<ob::PlannerPtr>::failure(
+                    StatusCode::IdentityMismatch,
+                    "certified roadmap edge is not valid under the installed Atlas", "ompl");
+            }
+            if (vertex_indices[first] == vertex_indices[second])
+                continue;
+            data.addEdge(vertex_indices[first], vertex_indices[second]);
+            data.addEdge(vertex_indices[second], vertex_indices[first]);
+        }
+        data.decoupleFromPlanner();
+        release();
+        return ob::PlannerPtr(std::make_shared<og::PRM>(data));
+    } catch (const std::exception& error) {
+        release();
+        return Result<ob::PlannerPtr>::failure(
+            StatusCode::InternalError, "OMPL roadmap import failed: " + std::string(error.what()), "ompl");
+    }
 }
 
 } // namespace
@@ -424,12 +529,14 @@ Result<OmplAdapter> OmplAdapter::install(const ob::SpaceInformationPtr& space_in
     space_information->setStateValidityChecker(
         std::make_shared<AtlasStateValidityChecker>(space_information, state));
     space_information->setMotionValidator(std::make_shared<AtlasMotionValidator>(space_information, state));
-    space_information->getStateSpace()->setStateSamplerAllocator(
-        [state](const ob::StateSpace* space) -> ob::StateSamplerPtr {
-            const auto stream = state->sampler_stream.fetch_add(1, std::memory_order_relaxed);
-            return std::make_shared<AtlasRegionStateSampler>(space, state,
-                                                             mix_seed(state->options.seed ^ stream));
-        });
+    if (options.sampling_mode == OmplSamplingMode::AtlasGuided) {
+        space_information->getStateSpace()->setStateSamplerAllocator(
+            [state](const ob::StateSpace* space) -> ob::StateSamplerPtr {
+                const auto stream = state->sampler_stream.fetch_add(1, std::memory_order_relaxed);
+                return std::make_shared<AtlasRegionStateSampler>(space, state,
+                                                                 mix_seed(state->options.seed ^ stream));
+            });
+    }
     return Result<OmplAdapter>::success(OmplAdapter(std::move(state)));
 }
 
@@ -457,6 +564,183 @@ void OmplAdapter::reset_stats() const noexcept {
     state_->certified_samples.store(0, std::memory_order_relaxed);
     state_->sampling_fallbacks.store(0, std::memory_order_relaxed);
     state_->audit_failures.store(0, std::memory_order_relaxed);
+}
+
+Result<ob::PlannerPtr> make_ompl_planner(const ob::SpaceInformationPtr& space_information,
+                                         OmplPlannerKind kind, double range,
+                                         const CertifiedRoadmap* roadmap) {
+    if (!space_information) {
+        return Result<ob::PlannerPtr>::failure(StatusCode::InvalidArgument, "OMPL SpaceInformation is null",
+                                               "ompl");
+    }
+    if (!std::isfinite(range) || range < 0.0) {
+        return Result<ob::PlannerPtr>::failure(StatusCode::InvalidArgument, "OMPL planner range is invalid",
+                                               "ompl");
+    }
+    if (kind != OmplPlannerKind::Prm && roadmap != nullptr) {
+        return Result<ob::PlannerPtr>::failure(StatusCode::InvalidArgument,
+                                               "only PRM accepts a certified roadmap seed", "ompl");
+    }
+    switch (kind) {
+    case OmplPlannerKind::Rrt: {
+        auto planner = std::make_shared<og::RRT>(space_information);
+        if (range > 0.0)
+            planner->setRange(range);
+        return ob::PlannerPtr(std::move(planner));
+    }
+    case OmplPlannerKind::RrtStar: {
+        auto planner = std::make_shared<og::RRTstar>(space_information);
+        if (range > 0.0)
+            planner->setRange(range);
+        return ob::PlannerPtr(std::move(planner));
+    }
+    case OmplPlannerKind::Prm:
+        if (range > 0.0) {
+            return Result<ob::PlannerPtr>::failure(StatusCode::InvalidArgument,
+                                                   "PRM does not accept the helper range option", "ompl");
+        }
+        if (roadmap != nullptr)
+            return make_seeded_prm(space_information, *roadmap);
+        return ob::PlannerPtr(std::make_shared<og::PRM>(space_information));
+    case OmplPlannerKind::BitStar:
+        if (range > 0.0) {
+            return Result<ob::PlannerPtr>::failure(StatusCode::InvalidArgument,
+                                                   "BIT* does not accept the helper range option", "ompl");
+        }
+        {
+            auto planner = std::make_shared<og::BITstar>(space_information);
+            planner->setUseKNearest(false);
+            return ob::PlannerPtr(std::move(planner));
+        }
+    }
+    return Result<ob::PlannerPtr>::failure(StatusCode::InvalidArgument, "OMPL planner kind is unsupported",
+                                           "ompl");
+}
+
+Result<OmplPlanResult> OmplPlanner::solve(std::shared_ptr<const SafeAtlas> atlas,
+                                          std::span<const double> start, std::span<const double> goal,
+                                          const OmplPlannerOptions& options) const {
+    auto option_status = validate_planner_options(options);
+    if (!option_status)
+        return option_status.error();
+    if (!atlas) {
+        return Result<OmplPlanResult>::failure(StatusCode::InvalidArgument, "OMPL planning Atlas is null",
+                                               "ompl planning");
+    }
+    auto start_status = validate_configuration(start, atlas->dimension(), "OMPL planning start");
+    if (!start_status)
+        return start_status.error();
+    auto goal_status = validate_configuration(goal, atlas->dimension(), "OMPL planning goal");
+    if (!goal_status)
+        return goal_status.error();
+    if (options.cancellation.cancelled()) {
+        return Result<OmplPlanResult>::failure(StatusCode::Cancelled, "OMPL planning was cancelled",
+                                               "ompl planning");
+    }
+
+    auto space_result = make_ompl_state_space(*atlas);
+    if (!space_result)
+        return space_result.error();
+    auto space_information = std::make_shared<ob::SpaceInformation>(space_result.value());
+    auto adapter_result = OmplAdapter::install(space_information, atlas, options.adapter);
+    if (!adapter_result)
+        return adapter_result.error();
+    auto adapter = std::move(adapter_result).value();
+    space_information->setup();
+
+    ob::ScopedState<ob::RealVectorStateSpace> start_state(space_result.value());
+    ob::ScopedState<ob::RealVectorStateSpace> goal_state(space_result.value());
+    configuration_to_state(start, start_state.get());
+    configuration_to_state(goal, goal_state.get());
+    OmplPlanResult output;
+    if (!space_information->isValid(start_state.get())) {
+        output.status = OmplPlanStatus::InvalidStart;
+        output.stats.adapter = adapter.stats();
+        return output;
+    }
+    if (!space_information->isValid(goal_state.get())) {
+        output.status = OmplPlanStatus::InvalidGoal;
+        output.stats.adapter = adapter.stats();
+        return output;
+    }
+
+    std::optional<CertifiedRoadmap> roadmap;
+    if (options.planner == OmplPlannerKind::Prm && options.seed_prm_from_atlas) {
+        auto roadmap_options = options.roadmap;
+        roadmap_options.cancellation = options.cancellation;
+        auto built = CertifiedRoadmapBuilder{}.build(*atlas, roadmap_options);
+        if (!built)
+            return built.error();
+        output.stats.seeded_roadmap_nodes = built.value().roadmap.nodes().size();
+        output.stats.seeded_roadmap_edges = built.value().roadmap.edges().size();
+        roadmap = std::move(built).value().roadmap;
+    }
+    auto planner_result =
+        make_ompl_planner(space_information, options.planner, options.range, roadmap ? &*roadmap : nullptr);
+    if (!planner_result)
+        return planner_result.error();
+    auto planner = std::move(planner_result).value();
+    auto problem = std::make_shared<ob::ProblemDefinition>(space_information);
+    problem->setStartAndGoalStates(start_state, goal_state, options.goal_tolerance);
+    planner->setProblemDefinition(problem);
+    planner->setup();
+
+    const auto timed = ob::timedPlannerTerminationCondition(options.maximum_planning_time);
+    const auto cancelled =
+        ob::PlannerTerminationCondition([token = options.cancellation]() { return token.cancelled(); });
+    const auto termination = ob::plannerOrTerminationCondition(timed, cancelled);
+    const auto planning_start = std::chrono::steady_clock::now();
+    const auto planner_status = planner->solve(termination);
+    output.stats.planning_time =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - planning_start).count();
+    ob::PlannerData planner_data(space_information);
+    planner->getPlannerData(planner_data);
+    output.stats.planner_vertices = planner_data.numVertices();
+    output.stats.planner_edges = planner_data.numEdges();
+    output.stats.adapter = adapter.stats();
+
+    if (options.cancellation.cancelled() && !problem->hasSolution()) {
+        return Result<OmplPlanResult>::failure(StatusCode::Cancelled, "OMPL planning was cancelled",
+                                               "ompl planning");
+    }
+    if (!planner_status || !problem->hasSolution()) {
+        output.status = OmplPlanStatus::Timeout;
+        return output;
+    }
+    const auto geometric_path = std::dynamic_pointer_cast<og::PathGeometric>(problem->getSolutionPath());
+    if (!geometric_path) {
+        return Result<OmplPlanResult>::failure(
+            StatusCode::InternalError, "OMPL returned a non-geometric solution path", "ompl planning");
+    }
+    if (geometric_path->getStateCount() > options.maximum_solution_states) {
+        return Result<OmplPlanResult>::failure(StatusCode::ResourceLimit,
+                                               "OMPL solution exceeds state budget", "ompl planning");
+    }
+    output.path.reserve(geometric_path->getStateCount());
+    for (const auto* state : geometric_path->getStates())
+        output.path.push_back(configuration_from_state(state, atlas->dimension()));
+    if (output.path.size() == 1)
+        output.path.push_back(output.path.front());
+    output.stats.solution_states = output.path.size();
+    output.stats.solution_length = geometric_path->length();
+    output.stats.exact_solution = problem->hasExactSolution();
+
+    TrajectoryAuditOptions audit_options;
+    audit_options.maximum_region_tests = options.adapter.maximum_region_tests;
+    audit_options.cancellation = options.cancellation;
+    auto audit = TrajectoryAuditor{}.audit(*atlas, output.path, audit_options);
+    if (!audit)
+        return audit.error();
+    output.audit = std::move(audit).value();
+    if (output.audit->status != TrajectoryAuditStatus::Certified) {
+        output.status = OmplPlanStatus::UncertifiedSolution;
+    } else if (!output.stats.exact_solution || planner_status == ob::PlannerStatus::APPROXIMATE_SOLUTION) {
+        output.status = OmplPlanStatus::ApproximateSolution;
+    } else {
+        output.status = OmplPlanStatus::CertifiedExactSolution;
+    }
+    output.stats.adapter = adapter.stats();
+    return output;
 }
 
 } // namespace rbfsafe

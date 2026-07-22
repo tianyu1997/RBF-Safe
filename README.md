@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.7
+geometric safety certificates in robot configuration space. Version 0.8
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -26,6 +26,10 @@ publishes auditable immutable Atlas versions with rollback.
 The generalized region layer unifies AABB, OBB, Portal, TrajectoryTube,
 zonotope, and first-order Taylor records, discovers arbitrary certified
 AABB/OBB intersections, and builds deterministic seed-driven OBB Atlases.
+The planning-consumer layer adds reusable certified sampling and exact-witness
+roadmaps; the OMPL helper runs and audits RRT, RRT*, PRM, and BIT*. The
+optimization layer compiles heterogeneous convex regions into solver-neutral
+TrajOpt/CHOMP/STOMP/MPC constraints.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -45,23 +49,31 @@ certificate.
 - `rbfsafe-inspect` metadata, validation, query, and optional 2-D slice tools.
 - Continuous piecewise-linear trajectory auditing with explicit uncovered
   parameter intervals and deterministic region sequences.
+- Public `RBFSafe::planning` certified region sampler and exact-intersection
+  roadmap seed with explicit budgets, identity checks, and cancellation.
 - Optional `RBFSafe::ompl` adapter with certified-only state checking,
-  continuous edge validation, and certified-region sampling.
+  continuous edge validation, guided/default sampling modes, and audited
+  RRT/RRT*/PRM/BIT* helpers.
 - Public `RBFSafe::corridor` OBB/Portal/HiPaC layer with bounded growth,
   partial-coverage reports, certified route recovery, and schema-1 storage.
 - Public `Pose3d`, deterministic `RBFSafe::ik`, and subject-bound Atlas route
   certificates for region-constrained Safe IK.
 - Optional ROS 2 Jazzy `rbfsafe_moveit` package with certified start-state,
-  final-trajectory, and connected Safe IK gates.
+  final-trajectory, connected Safe IK gates, and Atlas/roadmap-biased
+  constraint sampling.
 - Public `RBFSafe::update` scene differences, envelope-backed certificate
   inheritance, local repair/recovery, and immutable Atlas version stores.
 - Public `RBFSafe::regions` unified certificate database, arbitrary convex
   AABB/OBB Portals, OBB Atlas builder, higher-order correlated IFK, and
   checksummed schema-1 persistence.
+- Public `RBFSafe::optimization` direct/lifted convex constraints, residuals,
+  gradients, bounded projection, waypoint assignment, and named adapters for
+  TrajOpt, CHOMP, STOMP, and MPC.
 
-RBF-Safe does not implement an OMPL planner. Higher-order Portal discovery,
+RBF-Safe configures upstream OMPL planners but does not reimplement them.
+Higher-order Portal discovery,
 continuous-time obstacle motion, execution guarantees, and legacy
-RapidBoxForest cache compatibility remain outside v0.7.
+RapidBoxForest cache compatibility remain outside v0.8.
 
 ## Quick start
 
@@ -143,6 +155,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Safety model](docs/safety-model.md)
 - [Trajectory auditor](docs/trajectory-auditor.md)
 - [OMPL adapter](docs/ompl-adapter.md)
+- [Certified planning consumers](docs/planning-consumers.md)
+- [Optimization adapters](docs/optimization.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)

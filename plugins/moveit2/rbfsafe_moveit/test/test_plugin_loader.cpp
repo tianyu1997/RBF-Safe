@@ -1,6 +1,8 @@
 #include <rbfsafe/rbfsafe.h>
 
 #include <geometry_msgs/msg/pose.hpp>
+#include <moveit/constraint_samplers/constraint_sampler.hpp>
+#include <moveit/constraint_samplers/constraint_sampler_allocator.hpp>
 #include <moveit/kinematics_base/kinematics_base.hpp>
 #include <moveit/planning_interface/planning_request_adapter.hpp>
 #include <moveit/planning_interface/planning_response.hpp>
@@ -43,6 +45,9 @@ TEST(MoveItPlugins, exported_classes_are_discoverable_and_constructible) {
                                                                 "rbfsafe_moveit/CertifiedStartStateAdapter");
     expect_loadable<planning_interface::PlanningResponseAdapter>(
         "planning_interface::PlanningResponseAdapter", "rbfsafe_moveit/CertifiedTrajectoryAdapter");
+    expect_loadable<constraint_samplers::ConstraintSamplerAllocator>(
+        "constraint_samplers::ConstraintSamplerAllocator",
+        "rbfsafe_moveit/CertifiedConstraintSamplerAllocator");
     expect_loadable<kinematics::KinematicsBase>("kinematics::KinematicsBase",
                                                 "rbfsafe_moveit/SafeIkKinematicsPlugin");
 }
@@ -126,6 +131,8 @@ TEST(MoveItPlugins, safe_ik_plugin_solves_an_atlas_connected_pose) {
         rclcpp::Parameter("test_pipeline.group_name", "arm"),
         rclcpp::Parameter("test_pipeline.joint_names", std::vector<std::string>{"joint_1"}),
         rclcpp::Parameter("test_pipeline.tip_link", "tool"),
+        rclcpp::Parameter("test_pipeline.roadmap_bias", 1.0),
+        rclcpp::Parameter("test_pipeline.roadmap_jitter", 0.1),
     });
     auto node = std::make_shared<rclcpp::Node>("rbfsafe_moveit_test", node_options);
 
@@ -172,6 +179,24 @@ TEST(MoveItPlugins, safe_ik_plugin_solves_an_atlas_connected_pose) {
     EXPECT_NE(request_adapter->adapt(planning_scene, request).val,
               moveit_msgs::msg::MoveItErrorCodes::SUCCESS);
     request.start_state.joint_state.position = {0.0};
+
+    pluginlib::ClassLoader<constraint_samplers::ConstraintSamplerAllocator> sampler_loader(
+        "moveit_core", "constraint_samplers::ConstraintSamplerAllocator");
+    auto sampler_allocator =
+        sampler_loader.createSharedInstance("rbfsafe_moveit/CertifiedConstraintSamplerAllocator");
+    moveit_msgs::msg::Constraints sampling_constraints;
+    EXPECT_TRUE(sampler_allocator->canService(planning_scene, "arm", sampling_constraints));
+    auto certified_sampler = sampler_allocator->alloc(planning_scene, "arm", sampling_constraints);
+    ASSERT_NE(certified_sampler, nullptr);
+    moveit::core::RobotState sampled_state(moveit_model);
+    sampled_state.setToDefaultValues();
+    for (std::size_t index = 0; index < 32; ++index) {
+        ASSERT_TRUE(certified_sampler->sample(sampled_state, 8));
+        std::vector<double> sampled_positions;
+        sampled_state.copyJointGroupPositions("arm", sampled_positions);
+        ASSERT_EQ(sampled_positions.size(), 1U);
+        EXPECT_TRUE(built.value().atlas.contains(sampled_positions));
+    }
 
     pluginlib::ClassLoader<planning_interface::PlanningResponseAdapter> response_loader(
         "moveit_core", "planning_interface::PlanningResponseAdapter");

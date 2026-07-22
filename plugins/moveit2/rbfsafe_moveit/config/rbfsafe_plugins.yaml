@@ -7,6 +7,13 @@ ompl:
   joint_names: [joint_1, joint_2]
   tip_link: tool0
   maximum_audit_region_tests: 10000000
+  sampler_seed: 42
+  sampling_policy: volume_weighted
+  maximum_sampling_attempts: 64
+  roadmap_bias: 0.25
+  roadmap_jitter: 0.05
+  maximum_roadmap_nodes: 1000000
+  maximum_roadmap_edges: 2000000
 
 # Kinematics plugin parameters are read from rbfsafe.<group_name>.
 rbfsafe:

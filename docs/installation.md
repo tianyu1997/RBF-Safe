@@ -57,8 +57,8 @@ target_link_libraries(my_consumer PRIVATE RBFSafe::rbfsafe)
 Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
 targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
 `RBFSafe::update`, `RBFSafe::corridor`, `RBFSafe::ik`, and
-`RBFSafe::regions` are available when the aggregate target
-is unnecessary.
+`RBFSafe::regions`, `RBFSafe::planning`, and `RBFSafe::optimization` are
+available when the aggregate target is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
 party dependency. It provides OBB, Portal, and HiPaC APIs. The aggregate
@@ -71,6 +71,11 @@ It has no third-party dependency.
 `RBFSafe::update` provides dynamic scene differences, local Atlas repair, and
 version-store APIs without adding third-party dependencies.
 
+`RBFSafe::planning` provides certified-union sampling and certified roadmap
+construction. `RBFSafe::optimization` provides solver-neutral linear region
+constraints and trajectory assignment. Both are dependency-free beyond the
+RBF-Safe targets they consume and are included by `RBFSafe::rbfsafe`.
+
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:
 
@@ -81,7 +86,9 @@ target_link_libraries(my_planner PRIVATE RBFSafe::ompl)
 
 The package accepts OMPL configurations that provide the current `ompl::ompl`
 target or the legacy `OMPL_INCLUDE_DIRS` and `OMPL_LIBRARIES` variables. The
-base RBF-Safe package and Python wheels do not load OMPL.
+base RBF-Safe package and Python wheels do not load OMPL. The optional
+component exposes high-level RRT, RRT*, PRM, and BIT* helpers; see the
+[OMPL adapter guide](ompl-adapter.md).
 
 ## Build the optional MoveIt 2 package
 

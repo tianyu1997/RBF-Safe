@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "0.7.0"
+    assert rbfsafe.__version__ == "0.8.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -311,6 +311,56 @@ def test_region_database_and_higher_order(
     assert higher_order.contains([0.1, -0.1])
     assert not higher_order.contains([0.1, 0.1])
     assert higher_order.records[0].type == rbfsafe.RegionType.ZONOTOPE
+
+
+def test_certified_planning_and_optimization_consumers() -> None:
+    robot = make_robot()
+    scene = rbfsafe.SceneSnapshot([], "python-planning-v1")
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
+
+    sampler_options = rbfsafe.CertifiedSamplerOptions()
+    sampler_options.seed = 123
+    first_sampler = rbfsafe.CertifiedRegionSampler.create(atlas, sampler_options)
+    second_sampler = rbfsafe.CertifiedRegionSampler.create(atlas, sampler_options)
+    for _ in range(8):
+        first = first_sampler.sample()
+        second = second_sampler.sample()
+        assert first == second
+        assert atlas.contains(first)
+    near = first_sampler.sample_near([0.0, 0.0], 0.1)
+    assert atlas.contains(near)
+    assert sum(value * value for value in near) <= 0.1**2 + 1e-12
+    assert first_sampler.stats.samples_returned == 9
+
+    roadmap_result = rbfsafe.CertifiedRoadmapBuilder().build(atlas)
+    assert roadmap_result.roadmap.valid()
+    assert roadmap_result.stats.region_nodes == 1
+    assert roadmap_result.stats.portal_nodes == 0
+    assert roadmap_result.roadmap.nearest_node([0.1, 0.1]) is not None
+    roadmap_result.roadmap.verify_compatible(robot, scene)
+
+    database = rbfsafe.RegionDatabase.from_atlas(atlas, scene.version)
+    trajectory = [[-1.0, 1.0], [0.0, 0.0], [1.0, -1.0]]
+    assignment = rbfsafe.assign_trajectory_regions(database, trajectory)
+    assert assignment.status == rbfsafe.TrajectoryAssignmentStatus.COMPLETE
+    constraint = rbfsafe.compile_region_constraint(database, assignment.region_ids[0])
+    assert constraint.valid()
+    assert constraint.evaluate([0.0, 0.0]).satisfied
+    assert not constraint.evaluate([2.0, 2.0]).satisfied
+    projection = constraint.project([2.0, 2.0])
+    assert projection.converged
+    assert database.contains(projection.configuration)
+
+    program = rbfsafe.TrajOptRegionAdapter().compile(database, assignment.region_ids)
+    assert program.backend == rbfsafe.OptimizationBackend.TRAJOPT
+    assert rbfsafe.evaluate_trajectory_constraints(program, trajectory).satisfied
+    projected = rbfsafe.project_trajectory_constraints(
+        program, [[-2.0, 2.0], [0.0, 0.0], [2.0, -2.0]]
+    )
+    assert all(stage.converged for stage in projected)
+    assert rbfsafe.ChompRegionAdapter().compile(database, assignment.region_ids).valid()
+    assert rbfsafe.StompRegionAdapter().compile(database, assignment.region_ids).valid()
+    assert rbfsafe.MpcRegionAdapter().compile(database, assignment.region_ids).valid()
 
 
 def test_tool_link_and_specific_identity_error() -> None:

@@ -27,6 +27,7 @@ class CertifiedStartStateAdapter final : public planning_interface::PlanningRequ
         auto loaded = load_resources(node, parameter_namespace);
         resources_ = std::move(loaded.resources);
         initialization_error_ = std::move(loaded.error);
+        register_resources(resources_);
         if (!resources_)
             RCLCPP_ERROR(logger_, "RBF-Safe request adapter is unavailable: %s",
                          initialization_error_.c_str());
@@ -80,6 +81,7 @@ class CertifiedTrajectoryAdapter final : public planning_interface::PlanningResp
         auto loaded = load_resources(node, parameter_namespace);
         resources_ = std::move(loaded.resources);
         initialization_error_ = std::move(loaded.error);
+        register_resources(resources_);
         if (!resources_)
             RCLCPP_ERROR(logger_, "RBF-Safe response adapter is unavailable: %s",
                          initialization_error_.c_str());

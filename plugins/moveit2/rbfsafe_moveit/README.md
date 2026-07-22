@@ -4,11 +4,14 @@
 deliberately built as a separate ament package so the RBF-Safe core and Python wheel keep
 zero ROS dependencies.
 
-The package exports three fail-closed plugins:
+The package exports four plugins. The gates are fail closed; the sampler is an
+acceleration source whose output remains subject to the final gate:
 
 - `CertifiedStartStateAdapter` accepts a request only when its start state is in the Atlas.
 - `CertifiedTrajectoryAdapter` keeps a response only when `TrajectoryAuditor` reports
   `CERTIFIED`; partial, invalid, malformed, and incompatible responses are cleared.
+- `CertifiedConstraintSamplerAllocator` draws only from the registered compatible
+  Atlas and can bias proposals toward its certified roadmap.
 - `SafeIkKinematicsPlugin` returns only pose-checked solutions with a
   `CertifiedConnectivity` Atlas route from the seed state.
 

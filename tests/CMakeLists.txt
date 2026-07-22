@@ -20,6 +20,8 @@ rbfsafe_add_test(rbfsafe_test_safe_ik test_safe_ik.cpp)
 rbfsafe_add_test(rbfsafe_test_dynamic test_dynamic.cpp)
 rbfsafe_add_test(rbfsafe_test_higher_order test_higher_order.cpp)
 rbfsafe_add_test(rbfsafe_test_region_database test_region_database.cpp)
+rbfsafe_add_test(rbfsafe_test_planning test_planning.cpp)
+rbfsafe_add_test(rbfsafe_test_optimization test_optimization.cpp)
 
 if(RBFSAFE_BUILD_OMPL)
     add_executable(rbfsafe_test_ompl test_ompl.cpp)

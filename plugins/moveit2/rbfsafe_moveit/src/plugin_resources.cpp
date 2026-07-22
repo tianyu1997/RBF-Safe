@@ -7,6 +7,9 @@
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,6 +36,47 @@ T parameter(const rclcpp::Node::SharedPtr& node, const std::string& name, T defa
 }
 
 ResourceLoadResult failure(std::string message) { return ResourceLoadResult{nullptr, std::move(message)}; }
+
+std::mutex registry_mutex;
+std::map<std::string, std::vector<std::shared_ptr<const PluginResources>>> registry;
+
+bool same_resource_identity(const PluginResources& left, const PluginResources& right) {
+    if (left.robot.digest() != right.robot.digest() || left.scene.digest() != right.scene.digest()) {
+        return false;
+    }
+    const auto& left_version = left.atlas.version_info().id;
+    const auto& right_version = right.atlas.version_info().id;
+    if (!left_version.empty() || !right_version.empty())
+        return left_version == right_version;
+    if (left.atlas.dimension() != right.atlas.dimension() ||
+        left.atlas.regions().size() != right.atlas.regions().size() ||
+        left.atlas.certificates().size() != right.atlas.certificates().size() ||
+        left.atlas.adjacency() != right.atlas.adjacency()) {
+        return false;
+    }
+    for (std::size_t index = 0; index < left.atlas.certificates().size(); ++index) {
+        if (left.atlas.certificates()[index].id != right.atlas.certificates()[index].id)
+            return false;
+    }
+    for (std::size_t index = 0; index < left.atlas.regions().size(); ++index) {
+        const auto& left_region = left.atlas.regions()[index];
+        const auto& right_region = right.atlas.regions()[index];
+        if (left_region.id != right_region.id ||
+            left_region.certificate_index != right_region.certificate_index ||
+            left_region.component != right_region.component) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool same_registration(const PluginResources& left, const PluginResources& right) {
+    return same_resource_identity(left, right) && left.joint_names == right.joint_names &&
+           left.sampler_options.policy == right.sampler_options.policy &&
+           left.sampler_options.seed == right.sampler_options.seed &&
+           left.sampler_options.maximum_attempts == right.sampler_options.maximum_attempts &&
+           left.roadmap_bias == right.roadmap_bias && left.roadmap_jitter == right.roadmap_jitter;
+}
 
 } // namespace
 
@@ -101,11 +145,35 @@ ResourceLoadResult load_resources(const rclcpp::Node::SharedPtr& node, const std
         parameter<int64_t>(node, parameter_name(parameter_namespace, "maximum_region_attempts"), 256);
     const int64_t maximum_audit_region_tests = parameter<int64_t>(
         node, parameter_name(parameter_namespace, "maximum_audit_region_tests"), 10'000'000);
+    const int64_t sampler_seed =
+        parameter<int64_t>(node, parameter_name(parameter_namespace, "sampler_seed"), 42);
+    const int64_t maximum_sampling_attempts =
+        parameter<int64_t>(node, parameter_name(parameter_namespace, "maximum_sampling_attempts"), 64);
+    const std::string sampling_policy = parameter<std::string>(
+        node, parameter_name(parameter_namespace, "sampling_policy"), "volume_weighted");
+    const double roadmap_bias =
+        parameter<double>(node, parameter_name(parameter_namespace, "roadmap_bias"), 0.25);
+    const double roadmap_jitter =
+        parameter<double>(node, parameter_name(parameter_namespace, "roadmap_jitter"), 0.05);
+    const int64_t maximum_roadmap_nodes =
+        parameter<int64_t>(node, parameter_name(parameter_namespace, "maximum_roadmap_nodes"), 1'000'000);
+    const int64_t maximum_roadmap_edges =
+        parameter<int64_t>(node, parameter_name(parameter_namespace, "maximum_roadmap_edges"), 2'000'000);
     if (!std::isfinite(position_tolerance) || position_tolerance < 0.0 ||
         !std::isfinite(orientation_tolerance) || orientation_tolerance < 0.0 || maximum_iterations < 0 ||
         maximum_iterations > 10'000 || maximum_region_attempts <= 0 || maximum_region_attempts > 1'000'000 ||
-        maximum_audit_region_tests <= 0)
-        return failure("Safe IK or trajectory audit resource limits are invalid");
+        maximum_audit_region_tests <= 0 || sampler_seed < 0 || maximum_sampling_attempts <= 0 ||
+        maximum_sampling_attempts > 1'000'000 || !std::isfinite(roadmap_bias) || roadmap_bias < 0.0 ||
+        roadmap_bias > 1.0 || !std::isfinite(roadmap_jitter) || roadmap_jitter < 0.0 ||
+        maximum_roadmap_nodes <= 0 || maximum_roadmap_edges <= 0)
+        return failure("Safe IK, audit, or certified-sampling options are invalid");
+    if (sampling_policy == "uniform_regions") {
+        resources->sampler_options.policy = rbfsafe::CertifiedSamplingPolicy::UniformRegions;
+    } else if (sampling_policy == "volume_weighted") {
+        resources->sampler_options.policy = rbfsafe::CertifiedSamplingPolicy::VolumeWeighted;
+    } else {
+        return failure("sampling_policy must be 'uniform_regions' or 'volume_weighted'");
+    }
 
     resources->safe_ik_options.position_tolerance = position_tolerance;
     resources->safe_ik_options.orientation_tolerance = orientation_tolerance;
@@ -113,6 +181,17 @@ ResourceLoadResult load_resources(const rclcpp::Node::SharedPtr& node, const std
     resources->safe_ik_options.maximum_region_attempts = static_cast<std::size_t>(maximum_region_attempts);
     resources->safe_ik_options.require_connectivity = true;
     resources->audit_options.maximum_region_tests = static_cast<std::size_t>(maximum_audit_region_tests);
+    resources->sampler_options.seed = static_cast<std::uint64_t>(sampler_seed);
+    resources->sampler_options.maximum_attempts = static_cast<std::size_t>(maximum_sampling_attempts);
+    resources->roadmap_bias = roadmap_bias;
+    resources->roadmap_jitter = roadmap_jitter;
+    rbfsafe::CertifiedRoadmapOptions roadmap_options;
+    roadmap_options.maximum_nodes = static_cast<std::size_t>(maximum_roadmap_nodes);
+    roadmap_options.maximum_edges = static_cast<std::size_t>(maximum_roadmap_edges);
+    auto roadmap = rbfsafe::CertifiedRoadmapBuilder{}.build(resources->atlas, roadmap_options);
+    if (!roadmap)
+        return failure("cannot build certified roadmap: " + roadmap.error().describe());
+    resources->roadmap = std::move(roadmap).value().roadmap;
     return ResourceLoadResult{std::move(resources), {}};
 }
 
@@ -149,6 +228,37 @@ rbfsafe::Configuration extract_group_positions(const moveit::core::RobotState& s
     if (group != nullptr)
         state.copyJointGroupPositions(group, result);
     return result;
+}
+
+void register_resources(std::shared_ptr<const PluginResources> resources) {
+    if (!resources)
+        return;
+    std::lock_guard lock(registry_mutex);
+    auto& candidates = registry[resources->group_name];
+    const auto duplicate = std::find_if(candidates.begin(), candidates.end(), [&](const auto& candidate) {
+        return same_registration(*candidate, *resources);
+    });
+    if (duplicate == candidates.end())
+        candidates.push_back(std::move(resources));
+}
+
+std::shared_ptr<const PluginResources> registered_resources(const std::string& group_name,
+                                                            const moveit::core::RobotModel& robot_model) {
+    std::lock_guard lock(registry_mutex);
+    const auto found = registry.find(group_name);
+    if (found == registry.end())
+        return {};
+    std::shared_ptr<const PluginResources> selected;
+    for (const auto& candidate : found->second) {
+        std::string error;
+        if (!validate_moveit_group(robot_model, *candidate, error))
+            continue;
+        if (selected && !same_resource_identity(*selected, *candidate)) {
+            return {};
+        }
+        selected = candidate;
+    }
+    return selected;
 }
 
 } // namespace rbfsafe_moveit

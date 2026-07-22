@@ -24,7 +24,10 @@ Inspect the source tree for build products, absolute paths, paper assets,
 legacy caches, generated Atlas directories, and old-library dependencies.
 Run the C++ and Python quickstarts, save/load/query/update an Atlas,
 save/load/query a generalized region database, and verify the fixed Atlas
-schema-v1 compatibility fixture and schema-v2 payload hashes.
+schema-v1 compatibility fixture and schema-v2 payload hashes. Build the
+certified roadmap and optimization quickstarts, exercise all four supported
+OMPL planner kinds when that component is enabled, and run the MoveIt request,
+response, IK, and constraint-sampler plugin tests in a sourced Jazzy workspace.
 
 ## 3. Package
 

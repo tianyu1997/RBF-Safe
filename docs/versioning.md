@@ -54,6 +54,12 @@ checksummed JSON payload and rebuilds its graph on load. It neither changes
 Atlas schema 2 nor corridor schema 1. Conversion from those formats is an
 explicit in-memory import, not transparent reinterpretation.
 
+The v0.8 planning and optimization targets do not change any input or storage
+schema. Certified roadmaps, OMPL planner state, linear constraint programs,
+and trajectory assignments are derived in-memory artifacts. Persisting one in
+a future release requires a separately versioned format rather than reusing an
+Atlas, corridor, or region-database schema.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene

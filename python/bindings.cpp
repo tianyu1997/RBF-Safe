@@ -957,6 +957,260 @@ PYBIND11_MODULE(_rbfsafe, module) {
             py::arg("robot"), py::arg("scene"), py::arg("samples"),
             py::arg("options") = ObbAtlasBuildOptions{});
 
+    py::enum_<CertifiedSamplingPolicy>(module, "CertifiedSamplingPolicy")
+        .value("UNIFORM_REGIONS", CertifiedSamplingPolicy::UniformRegions)
+        .value("VOLUME_WEIGHTED", CertifiedSamplingPolicy::VolumeWeighted);
+
+    py::class_<CertifiedSamplerOptions>(module, "CertifiedSamplerOptions")
+        .def(py::init<>())
+        .def_readwrite("policy", &CertifiedSamplerOptions::policy)
+        .def_readwrite("seed", &CertifiedSamplerOptions::seed)
+        .def_readwrite("maximum_attempts", &CertifiedSamplerOptions::maximum_attempts);
+
+    py::class_<CertifiedSamplerStats>(module, "CertifiedSamplerStats")
+        .def_readonly("samples_requested", &CertifiedSamplerStats::samples_requested)
+        .def_readonly("samples_returned", &CertifiedSamplerStats::samples_returned)
+        .def_readonly("near_samples_requested", &CertifiedSamplerStats::near_samples_requested)
+        .def_readonly("rejected_attempts", &CertifiedSamplerStats::rejected_attempts);
+
+    py::class_<CertifiedRegionSampler>(module, "CertifiedRegionSampler")
+        .def_static(
+            "create",
+            [](const SafeAtlas& atlas, const CertifiedSamplerOptions& options) {
+                return unwrap(
+                    CertifiedRegionSampler::create(std::make_shared<const SafeAtlas>(atlas), options));
+            },
+            py::arg("atlas"), py::arg("options") = CertifiedSamplerOptions{})
+        .def("sample", [](CertifiedRegionSampler& sampler) { return unwrap(sampler.sample()); })
+        .def(
+            "sample_near",
+            [](CertifiedRegionSampler& sampler, const Configuration& reference, double distance) {
+                return unwrap(sampler.sample_near(view(reference), distance));
+            },
+            py::arg("reference"), py::arg("maximum_distance"))
+        .def_property_readonly("stats", [](const CertifiedRegionSampler& sampler) { return sampler.stats(); })
+        .def("reset_stats", &CertifiedRegionSampler::reset_stats)
+        .def("valid", &CertifiedRegionSampler::valid);
+
+    py::enum_<RoadmapNodeKind>(module, "RoadmapNodeKind")
+        .value("REGION_CENTER", RoadmapNodeKind::RegionCenter)
+        .value("PORTAL_WITNESS", RoadmapNodeKind::PortalWitness);
+
+    py::class_<CertifiedRoadmapNode>(module, "CertifiedRoadmapNode")
+        .def_readonly("id", &CertifiedRoadmapNode::id)
+        .def_readonly("kind", &CertifiedRoadmapNode::kind)
+        .def_readonly("configuration", &CertifiedRoadmapNode::configuration)
+        .def_readonly("support_regions", &CertifiedRoadmapNode::support_regions);
+
+    py::class_<CertifiedRoadmapEdge>(module, "CertifiedRoadmapEdge")
+        .def_readonly("first", &CertifiedRoadmapEdge::first)
+        .def_readonly("second", &CertifiedRoadmapEdge::second)
+        .def_readonly("covering_region", &CertifiedRoadmapEdge::covering_region);
+
+    py::class_<CertifiedRoadmapOptions>(module, "CertifiedRoadmapOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_nodes", &CertifiedRoadmapOptions::maximum_nodes)
+        .def_readwrite("maximum_edges", &CertifiedRoadmapOptions::maximum_edges)
+        .def_readwrite("cancellation", &CertifiedRoadmapOptions::cancellation);
+
+    py::class_<CertifiedRoadmapStats>(module, "CertifiedRoadmapStats")
+        .def_readonly("region_nodes", &CertifiedRoadmapStats::region_nodes)
+        .def_readonly("portal_nodes", &CertifiedRoadmapStats::portal_nodes)
+        .def_readonly("edges", &CertifiedRoadmapStats::edges)
+        .def_readonly("nonintersecting_adjacencies", &CertifiedRoadmapStats::nonintersecting_adjacencies);
+
+    py::class_<CertifiedRoadmap>(module, "CertifiedRoadmap")
+        .def_property_readonly("dimension", &CertifiedRoadmap::dimension)
+        .def_property_readonly("robot_digest", &CertifiedRoadmap::robot_digest)
+        .def_property_readonly("scene_digest", &CertifiedRoadmap::scene_digest)
+        .def_property_readonly("nodes", &CertifiedRoadmap::nodes)
+        .def_property_readonly("edges", &CertifiedRoadmap::edges)
+        .def("nearest_node",
+             [](const CertifiedRoadmap& roadmap, const Configuration& configuration) {
+                 return unwrap(roadmap.nearest_node(view(configuration)));
+             })
+        .def("verify_compatible",
+             [](const CertifiedRoadmap& roadmap, const SerialRobotModel& robot, const SceneSnapshot& scene) {
+                 unwrap_void(roadmap.verify_compatible(robot, scene));
+             })
+        .def("valid", &CertifiedRoadmap::valid);
+
+    py::class_<CertifiedRoadmapBuildResult>(module, "CertifiedRoadmapBuildResult")
+        .def_readonly("roadmap", &CertifiedRoadmapBuildResult::roadmap)
+        .def_readonly("stats", &CertifiedRoadmapBuildResult::stats);
+
+    py::class_<CertifiedRoadmapBuilder>(module, "CertifiedRoadmapBuilder")
+        .def(py::init<>())
+        .def(
+            "build",
+            [](const CertifiedRoadmapBuilder& builder, const SafeAtlas& atlas,
+               const CertifiedRoadmapOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return builder.build(atlas, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("atlas"), py::arg("options") = CertifiedRoadmapOptions{});
+
+    py::enum_<OptimizationBackend>(module, "OptimizationBackend")
+        .value("TRAJOPT", OptimizationBackend::TrajOpt)
+        .value("CHOMP", OptimizationBackend::Chomp)
+        .value("STOMP", OptimizationBackend::Stomp)
+        .value("MPC", OptimizationBackend::Mpc);
+
+    py::class_<RegionConstraintResidual>(module, "RegionConstraintResidual")
+        .def_readonly("satisfied", &RegionConstraintResidual::satisfied)
+        .def_readonly("maximum_violation", &RegionConstraintResidual::maximum_violation)
+        .def_readonly("squared_penalty", &RegionConstraintResidual::squared_penalty)
+        .def_readonly("configuration_gradient", &RegionConstraintResidual::configuration_gradient)
+        .def_readonly("auxiliary_gradient", &RegionConstraintResidual::auxiliary_gradient);
+
+    py::class_<ConstraintProjectionOptions>(module, "ConstraintProjectionOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_iterations", &ConstraintProjectionOptions::maximum_iterations)
+        .def_readwrite("tolerance", &ConstraintProjectionOptions::tolerance)
+        .def_readwrite("cancellation", &ConstraintProjectionOptions::cancellation);
+
+    py::class_<ConstraintProjection>(module, "ConstraintProjection")
+        .def_readonly("converged", &ConstraintProjection::converged)
+        .def_readonly("configuration", &ConstraintProjection::configuration)
+        .def_readonly("auxiliary", &ConstraintProjection::auxiliary)
+        .def_readonly("maximum_violation", &ConstraintProjection::maximum_violation)
+        .def_readonly("iterations", &ConstraintProjection::iterations);
+
+    py::class_<LinearRegionConstraint>(module, "LinearRegionConstraint")
+        .def_readonly("region_id", &LinearRegionConstraint::region_id)
+        .def_readonly("region_type", &LinearRegionConstraint::region_type)
+        .def_readonly("certificate_id", &LinearRegionConstraint::certificate_id)
+        .def_readonly("configuration_dimension", &LinearRegionConstraint::configuration_dimension)
+        .def_readonly("auxiliary_dimension", &LinearRegionConstraint::auxiliary_dimension)
+        .def_readonly("inequality_matrix", &LinearRegionConstraint::inequality_matrix)
+        .def_readonly("inequality_upper", &LinearRegionConstraint::inequality_upper)
+        .def_readonly("equality_matrix", &LinearRegionConstraint::equality_matrix)
+        .def_readonly("equality_value", &LinearRegionConstraint::equality_value)
+        .def_readonly("auxiliary_bounds", &LinearRegionConstraint::auxiliary_bounds)
+        .def_property_readonly("variable_dimension", &LinearRegionConstraint::variable_dimension)
+        .def_property_readonly("inequality_count", &LinearRegionConstraint::inequality_count)
+        .def_property_readonly("equality_count", &LinearRegionConstraint::equality_count)
+        .def(
+            "evaluate",
+            [](const LinearRegionConstraint& constraint, const Configuration& configuration,
+               const std::vector<double>& auxiliary, double tolerance) {
+                return unwrap(constraint.evaluate(view(configuration), auxiliary, tolerance));
+            },
+            py::arg("configuration"), py::arg("auxiliary") = std::vector<double>{},
+            py::arg("tolerance") = 1e-10)
+        .def(
+            "project",
+            [](const LinearRegionConstraint& constraint, const Configuration& configuration,
+               const ConstraintProjectionOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return constraint.project(view(configuration), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("configuration"), py::arg("options") = ConstraintProjectionOptions{})
+        .def("valid", &LinearRegionConstraint::valid);
+
+    module.def("compile_region_constraint", [](const RegionDatabase& database, RegionId region_id) {
+        return unwrap(compile_region_constraint(database, region_id));
+    });
+
+    py::enum_<TrajectoryAssignmentStatus>(module, "TrajectoryAssignmentStatus")
+        .value("COMPLETE", TrajectoryAssignmentStatus::Complete)
+        .value("PARTIAL", TrajectoryAssignmentStatus::Partial)
+        .value("INVALID", TrajectoryAssignmentStatus::Invalid);
+
+    py::class_<TrajectoryAssignmentOptions>(module, "TrajectoryAssignmentOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_waypoints", &TrajectoryAssignmentOptions::maximum_waypoints)
+        .def_readwrite("maximum_region_tests", &TrajectoryAssignmentOptions::maximum_region_tests)
+        .def_readwrite("cancellation", &TrajectoryAssignmentOptions::cancellation);
+
+    py::class_<TrajectoryRegionAssignment>(module, "TrajectoryRegionAssignment")
+        .def_readonly("status", &TrajectoryRegionAssignment::status)
+        .def_readonly("region_ids", &TrajectoryRegionAssignment::region_ids)
+        .def_readonly("assigned_waypoints", &TrajectoryRegionAssignment::assigned_waypoints)
+        .def_readonly("first_unassigned_waypoint", &TrajectoryRegionAssignment::first_unassigned_waypoint)
+        .def_readonly("region_tests", &TrajectoryRegionAssignment::region_tests);
+
+    module.def(
+        "assign_trajectory_regions",
+        [](const RegionDatabase& database, const std::vector<Configuration>& trajectory,
+           const TrajectoryAssignmentOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return assign_trajectory_regions(database, trajectory, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("database"), py::arg("trajectory"), py::arg("options") = TrajectoryAssignmentOptions{});
+
+    py::class_<TrajectoryConstraintProgram>(module, "TrajectoryConstraintProgram")
+        .def_readonly("backend", &TrajectoryConstraintProgram::backend)
+        .def_readonly("configuration_dimension", &TrajectoryConstraintProgram::configuration_dimension)
+        .def_readonly("region_ids", &TrajectoryConstraintProgram::region_ids)
+        .def_readonly("stages", &TrajectoryConstraintProgram::stages)
+        .def("valid", &TrajectoryConstraintProgram::valid);
+
+    py::class_<ProgramEvaluation>(module, "ProgramEvaluation")
+        .def_readonly("satisfied", &ProgramEvaluation::satisfied)
+        .def_readonly("maximum_violation", &ProgramEvaluation::maximum_violation)
+        .def_readonly("squared_penalty", &ProgramEvaluation::squared_penalty)
+        .def_readonly("stages", &ProgramEvaluation::stages);
+
+    module.def("compile_trajectory_constraints",
+               [](const RegionDatabase& database, const std::vector<RegionId>& region_ids,
+                  OptimizationBackend backend) {
+                   return unwrap(compile_trajectory_constraints(database, region_ids, backend));
+               });
+    module.def(
+        "evaluate_trajectory_constraints",
+        [](const TrajectoryConstraintProgram& program, const std::vector<Configuration>& trajectory,
+           const std::vector<std::vector<double>>& auxiliary, double tolerance) {
+            return unwrap(evaluate_trajectory_constraints(program, trajectory, auxiliary, tolerance));
+        },
+        py::arg("program"), py::arg("trajectory"), py::arg("auxiliary") = std::vector<std::vector<double>>{},
+        py::arg("tolerance") = 1e-10);
+    module.def(
+        "project_trajectory_constraints",
+        [](const TrajectoryConstraintProgram& program, const std::vector<Configuration>& trajectory,
+           const ConstraintProjectionOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return project_trajectory_constraints(program, trajectory, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("program"), py::arg("trajectory"), py::arg("options") = ConstraintProjectionOptions{});
+
+    py::class_<TrajOptRegionAdapter>(module, "TrajOptRegionAdapter")
+        .def(py::init<>())
+        .def("compile", [](const TrajOptRegionAdapter& adapter, const RegionDatabase& database,
+                           const std::vector<RegionId>& region_ids) {
+            return unwrap(adapter.compile(database, region_ids));
+        });
+    py::class_<ChompRegionAdapter>(module, "ChompRegionAdapter")
+        .def(py::init<>())
+        .def("compile", [](const ChompRegionAdapter& adapter, const RegionDatabase& database,
+                           const std::vector<RegionId>& region_ids) {
+            return unwrap(adapter.compile(database, region_ids));
+        });
+    py::class_<StompRegionAdapter>(module, "StompRegionAdapter")
+        .def(py::init<>())
+        .def("compile", [](const StompRegionAdapter& adapter, const RegionDatabase& database,
+                           const std::vector<RegionId>& region_ids) {
+            return unwrap(adapter.compile(database, region_ids));
+        });
+    py::class_<MpcRegionAdapter>(module, "MpcRegionAdapter")
+        .def(py::init<>())
+        .def("compile", [](const MpcRegionAdapter& adapter, const RegionDatabase& database,
+                           const std::vector<RegionId>& region_ids) {
+            return unwrap(adapter.compile(database, region_ids));
+        });
+
     py::class_<AtlasBuildResult>(module, "AtlasBuildResult")
         .def_readonly("atlas", &AtlasBuildResult::atlas)
         .def_readonly("stats", &AtlasBuildResult::stats);

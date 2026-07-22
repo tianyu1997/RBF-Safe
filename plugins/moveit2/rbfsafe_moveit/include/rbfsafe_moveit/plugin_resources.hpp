@@ -20,6 +20,10 @@ struct PluginResources {
     std::string tip_link;
     rbfsafe::SafeIkOptions safe_ik_options;
     rbfsafe::TrajectoryAuditOptions audit_options;
+    rbfsafe::CertifiedSamplerOptions sampler_options;
+    rbfsafe::CertifiedRoadmap roadmap;
+    double roadmap_bias = 0.25;
+    double roadmap_jitter = 0.05;
 };
 
 struct ResourceLoadResult {
@@ -35,5 +39,9 @@ bool validate_moveit_group(const moveit::core::RobotModel& robot_model, const Pl
 
 rbfsafe::Configuration extract_group_positions(const moveit::core::RobotState& state,
                                                const PluginResources& resources);
+
+void register_resources(std::shared_ptr<const PluginResources> resources);
+std::shared_ptr<const PluginResources> registered_resources(const std::string& group_name,
+                                                            const moveit::core::RobotModel& robot_model);
 
 } // namespace rbfsafe_moveit

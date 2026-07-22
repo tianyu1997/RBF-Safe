@@ -6,6 +6,7 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 
+#include <array>
 #include <cmath>
 #include <memory>
 #include <utility>
@@ -122,6 +123,23 @@ int main() {
     deterministic_information_a->freeState(deterministic_state_a);
     deterministic_information_b->freeState(deterministic_state_b);
 
+    OmplAdapterOptions default_sampling_options;
+    default_sampling_options.sampling_mode = OmplSamplingMode::OmplDefault;
+    auto default_sampling_space = make_ompl_state_space(*complete_atlas);
+    CHECK(default_sampling_space);
+    auto default_sampling_information =
+        std::make_shared<ob::SpaceInformation>(default_sampling_space.value());
+    auto default_sampling_adapter =
+        OmplAdapter::install(default_sampling_information, complete_atlas, default_sampling_options);
+    CHECK(default_sampling_adapter);
+    default_sampling_information->setup();
+    auto default_sampler = default_sampling_information->allocStateSampler();
+    auto* default_state = default_sampling_information->allocState();
+    default_sampler->sampleUniform(default_state);
+    CHECK(default_sampling_information->isValid(default_state));
+    CHECK(default_sampling_adapter.value().stats().samples_requested == 0);
+    default_sampling_information->freeState(default_state);
+
     auto late_space = make_ompl_state_space(*complete_atlas);
     CHECK(late_space);
     auto late_information = std::make_shared<ob::SpaceInformation>(late_space.value());
@@ -170,6 +188,15 @@ int main() {
         OmplAdapter::install(invalid_policy_information, complete_atlas, invalid_policy_options);
     CHECK(!invalid_policy_install);
     CHECK(invalid_policy_install.error().code == StatusCode::InvalidArgument);
+    OmplAdapterOptions invalid_sampling_mode;
+    invalid_sampling_mode.sampling_mode = static_cast<OmplSamplingMode>(99);
+    auto invalid_mode_space = make_ompl_state_space(*complete_atlas);
+    CHECK(invalid_mode_space);
+    auto invalid_mode_information = std::make_shared<ob::SpaceInformation>(invalid_mode_space.value());
+    auto invalid_mode_install =
+        OmplAdapter::install(invalid_mode_information, complete_atlas, invalid_sampling_mode);
+    CHECK(!invalid_mode_install);
+    CHECK(invalid_mode_install.error().code == StatusCode::InvalidArgument);
 
     SerialRobotModel prismatic("ompl-prismatic", {{0.0, 0.0, 0.0, 0.0, JointType::Prismatic}}, {{0.0, 2.0}},
                                {0.05});
@@ -225,5 +252,70 @@ int main() {
                      }())
               .value()
               .status == TrajectoryAuditStatus::Certified);
+
+    const Configuration helper_start{-1.0, -1.0};
+    const Configuration helper_goal{1.0, 1.0};
+    const std::array<OmplPlannerKind, 4> planner_kinds{OmplPlannerKind::Rrt, OmplPlannerKind::RrtStar,
+                                                       OmplPlannerKind::Prm, OmplPlannerKind::BitStar};
+    for (const auto kind : planner_kinds) {
+        OmplPlannerOptions planner_options;
+        planner_options.planner = kind;
+        planner_options.maximum_planning_time = 0.5;
+        planner_options.adapter.seed = 77;
+        auto planned = OmplPlanner{}.solve(complete_atlas, helper_start, helper_goal, planner_options);
+        CHECK(planned);
+        CHECK(planned.value().status == OmplPlanStatus::CertifiedExactSolution);
+        CHECK(planned.value().audit.has_value());
+        CHECK(planned.value().audit->status == TrajectoryAuditStatus::Certified);
+        CHECK(planned.value().stats.exact_solution);
+        CHECK(planned.value().stats.solution_states >= 2);
+        CHECK(planned.value().stats.planner_vertices > 0);
+        CHECK(planned.value().stats.adapter.motion_queries > 0);
+        if (kind == OmplPlannerKind::Prm) {
+            CHECK(planned.value().stats.seeded_roadmap_nodes == 1);
+            CHECK(planned.value().stats.seeded_roadmap_edges == 0);
+        }
+    }
+
+    OmplPlannerOptions default_helper_options;
+    default_helper_options.maximum_planning_time = 0.5;
+    default_helper_options.adapter.sampling_mode = OmplSamplingMode::OmplDefault;
+    auto default_helper =
+        OmplPlanner{}.solve(complete_atlas, helper_start, helper_goal, default_helper_options);
+    CHECK(default_helper);
+    CHECK(default_helper.value().status == OmplPlanStatus::CertifiedExactSolution);
+    CHECK(default_helper.value().stats.adapter.samples_requested == 0);
+
+    OmplPlannerOptions invalid_prm_range;
+    invalid_prm_range.planner = OmplPlannerKind::Prm;
+    invalid_prm_range.range = 0.1;
+    auto bad_range = OmplPlanner{}.solve(complete_atlas, helper_start, helper_goal, invalid_prm_range);
+    CHECK(!bad_range);
+    CHECK(bad_range.error().code == StatusCode::InvalidArgument);
+    OmplPlannerOptions cancelled_planning;
+    cancelled_planning.cancellation.cancel();
+    auto cancelled_plan = OmplPlanner{}.solve(complete_atlas, helper_start, helper_goal, cancelled_planning);
+    CHECK(!cancelled_plan);
+    CHECK(cancelled_plan.error().code == StatusCode::Cancelled);
+
+    auto invalid_start = OmplPlanner{}.solve(split_atlas, Configuration{1.5}, Configuration{0.25});
+    CHECK(invalid_start);
+    CHECK(invalid_start.value().status == OmplPlanStatus::InvalidStart);
+    auto invalid_goal = OmplPlanner{}.solve(split_atlas, Configuration{0.25}, Configuration{1.5});
+    CHECK(invalid_goal);
+    CHECK(invalid_goal.value().status == OmplPlanStatus::InvalidGoal);
+
+    auto roadmap = CertifiedRoadmapBuilder{}.build(*complete_atlas);
+    CHECK(roadmap);
+    auto seeded_space = make_ompl_state_space(*complete_atlas);
+    CHECK(seeded_space);
+    auto seeded_information = std::make_shared<ob::SpaceInformation>(seeded_space.value());
+    CHECK(OmplAdapter::install(seeded_information, complete_atlas));
+    seeded_information->setup();
+    CHECK(make_ompl_planner(seeded_information, OmplPlannerKind::Prm, 0.0, &roadmap.value().roadmap));
+    auto invalid_seed_target =
+        make_ompl_planner(seeded_information, OmplPlannerKind::Rrt, 0.0, &roadmap.value().roadmap);
+    CHECK(!invalid_seed_target);
+    CHECK(invalid_seed_target.error().code == StatusCode::InvalidArgument);
     return EXIT_SUCCESS;
 }

@@ -9,7 +9,9 @@ RBFSafe::geometry
        -> RBFSafe::atlas
           |-> RBFSafe::update
           |-> RBFSafe::ik
+          |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
+                                      `-> RBFSafe::optimization
 
 All core targets -> RBFSafe::rbfsafe (aggregate target)
 ```
@@ -67,6 +69,22 @@ the Atlas and corridor public models but does not alter their storage schemas.
 Its own schema-1 directory persists every generalized geometry and rebuilds
 the connectivity graph during validated loading.
 
+### Planning consumers
+
+`RBFSafe::planning` owns a deterministic sampler over the certified Atlas
+union and an in-memory certified roadmap. Roadmap center-to-portal edges are
+accepted only when a single certified convex AABB covers each edge. The target
+depends only on Atlas and remains independent of any third-party planner.
+
+### Optimization consumers
+
+`RBFSafe::optimization` compiles generalized regions into solver-neutral
+linear constraints. AABB, OBB, and Portal records become half-space systems;
+zonotope and Taylor records use bounded lifted variables. It also provides
+trajectory-to-region assignment, residual evaluation, bounded projection, and
+named TrajOpt, CHOMP, STOMP, and MPC front ends. These front ends produce
+portable constraint data and do not link those external solvers.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -75,18 +93,21 @@ same validating reader used by the library.
 
 ### Optional OMPL adapter
 
-`RBFSafe::ompl` depends on `RBFSafe::atlas` and OMPL, but the dependency does
+`RBFSafe::ompl` depends on `RBFSafe::planning` and OMPL, but the dependency does
 not flow back into the core targets or Python wheels. It owns the conversion
 between `RealVectorStateSpace` states and configurations, strict Atlas-backed
 state validity, continuous edge validation through `TrajectoryAuditor`, and
-certified-region sampling.
+certified-region sampling. Its high-level helper selects upstream RRT, RRT*,
+PRM, or BIT*, can seed PRM with a revalidated certified roadmap, and audits
+every returned path before reporting a certified exact solution.
 
 ### Optional MoveIt 2 integration
 
 `plugins/moveit2/rbfsafe_moveit` is an independent ROS 2 Jazzy ament package.
 It consumes the installed core through `find_package(RBFSafe)` and exports
-request/response adapters plus a `KinematicsBase` plugin. No ROS, URDF,
-MoveIt, or pluginlib type enters a core public header or Python wheel.
+request/response adapters, a certified constraint-sampler allocator, and a
+`KinematicsBase` plugin. No ROS, URDF, MoveIt, or pluginlib type enters a core
+public header or Python wheel.
 
 The trajectory auditor remains in the Atlas layer: it consumes immutable
 certified regions and produces a report without depending on robot geometry,
@@ -134,3 +155,5 @@ components and bind subject digests.
   are never injected into the Atlas binary files.
 - Region-database schema 1 is a third independent format and imports producers
   only through explicit validated conversion.
+- Planning roadmaps and optimization programs are derived, in-memory consumer
+  artifacts in v0.8; neither introduces a storage schema or raises evidence.

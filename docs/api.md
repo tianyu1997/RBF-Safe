@@ -39,7 +39,7 @@ custom `RegionValidator` must attach one valid conservative workspace AABB per
 robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
-convergence remains `PointChecked`. No v0.7 component issues
+convergence remains `PointChecked`. No v0.8 component issues
 `RuntimeExecutable`.
 
 ## LECT
@@ -140,12 +140,28 @@ creates a bounded `ompl::base::RealVectorStateSpace` from the Atlas root.
 
 - a state validity checker that returns true only for certified Atlas states;
 - a motion validator that requires continuous certified coverage of each edge;
-- a state sampler that draws from certified regions; and
+- an optional state sampler that draws from certified regions; and
 - atomic query, motion, sampling, fallback, and audit-failure counters.
 
 The adapter holds a shared immutable Atlas. Its bounds and dimensions must
-exactly match the OMPL real-vector space. Unknown coverage returns false; v0.5
-has no fallback collision checker. See the [OMPL adapter guide](ompl-adapter.md).
+exactly match the OMPL real-vector space. Unknown coverage returns false; there
+is no fallback collision checker. `OmplPlanner` selects upstream RRT, RRT*,
+PRM, or BIT*, optionally seeds PRM from `CertifiedRoadmap`, and independently
+audits every returned path. See the [OMPL adapter guide](ompl-adapter.md).
+
+## Certified planning primitives
+
+Include `<rbfsafe/planning.h>` and link `RBFSafe::planning`.
+
+- `CertifiedRegionSampler` provides seeded uniform or volume-weighted sampling
+  and bounded certified near-sampling.
+- `CertifiedRoadmapBuilder` creates region-center and exact-overlap-witness
+  nodes; each edge is contained by one certified convex AABB.
+- `CertifiedRoadmap` retains robot/scene identity, adjacency, nearest-node, and
+  compatibility queries.
+
+These are proposal/search structures, not new certificates. See
+[certified planning consumers](planning-consumers.md).
 
 ## OBB corridors and HiPaC
 
@@ -206,9 +222,22 @@ Include `<rbfsafe/region_database.h>` and link `RBFSafe::regions`.
 `HigherOrderRegionValidator` preserve shared first-order variables through DH
 FK and add conservative nonlinear remainders. A successful
 `make_higher_order_region_certificate` binds the exact correlated region.
-These APIs are experimental in v0.7; arbitrary Portal discovery currently
+These APIs are experimental in v0.8; arbitrary Portal discovery currently
 accepts only AABB/OBB parents. See the [region database guide](region-database.md)
 and [format specification](region-database-format.md).
+
+## Optimization consumers
+
+Include `<rbfsafe/optimization.h>` and link `RBFSafe::optimization`.
+
+`compile_region_constraint` maps AABB, OBB, and Portal geometry to direct
+half-spaces and maps zonotope/Taylor geometry to lifted generator equalities
+with bounded auxiliary variables. `assign_trajectory_regions` deterministically
+matches waypoints. The TrajOpt, CHOMP, STOMP, and MPC adapters label identical
+solver-neutral programs and expose residuals, gradients, and bounded cyclic
+projection. `TrajectoryTube` unions must first be expanded into referenced
+convex cells. A final `TrajectoryAuditor` pass remains mandatory. See
+[optimization adapters](optimization.md).
 
 ## Error model
 

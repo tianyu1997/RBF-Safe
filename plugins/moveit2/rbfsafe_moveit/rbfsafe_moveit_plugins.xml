@@ -12,6 +12,12 @@
     <description>Rejects and clears responses whose complete trajectory is not certified by the SafeAtlas.</description>
   </class>
   <class
+      name="rbfsafe_moveit/CertifiedConstraintSamplerAllocator"
+      type="rbfsafe_moveit::CertifiedConstraintSamplerAllocator"
+      base_class_type="constraint_samplers::ConstraintSamplerAllocator">
+    <description>Samples MoveIt group states only from a registered compatible SafeAtlas, with certified-roadmap bias.</description>
+  </class>
+  <class
       name="rbfsafe_moveit/SafeIkKinematicsPlugin"
       type="rbfsafe_moveit::SafeIkKinematicsPlugin"
       base_class_type="kinematics::KinematicsBase">

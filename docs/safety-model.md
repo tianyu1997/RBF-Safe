@@ -80,14 +80,21 @@ collision. Coverage ratio is an equal-segment parameter metric, not a
 probability or risk score. Region sequences are not paths, timing plans, or
 execution guarantees.
 
-## OMPL adapter claims
+## Planning and OMPL claims
 
-The v0.3 adapter treats a state as valid only when `SafeAtlas::contains`
+The adapter treats a state as valid only when `SafeAtlas::contains`
 returns true. Unknown space is rejected. Its motion validator delegates every
 real-vector edge to the continuous trajectory auditor instead of relying on
 OMPL's discrete validity-checking resolution. Certified-region sampling only
 changes proposal generation; every result remains subject to the installed
 state and motion validators.
+
+The v0.8 certified roadmap rechecks exact Atlas intersections and stores each
+edge with one covering certified AABB. Importing that roadmap into PRM is an
+acceleration hint: the OMPL adapter revalidates every imported vertex and edge.
+The high-level planner reports a certified exact solution only after a final
+continuous trajectory audit succeeds. Approximate, timed-out, cancelled, and
+uncertified results remain explicit non-certificate outcomes.
 
 The adapter does not turn an Atlas into an execution certificate, restore
 probabilistic completeness outside the certified union, or certify a planner's
@@ -133,6 +140,11 @@ response adapter is the enforcement point: it clears any successful response
 unless the entire piecewise-linear joint trajectory audits as `CERTIFIED`.
 The kinematics plugin returns only `SafeConnected` solutions.
 
+The constraint-sampler allocator draws only from Atlas-certified regions. Its
+optional roadmap bias and local jitter still pass through Atlas membership,
+MoveIt path-constraint, and group-validity callbacks. Sampling changes search
+behavior; it does not replace the response adapter's final audit.
+
 Plugin initialization requires exact joint-variable order, finite joint-limit
 agreement, and matching robot/scene/Atlas digests. DH-to-URDF frame and shape
 equivalence cannot be derived automatically in v0.5 and remains an explicit
@@ -154,14 +166,29 @@ Membership optimization may conservatively return false when it exhausts its
 iteration budget; it cannot create a false certificate because certification
 covers the full region independently of membership queries.
 
-## Explicit exclusions in v0.7
+## Optimization-consumer claims
+
+The v0.8 optimization layer translates existing certified convex geometry into
+linear constraints; it does not issue certificates. AABB, OBB, and Portal
+constraints preserve their complete half-space descriptions. Zonotope and
+Taylor constraints use explicit bounded auxiliary variables. TrajectoryTube
+records must be expanded into their referenced convex cells and are rejected
+as a single convex constraint.
+
+TrajOpt, CHOMP, STOMP, and MPC adapters compile the same portable constraint
+program. Residuals and bounded projections are integration aids, not proof that
+an external optimizer respects the constraints between waypoints. Any emitted
+trajectory still requires continuous audit before it can carry geometric
+trajectory evidence.
+
+## Explicit exclusions in v0.8
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
   by the supplied link radii and optional tool link.
 - Continuous-time dynamic obstacles, swept motion, localization/calibration
   uncertainty, control error, deformation, and latency are not modeled
-  automatically. v0.7 updates only between explicit static AABB snapshots.
+  automatically. v0.8 updates only between explicit static AABB snapshots.
 - AABB separation is the only workspace collision proof; OBB certification
   uses a conservative C-space enclosure rather than a correlated workspace
   proof, and no mesh, KDOP, or swept-time validation is performed.
@@ -171,6 +198,8 @@ covers the full region independently of membership queries.
   certify dynamics, controller tracking, or runtime execution.
 - `contains`, `connected`, Safe IK, and MoveIt plugin acceptance are not
   runtime-execution approvals.
+- Planner success, optimizer convergence, and certified sampling do not imply
+  timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 
 RBF-Safe therefore does not replace emergency stops, independent collision
 monitoring, controller limits, calibration checks, or application-specific

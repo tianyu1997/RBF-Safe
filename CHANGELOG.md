@@ -3,6 +3,31 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [0.8.0] - 2026-07-22
+
+### Added
+
+- Public `RBFSafe::planning` target with deterministic certified-union
+  sampling, bounded near sampling, certified roadmap centers, exact portal
+  witnesses, single-region edge evidence, cancellation, and resource budgets.
+- High-level OMPL RRT, RRT*, PRM, and BIT* helpers with native or Atlas-guided
+  sampling, optional revalidated PRM roadmap seeding, explicit outcomes, and a
+  mandatory final continuous trajectory audit for certified exact solutions.
+- MoveIt 2 certified constraint-sampler allocator with identity-checked Atlas
+  resources, configurable sampling policy, and optional certified-roadmap bias.
+- Public `RBFSafe::optimization` target with solver-neutral AABB, OBB, Portal,
+  zonotope, and Taylor linear constraints; deterministic trajectory assignment;
+  residuals; bounded projection; and TrajOpt, CHOMP, STOMP, and MPC front ends.
+- Matching Python APIs, C++ quickstarts, framework integration tests, and
+  planning/optimization safety and integration documentation.
+
+### Changed
+
+- `RBFSafe::rbfsafe` now aggregates the planning and optimization targets.
+  Atlas schema 2, corridor schema 1, and region-database schema 1 are unchanged.
+- The optional OMPL component now depends on `RBFSafe::planning` and supports
+  planner construction and solve orchestration in addition to low-level hooks.
+
 ## [0.7.0] - 2026-07-22
 
 ### Added
