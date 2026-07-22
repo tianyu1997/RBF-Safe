@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "version": "release-clutter-v1",
+  "obstacles": [
+    {"id": "clutter-01", "lower": [100.0, -0.8, 0.0], "upper": [100.2, -0.6, 0.3]},
+    {"id": "clutter-02", "lower": [100.3, -0.3, 0.4], "upper": [100.55, -0.05, 0.7]},
+    {"id": "clutter-03", "lower": [99.95, 0.15, 0.8], "upper": [100.25, 0.4, 1.1]},
+    {"id": "clutter-04", "lower": [100.4, 0.55, 0.1], "upper": [100.65, 0.8, 0.45]},
+    {"id": "clutter-05", "lower": [100.15, -0.1, 1.25], "upper": [100.45, 0.2, 1.5]}
+  ]
+}

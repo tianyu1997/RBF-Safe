@@ -198,7 +198,7 @@ velocity, acceleration, and swept-time collision are not certified. Monitor
 outputs therefore remain `Unknown`, `CertifiedRegion`, or
 `CertifiedConnectivity`, never `RuntimeExecutable`.
 
-## Explicit exclusions in v0.9
+## Explicit exclusions in v1.0
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -220,6 +220,9 @@ outputs therefore remain `Unknown`, `CertifiedRegion`, or
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic
   observation timestamps do not model real-time deadlines or authorize motor
   execution.
+- Named release fixtures and benchmark success demonstrate deterministic API
+  integration and regression behavior only. They are synthetic, uncalibrated,
+  and do not validate a physical robot, workcell, payload, or deployment.
 
 RBF-Safe therefore does not replace emergency stops, independent collision
 monitoring, controller limits, calibration checks, or application-specific

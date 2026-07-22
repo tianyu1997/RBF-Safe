@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "version": "release-shelf-v1",
+  "obstacles": [
+    {"id": "shelf-left", "lower": [100.0, -0.9, -0.2], "upper": [100.1, -0.8, 1.6]},
+    {"id": "shelf-right", "lower": [100.0, 0.8, -0.2], "upper": [100.1, 0.9, 1.6]},
+    {"id": "shelf-low", "lower": [100.0, -0.8, 0.35], "upper": [100.8, 0.8, 0.45]},
+    {"id": "shelf-high", "lower": [100.0, -0.8, 1.05], "upper": [100.8, 0.8, 1.15]}
+  ]
+}

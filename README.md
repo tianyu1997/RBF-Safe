@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.9
+geometric safety certificates in robot configuration space. Version 1.0
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -75,11 +75,13 @@ certificate.
 - Public `RBFSafe::shield` action checks with deterministic
   `ACCEPT`/`REPAIR`/`REJECT` decisions, bounded repair, VLA proposal batching,
   synchronized telemetry, and an Atlas-backed runtime monitor.
+- Reviewed 1.x public source API, documented storage migrations, deterministic
+  release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 continuous-time obstacle motion, execution guarantees, and legacy
-RapidBoxForest cache compatibility remain outside v0.9.
+RapidBoxForest cache compatibility remain outside v1.0.
 
 ## Quick start
 
@@ -172,6 +174,7 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Input formats](docs/input-formats.md)
 - [Architecture](docs/architecture.md)
 - [API overview](docs/api.md)
+- [1.x API stability policy](docs/api-stability.md)
 - [Safety model](docs/safety-model.md)
 - [Trajectory auditor](docs/trajectory-auditor.md)
 - [OMPL adapter](docs/ompl-adapter.md)
@@ -187,6 +190,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Atlas schemas 1 and 2](docs/atlas-format.md)
 - [Corridor schema v1](docs/corridor-format.md)
 - [Versioning and compatibility](docs/versioning.md)
+- [Schema support and migrations](docs/schema-migrations.md)
+- [Release fixtures and benchmark](docs/release-fixtures.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)
 - [Roadmap](docs/roadmap.md)
 
@@ -200,6 +205,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing rules,
 [SUPPORT.md](SUPPORT.md) for support channels, and [SECURITY.md](SECURITY.md)
 for private vulnerability and incorrect-certificate reports.
 
-RBF-Safe is available under the [MIT License](LICENSE). The C++ API is pre-1.0
-and does not yet promise ABI stability; the atlas schema is versioned
-independently. See [CHANGELOG.md](CHANGELOG.md) for release notes.
+RBF-Safe is available under the [MIT License](LICENSE). The 1.x public C++ and
+Python surfaces follow the documented source-compatibility policy; a universal
+C++ binary ABI is not promised. Storage schemas are versioned independently.
+See [CHANGELOG.md](CHANGELOG.md) for release notes.

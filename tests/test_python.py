@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "0.9.0"
+    assert rbfsafe.__version__ == "1.0.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:

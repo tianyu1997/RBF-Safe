@@ -4,14 +4,14 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "rbfsafe"
-version = "0.9.0"
+version = "1.0.0"
 description = "Reusable geometric safety certificates for robot configuration spaces"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "Yu Tian" }, { name = "Hongliang Ren" }]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: C++",
   "Programming Language :: Python :: 3",
@@ -53,6 +53,7 @@ sdist.include = [
   "tests/**",
   "tools/**",
   "examples/**",
+  "benchmarks/**",
   "plugins/**",
   "data/**",
   "docs/**",

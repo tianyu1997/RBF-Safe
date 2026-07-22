@@ -2,10 +2,16 @@
 
 ## Library versions
 
-RBF-Safe uses Semantic Versioning. Before 1.0, minor releases may make
-documented source-incompatible C++ API changes. Patch releases should remain
-source compatible within a minor line. C++ ABI stability is not promised
-before 1.0.
+RBF-Safe uses Semantic Versioning. Starting with 1.0, documented public C++
+declarations, installed CMake target names, and high-level Python names remain
+source compatible throughout the 1.x line. Additive API changes may appear in
+minor releases. Deprecated APIs remain functional through 1.x and may be
+removed only in 2.0. The exact policy and automated review gate are documented
+in [API stability](api-stability.md).
+
+C++ ABI compatibility is not promised across compilers, standard libraries,
+runtime-library selections, build modes, or RBF-Safe releases. Downstream C++
+applications should rebuild after an update.
 
 The Python package follows the same version as the C++ project. Supported
 Python versions and wheel platforms are release metadata, not permanent API
@@ -66,6 +72,11 @@ are transient application-facing values. Decision IDs are deterministic
 audit identifiers for the exact in-memory decision content; they are not a
 new persistent schema or a replacement for Atlas certificate IDs.
 
+The v1.0 stabilization release also leaves all storage schemas unchanged. It
+adds an explicit schema support/migration matrix, fixed-format regression
+gates, reviewed public-source snapshot, and public-API release benchmark. See
+[Schema support and migrations](schema-migrations.md).
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -92,6 +103,8 @@ are deterministic across supported thread counts. Fixed schema-2 payload
 hashes plus a committed v0.5 schema-1 fixture enforce interoperability across
 CI platforms.
 
-Floating-point behavior is tested against conservative containment properties
-and registered legacy golden fixtures. Determinism does not turn an
+Floating-point behavior is tested against conservative containment properties,
+registered legacy golden fixtures, and named v1.0 release cases. The release
+benchmark's committed cross-platform logical digest excludes timing, memory
+estimates, and floating-point-derived identities. Determinism does not turn an
 unsupported platform or altered compiler math mode into a supported target.

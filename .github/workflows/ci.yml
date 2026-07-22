@@ -17,9 +17,11 @@ jobs:
       - uses: actions/checkout@v6
       - name: Check C++ formatting
         run: >-
-          find include src tests tools examples python plugins -type f
+          find include src tests tools examples benchmarks python plugins -type f
           \( -name '*.h' -o -name '*.hpp' -o -name '*.cpp' \) -print0 |
           xargs -0 clang-format --dry-run --Werror
+      - name: Check stable API surface
+        run: python3 tools/check_api_surface.py --root .
 
   cpp:
     strategy:
@@ -35,6 +37,7 @@ jobs:
           cmake -S . -B build
           -DCMAKE_BUILD_TYPE=Release
           -DRBFSAFE_BUILD_TESTS=ON
+          -DRBFSAFE_BUILD_BENCHMARKS=ON
           -DRBFSAFE_WARNINGS_AS_ERRORS=ON
       - name: Build
         run: cmake --build build --config Release --parallel 2
@@ -85,6 +88,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_CXX_COMPILER=clang++
           -DRBFSAFE_BUILD_TESTS=ON
+          -DRBFSAFE_BUILD_BENCHMARKS=ON
           -DRBFSAFE_BUILD_EXAMPLES=OFF
           -DRBFSAFE_BUILD_TOOLS=OFF
           -DRBFSAFE_BUILD_OMPL=ON

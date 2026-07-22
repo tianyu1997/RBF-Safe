@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "name": "rbfsafe-release-fixtures",
+  "description": "Deterministic synthetic release fixtures; not calibrated deployment models.",
+  "robots": ["iiwa14", "ur5", "panda", "franka"],
+  "scenes": ["shelf", "clutter", "industrial_cell", "mobile_manipulation"],
+  "cases": "cases.tsv",
+  "logical_digest": "logical_digest.txt"
+}

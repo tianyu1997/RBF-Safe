@@ -3,6 +3,29 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [1.0.0] - 2026-07-22
+
+### Added
+
+- Reviewed public C++ headers, installed CMake targets, and high-level Python
+  exports with a documented 1.x source-compatibility and deprecation policy.
+- Normalized public API SHA-256 manifest plus a CI gate that requires explicit
+  review of additions or changes.
+- Schema support and migration matrix covering every 0.x storage format,
+  including tested Atlas schema-1 to schema-2 full-revalidation migration.
+- Deterministic public-API release benchmark with bounded smoke/soak tests,
+  independent collision point checks, update/inheritance checks, runtime
+  shield checks, diagnostic timing/memory reporting, and a logical digest.
+- Reproducible IIWA14, UR5, Panda, and Franka robot fixtures paired with shelf,
+  industrial-cell, clutter, and mobile-manipulation synthetic scenes.
+
+### Changed
+
+- C++, Python, citation, and optional MoveIt package versions advance together
+  to 1.0.0. The MoveIt consumer now requires the 1.0 core package.
+- Atlas schema 2, LECT schema 1, corridor schema 1, region-database schema 1,
+  and version-store schema 1 remain unchanged and independently versioned.
+
 ## [0.9.0] - 2026-07-22
 
 ### Added

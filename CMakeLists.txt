@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 0.9.0
+    VERSION 1.0.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -20,6 +20,7 @@ option(RBFSAFE_BUILD_EXAMPLES "Build RBF-Safe examples" ON)
 option(RBFSAFE_BUILD_TOOLS "Build RBF-Safe command-line tools" ON)
 option(RBFSAFE_BUILD_PYTHON "Build the rbfsafe Python extension" OFF)
 option(RBFSAFE_BUILD_OMPL "Build the optional OMPL adapter" OFF)
+option(RBFSAFE_BUILD_BENCHMARKS "Build deterministic release benchmark and soak gates" OFF)
 option(RBFSAFE_WARNINGS_AS_ERRORS "Treat RBF-Safe warnings as errors" OFF)
 
 function(rbfsafe_configure_target target)
@@ -246,6 +247,27 @@ if(RBFSAFE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+if(RBFSAFE_BUILD_BENCHMARKS)
+    add_executable(rbfsafe_release_benchmark benchmarks/release_benchmark.cpp)
+    target_link_libraries(rbfsafe_release_benchmark PRIVATE RBFSafe::rbfsafe)
+    rbfsafe_configure_target(rbfsafe_release_benchmark)
+    set_target_properties(rbfsafe_release_benchmark PROPERTIES OUTPUT_NAME "rbfsafe-release-benchmark")
+    if(RBFSAFE_BUILD_TESTS)
+        add_test(NAME rbfsafe_release_benchmark_smoke
+            COMMAND rbfsafe_release_benchmark
+                --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/data/release-fixtures
+                --iterations 128 --json)
+        add_test(NAME rbfsafe_release_benchmark_soak
+            COMMAND rbfsafe_release_benchmark
+                --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/data/release-fixtures
+                --iterations 8192 --json)
+        set_tests_properties(rbfsafe_release_benchmark_soak PROPERTIES LABELS "soak" TIMEOUT 180)
+    endif()
+    if(NOT SKBUILD)
+        install(TARGETS rbfsafe_release_benchmark RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    endif()
+endif()
+
 if(RBFSAFE_BUILD_PYTHON)
     find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
@@ -279,6 +301,8 @@ if(NOT SKBUILD)
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/RBFSafe)
     endif()
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(DIRECTORY data/release-fixtures/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures)
     install(EXPORT RBFSafeTargets
         FILE RBFSafeTargets.cmake
         NAMESPACE RBFSafe::

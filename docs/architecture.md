@@ -169,3 +169,7 @@ components and bind subject digests.
 - Shield decisions and telemetry are derived, in-memory v0.9 artifacts. They
   do not alter any persisted schema or promote geometric evidence to an
   execution guarantee.
+- The v1.0 API-surface snapshot is a source-review gate, not a binary ABI
+  description. The release benchmark consumes public APIs and deterministic
+  synthetic fixtures; timing and memory estimates are diagnostic and are not
+  part of any certificate.

@@ -1,0 +1,426 @@
+#include <rbfsafe/rbfsafe.h>
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <span>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace {
+
+using Clock = std::chrono::steady_clock;
+
+struct Options {
+    std::filesystem::path fixtures;
+    std::size_t iterations = 1'000;
+    bool json = false;
+    bool help = false;
+};
+
+struct FixtureCase {
+    std::string name;
+    std::filesystem::path robot;
+    std::filesystem::path scene;
+    rbfsafe::Configuration start;
+    rbfsafe::Configuration goal;
+};
+
+struct CaseMetrics {
+    std::string name;
+    std::size_t dimension = 0;
+    std::size_t regions = 0;
+    std::size_t certificates = 0;
+    std::size_t queries = 0;
+    std::size_t false_safe = 0;
+    std::size_t estimated_memory_bytes = 0;
+    std::size_t inherited_certificates = 0;
+    double build_ms = 0.0;
+    double query_ms = 0.0;
+    double update_ms = 0.0;
+    double certified_path_ratio = 0.0;
+};
+
+template <typename Function> double elapsed_ms(Function&& function) {
+    const auto start = Clock::now();
+    function();
+    return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+}
+
+std::vector<std::string> split(std::string_view input, char delimiter) {
+    std::vector<std::string> fields;
+    std::size_t start = 0;
+    while (start <= input.size()) {
+        const std::size_t end = input.find(delimiter, start);
+        fields.emplace_back(
+            input.substr(start, end == std::string_view::npos ? input.size() - start : end - start));
+        if (end == std::string_view::npos)
+            break;
+        start = end + 1;
+    }
+    return fields;
+}
+
+bool parse_configuration(std::string_view text, rbfsafe::Configuration& output) {
+    output.clear();
+    for (const auto& field : split(text, ',')) {
+        try {
+            std::size_t consumed = 0;
+            const double value = std::stod(field, &consumed);
+            if (consumed != field.size() || !std::isfinite(value))
+                return false;
+            output.push_back(value);
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+    return !output.empty();
+}
+
+bool parse_size(std::string_view text, std::size_t& output) {
+    try {
+        std::size_t consumed = 0;
+        const auto value = std::stoull(std::string(text), &consumed);
+        if (consumed != text.size() || value == 0 || value > 10'000'000)
+            return false;
+        output = static_cast<std::size_t>(value);
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+bool parse_options(int argc, char** argv, Options& options) {
+    for (int index = 1; index < argc; ++index) {
+        const std::string_view argument(argv[index]);
+        if (argument == "--fixtures" && index + 1 < argc) {
+            options.fixtures = argv[++index];
+        } else if (argument == "--iterations" && index + 1 < argc) {
+            if (!parse_size(argv[++index], options.iterations))
+                return false;
+        } else if (argument == "--json") {
+            options.json = true;
+        } else if (argument == "--help") {
+            options.help = true;
+        } else {
+            return false;
+        }
+    }
+    return options.help || !options.fixtures.empty();
+}
+
+bool load_cases(const std::filesystem::path& fixture_root, std::vector<FixtureCase>& cases,
+                std::string& error) {
+    std::ifstream input(fixture_root / "cases.tsv");
+    if (!input) {
+        error = "cannot open fixture cases.tsv";
+        return false;
+    }
+    std::string line;
+    std::size_t line_number = 0;
+    while (std::getline(input, line)) {
+        ++line_number;
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        if (line.empty() || line.front() == '#')
+            continue;
+        const auto fields = split(line, '\t');
+        if (fields.size() != 5) {
+            error = "invalid fixture field count at line " + std::to_string(line_number);
+            return false;
+        }
+        FixtureCase fixture;
+        fixture.name = fields[0];
+        fixture.robot = fixture_root / fields[1];
+        fixture.scene = fixture_root / fields[2];
+        if (fixture.name.empty() || !parse_configuration(fields[3], fixture.start) ||
+            !parse_configuration(fields[4], fixture.goal)) {
+            error = "invalid fixture values at line " + std::to_string(line_number);
+            return false;
+        }
+        cases.push_back(std::move(fixture));
+    }
+    if (cases.empty()) {
+        error = "fixture cases.tsv contains no cases";
+        return false;
+    }
+    return true;
+}
+
+std::size_t estimated_memory(const rbfsafe::SafeAtlas& atlas) {
+    std::size_t total = sizeof(atlas);
+    for (const auto& region : atlas.regions()) {
+        total += sizeof(region) + region.bounds.axes().capacity() * sizeof(rbfsafe::Interval) +
+                 region.source_node.path().capacity();
+    }
+    for (const auto& certificate : atlas.certificates()) {
+        total += sizeof(certificate) + certificate.id.capacity() + certificate.robot_digest.capacity() +
+                 certificate.scene_digest.capacity() + certificate.policy.algorithm.capacity() +
+                 certificate.policy.algorithm_version.capacity() + certificate.subject_digest.capacity() +
+                 certificate.parent_certificate_id.capacity() + certificate.transition_digest.capacity();
+    }
+    for (const auto& dependency : atlas.dependencies())
+        total += sizeof(dependency) + dependency.envelope.links.capacity() * sizeof(rbfsafe::WorkspaceAabb);
+    for (const auto& neighbors : atlas.adjacency())
+        total += sizeof(neighbors) + neighbors.capacity() * sizeof(std::size_t);
+    for (const auto& node : atlas.lect().all_nodes()) {
+        total += sizeof(node) + node.key.path().capacity() + node.left.path().capacity() +
+                 node.right.path().capacity() + node.box.axes().capacity() * sizeof(rbfsafe::Interval);
+    }
+    return total;
+}
+
+void hash_field(std::uint64_t& hash, std::string_view value) {
+    for (const unsigned char byte : value) {
+        hash ^= byte;
+        hash *= 1099511628211ULL;
+    }
+    hash ^= 0xffU;
+    hash *= 1099511628211ULL;
+}
+
+std::string hex64(std::uint64_t value) {
+    std::ostringstream output;
+    output << std::hex << std::setfill('0') << std::setw(16) << value;
+    return output.str();
+}
+
+bool load_expected_digest(const std::filesystem::path& fixture_root, std::string& digest,
+                          std::string& error) {
+    std::ifstream input(fixture_root / "logical_digest.txt");
+    if (!input || !std::getline(input, digest)) {
+        error = "cannot read fixture logical_digest.txt";
+        return false;
+    }
+    if (!digest.empty() && digest.back() == '\r')
+        digest.pop_back();
+    if (digest.size() != 16 || digest.find_first_not_of("0123456789abcdef") != std::string::npos) {
+        error = "fixture logical_digest.txt must contain 16 lowercase hexadecimal digits";
+        return false;
+    }
+    return true;
+}
+
+rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t iterations,
+                                      std::uint64_t& logical_hash) {
+    auto robot = rbfsafe::SerialRobotModel::from_json(fixture.robot);
+    if (!robot)
+        return robot.error();
+    auto scene = rbfsafe::SceneSnapshot::from_json(fixture.scene);
+    if (!scene)
+        return scene.error();
+    auto start_status =
+        rbfsafe::validate_configuration(fixture.start, robot.value().dimension(), fixture.name);
+    if (!start_status)
+        return start_status.error();
+    auto goal_status = rbfsafe::validate_configuration(fixture.goal, robot.value().dimension(), fixture.name);
+    if (!goal_status)
+        return goal_status.error();
+    if (!robot.value().configuration_domain().contains(fixture.start) ||
+        !robot.value().configuration_domain().contains(fixture.goal)) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InvalidArgument,
+                                                     "release fixture exceeds joint limits", fixture.name);
+    }
+
+    CaseMetrics metrics;
+    metrics.name = fixture.name;
+    metrics.dimension = robot.value().dimension();
+    rbfsafe::Result<rbfsafe::AtlasBuildResult> built = rbfsafe::Result<rbfsafe::AtlasBuildResult>::failure(
+        rbfsafe::StatusCode::InternalError, "benchmark build did not run");
+    metrics.build_ms = elapsed_ms([&] {
+        rbfsafe::BuildOptions build_options;
+        build_options.maximum_depth = 16;
+        build_options.maximum_nodes = 100'000;
+        built = rbfsafe::AtlasBuilder{}.build(robot.value(), scene.value(), {fixture.start, fixture.goal},
+                                              build_options);
+    });
+    if (!built)
+        return built.error();
+    auto& atlas = built.value().atlas;
+    auto compatibility = atlas.verify_compatible(robot.value(), scene.value());
+    if (!compatibility)
+        return compatibility.error();
+    if (!atlas.contains(fixture.start) || !atlas.contains(fixture.goal)) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture endpoints are not certified", fixture.name);
+    }
+    metrics.regions = atlas.regions().size();
+    metrics.certificates = atlas.certificates().size();
+    metrics.estimated_memory_bytes = estimated_memory(atlas);
+
+    const std::vector<rbfsafe::Configuration> trajectory{fixture.start, fixture.goal};
+    auto audit = rbfsafe::TrajectoryAuditor{}.audit(atlas, trajectory);
+    if (!audit)
+        return audit.error();
+    metrics.certified_path_ratio = audit.value().coverage_ratio;
+    if (audit.value().status != rbfsafe::TrajectoryAuditStatus::Certified) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture path is not certified", fixture.name);
+    }
+
+    metrics.queries = iterations;
+    rbfsafe::Result<void> query_status = rbfsafe::Result<void>::success();
+    metrics.query_ms = elapsed_ms([&] {
+        rbfsafe::Configuration query(robot.value().dimension());
+        for (std::size_t iteration = 0; iteration < iterations; ++iteration) {
+            const double fraction = static_cast<double>(iteration % 1001) / 1000.0;
+            for (std::size_t axis = 0; axis < query.size(); ++axis) {
+                query[axis] = fixture.start[axis] + fraction * (fixture.goal[axis] - fixture.start[axis]);
+            }
+            if (!atlas.contains(query)) {
+                query_status =
+                    rbfsafe::Result<void>::failure(rbfsafe::StatusCode::InternalError,
+                                                   "certified fixture query left the Atlas", fixture.name);
+                return;
+            }
+            auto collision_free =
+                rbfsafe::configuration_is_collision_free(robot.value(), scene.value(), query);
+            if (!collision_free) {
+                query_status = collision_free.error();
+                return;
+            }
+            if (!collision_free.value())
+                ++metrics.false_safe;
+        }
+    });
+    if (!query_status)
+        return query_status.error();
+    if (metrics.false_safe != 0) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "certified fixture produced a false-safe sample",
+                                                     fixture.name);
+    }
+
+    rbfsafe::Configuration delta(fixture.start.size());
+    for (std::size_t axis = 0; axis < delta.size(); ++axis)
+        delta[axis] = fixture.goal[axis] - fixture.start[axis];
+    rbfsafe::RuntimeShield shield;
+    auto decision = shield.check_action(robot.value(), scene.value(), atlas, fixture.start,
+                                        rbfsafe::ShieldAction{rbfsafe::JointDeltaAction{delta}});
+    if (!decision)
+        return decision.error();
+    if (decision.value().outcome != rbfsafe::ShieldOutcome::Accept) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture action was not accepted", fixture.name);
+    }
+    rbfsafe::SceneSnapshot next_scene(scene.value().obstacles(), scene.value().version() + "-refresh");
+    rbfsafe::Result<rbfsafe::AtlasUpdateResult> updated =
+        rbfsafe::Result<rbfsafe::AtlasUpdateResult>::failure(rbfsafe::StatusCode::InternalError,
+                                                             "benchmark update did not run");
+    metrics.update_ms = elapsed_ms(
+        [&] { updated = rbfsafe::AtlasUpdater{}.update(robot.value(), scene.value(), next_scene, atlas); });
+    if (!updated)
+        return updated.error();
+    auto updated_compatibility = updated.value().atlas.verify_compatible(robot.value(), next_scene);
+    if (!updated_compatibility)
+        return updated_compatibility.error();
+    metrics.inherited_certificates = updated.value().stats.certificates_inherited;
+    if (!updated.value().atlas.contains(fixture.goal) || metrics.inherited_certificates == 0) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture update lost certified coverage",
+                                                     fixture.name);
+    }
+
+    hash_field(logical_hash, fixture.name);
+    hash_field(logical_hash, robot.value().digest());
+    hash_field(logical_hash, scene.value().digest());
+    hash_field(logical_hash, std::to_string(metrics.dimension));
+    hash_field(logical_hash, std::to_string(metrics.regions));
+    hash_field(logical_hash, std::to_string(metrics.certificates));
+    hash_field(logical_hash, std::to_string(metrics.false_safe));
+    hash_field(logical_hash, std::to_string(metrics.inherited_certificates));
+    hash_field(logical_hash, "trajectory-certified");
+    hash_field(logical_hash, "shield-accept");
+    hash_field(logical_hash, "updated-compatible-and-covered");
+    return metrics;
+}
+
+void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, std::uint64_t logical_hash) {
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "{\"schema\":1,\"library_version\":\"" << rbfsafe::kVersion
+              << "\",\"iterations\":" << iterations << ",\"logical_digest\":\"" << hex64(logical_hash)
+              << "\",\"cases\":[";
+    for (std::size_t index = 0; index < metrics.size(); ++index) {
+        if (index != 0)
+            std::cout << ',';
+        const auto& item = metrics[index];
+        std::cout << "{\"name\":\"" << item.name << "\",\"dimension\":" << item.dimension
+                  << ",\"regions\":" << item.regions << ",\"certificates\":" << item.certificates
+                  << ",\"queries\":" << item.queries << ",\"false_safe\":" << item.false_safe
+                  << ",\"estimated_memory_bytes\":" << item.estimated_memory_bytes
+                  << ",\"inherited_certificates\":" << item.inherited_certificates
+                  << ",\"certified_path_ratio\":" << item.certified_path_ratio
+                  << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
+                  << ",\"update_ms\":" << item.update_ms << '}';
+    }
+    std::cout << "]}\n";
+}
+
+void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, std::uint64_t logical_hash) {
+    std::cout << "RBF-Safe release benchmark version=" << rbfsafe::kVersion << " iterations=" << iterations
+              << " digest=" << hex64(logical_hash) << '\n';
+    for (const auto& item : metrics) {
+        std::cout << item.name << " dimension=" << item.dimension << " regions=" << item.regions
+                  << " false_safe=" << item.false_safe << " coverage=" << item.certified_path_ratio
+                  << " estimated_memory_bytes=" << item.estimated_memory_bytes
+                  << " build_ms=" << item.build_ms << " query_ms=" << item.query_ms
+                  << " update_ms=" << item.update_ms << '\n';
+    }
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    Options options;
+    if (!parse_options(argc, argv, options)) {
+        std::cerr << "invalid arguments; use --help for usage\n";
+        return 2;
+    }
+    if (options.help) {
+        std::cout << "Usage: rbfsafe-release-benchmark --fixtures PATH "
+                     "[--iterations N] [--json]\n";
+        return 0;
+    }
+    std::vector<FixtureCase> fixtures;
+    std::string error;
+    if (!load_cases(options.fixtures, fixtures, error)) {
+        std::cerr << error << '\n';
+        return 2;
+    }
+    std::string expected_digest;
+    if (!load_expected_digest(options.fixtures, expected_digest, error)) {
+        std::cerr << error << '\n';
+        return 2;
+    }
+    std::uint64_t logical_hash = 14695981039346656037ULL;
+    std::vector<CaseMetrics> metrics;
+    metrics.reserve(fixtures.size());
+    for (const auto& fixture : fixtures) {
+        auto result = run_case(fixture, options.iterations, logical_hash);
+        if (!result) {
+            std::cerr << result.error().describe() << '\n';
+            return 1;
+        }
+        metrics.push_back(std::move(result).value());
+    }
+    const std::string actual_digest = hex64(logical_hash);
+    if (actual_digest != expected_digest) {
+        std::cerr << "logical digest mismatch: expected " << expected_digest << ", got " << actual_digest
+                  << '\n';
+        return 1;
+    }
+    if (options.json)
+        print_json(metrics, options.iterations, logical_hash);
+    else
+        print_text(metrics, options.iterations, logical_hash);
+    return 0;
+}

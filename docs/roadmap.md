@@ -26,17 +26,18 @@
   audit, MoveIt certified constraint sampling with optional roadmap bias, and
   solver-neutral region constraints with TrajOpt, CHOMP, STOMP, and MPC front
   ends.
-- **v0.9 (current):** joint, end-effector, and trajectory action checks with
+- **v0.9:** joint, end-effector, and trajectory action checks with
   deterministic `ACCEPT`, `REPAIR`, and `REJECT`; component-constrained
   bounded repair; ordered VLA proposal batches; synchronized telemetry; and a
   runtime state monitor. All evidence remains below `RuntimeExecutable`.
+- **v1.0 (current) - Stable geometric safety library:** reviewed public source
+  API with a 1.x compatibility policy and automated surface gate; documented
+  schema migration matrix; deterministic public-API benchmark and bounded soak
+  gates; and reproducible IIWA, UR5, Panda/Franka, shelf, clutter,
+  industrial-cell, and mobile-manipulation regression fixtures.
 
 ## Remaining `project.md` product phases
 
-- **v1.0 - Stable geometric safety library:** reviewed public API, documented
-  schema migrations, long-term compatibility policy, benchmark/soak gates,
-  and reproducible IIWA, UR5, Panda/Franka, shelf, clutter, industrial-cell,
-  and mobile-manipulation fixtures.
 - **v2.x - Intelligent safety layer:** uncertainty-aware runtime policies,
   persistent cross-task safety memory, policy-learning integrations, and
   execution evidence for explicitly supported deployment profiles.

@@ -1,0 +1,5 @@
+# name	robot	scene	start	goal
+iiwa-shelf	robots/iiwa14.json	scenes/shelf.json	0,0,0,0,0,0,0	0.1,-0.1,0.1,-0.1,0.1,-0.1,0.1
+ur5-industrial-cell	robots/ur5.json	scenes/industrial_cell.json	0,0,0,0,0,0	0.1,-0.1,0.1,-0.1,0.1,-0.1
+panda-clutter	robots/panda.json	scenes/clutter.json	0,-0.2,0,-1.5,0,1.5,0	0.1,-0.1,0.1,-1.4,0.1,1.6,0.1
+franka-mobile-manipulation	robots/franka.json	scenes/mobile_manipulation.json	0,-0.2,0,-1.5,0,1.5,0	-0.1,-0.3,-0.1,-1.6,-0.1,1.4,-0.1

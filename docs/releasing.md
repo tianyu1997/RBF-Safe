@@ -8,6 +8,8 @@
    `include/rbfsafe/version.h`, and `CITATION.cff`.
 3. Review API, safety, input, storage, and compatibility documentation.
 4. Confirm provenance for all migrated or derived code and fixtures.
+5. Run `python tools/check_api_surface.py --root .`; any snapshot update must
+   have an explicit compatibility review.
 
 ## 2. Validate
 
@@ -31,6 +33,10 @@ response, IK, and constraint-sampler plugin tests in a sourced Jazzy workspace.
 Run the runtime-shield quickstart and tests for all three action types,
 accept/repair/reject outcomes, deterministic IDs, proposal selection,
 telemetry, cancellation, and monitor classifications.
+Build `rbfsafe-release-benchmark`, run its 128-iteration smoke gate and
+8192-iteration soak gate, and confirm zero false-safe point checks and an exact
+match with the committed cross-platform logical digest. Inspect timing and
+memory only as release diagnostics.
 
 ## 3. Package
 
