@@ -3,6 +3,30 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [0.9.0] - 2026-07-22
+
+### Added
+
+- Public `RBFSafe::shield` target for joint-delta, end-effector pose, and
+  piecewise-linear trajectory actions with explicit deterministic `ACCEPT`,
+  `REPAIR`, and `REJECT` decisions.
+- Component-constrained bounded joint/trajectory repair, connected Safe IK
+  translation, mandatory final continuous audit, stable decision IDs,
+  cancellation, and waypoint/resource budgets.
+- Ordered VLA proposal batches that select the first accepted candidate or
+  first repairable fallback while retaining every per-action decision.
+- Thread-safe aggregate telemetry and a stateful runtime monitor for on-plan,
+  certified-deviation, uncertified-state, and inactive observations.
+- Matching Python APIs, C++ quickstart, focused safety/property tests, and a
+  runtime-shield integration and evidence guide.
+
+### Changed
+
+- `RBFSafe::rbfsafe` now aggregates `RBFSafe::shield`. Atlas schema 2,
+  corridor schema 1, region-database schema 1, and version-store schema 1 are
+  unchanged.
+- The MoveIt package metadata now requires the matching 0.9 core release.
+
 ## [0.8.0] - 2026-07-22
 
 ### Added

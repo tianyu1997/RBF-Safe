@@ -8,7 +8,7 @@ RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
           |-> RBFSafe::update
-          |-> RBFSafe::ik
+          |-> RBFSafe::ik -> RBFSafe::shield
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
                                       `-> RBFSafe::optimization
@@ -85,6 +85,15 @@ trajectory-to-region assignment, residual evaluation, bounded projection, and
 named TrajOpt, CHOMP, STOMP, and MPC front ends. These front ends produce
 portable constraint data and do not link those external solvers.
 
+### Runtime shield
+
+`RBFSafe::shield` combines immutable Atlas queries, connected Safe IK, Atlas
+route recovery, and the continuous trajectory auditor. It owns standard-value
+action types, bounded component-constrained repair, ordered proposal batches,
+telemetry, and the runtime observation monitor. It has no learned-model,
+network, controller, ROS, or hardware dependency and does not issue
+`RuntimeExecutable` evidence.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -157,3 +166,6 @@ components and bind subject digests.
   only through explicit validated conversion.
 - Planning roadmaps and optimization programs are derived, in-memory consumer
   artifacts in v0.8; neither introduces a storage schema or raises evidence.
+- Shield decisions and telemetry are derived, in-memory v0.9 artifacts. They
+  do not alter any persisted schema or promote geometric evidence to an
+  execution guarantee.

@@ -239,6 +239,34 @@ projection. `TrajectoryTube` unions must first be expanded into referenced
 convex cells. A final `TrajectoryAuditor` pass remains mandatory. See
 [optimization adapters](optimization.md).
 
+## Runtime action shield
+
+Include `<rbfsafe/shield.h>` and link `RBFSafe::shield`.
+`RuntimeShield::check_action(robot, scene, atlas, current, action, options)`
+accepts `JointDeltaAction`, `EndEffectorAction`, or `TrajectoryAction` through
+the `ShieldAction` variant. It returns a `ShieldDecision` with a stable ID,
+identity digests, requested joint target where applicable, exact output
+trajectory, repair distance, final audit, endpoint connectivity certificate,
+and evidence level.
+
+`ShieldOutcome` is `Accept`, `Repair`, or `Reject`. Semantic rejection remains
+a successful `Result<ShieldDecision>`; malformed data, identity mismatches,
+cancellation, and exhausted computational budgets remain errors. Every
+non-rejected output is independently audited and carries no evidence above
+`CertifiedConnectivity`.
+
+`check_actions` evaluates an ordered VLA/proposal batch from one state and
+selects the first accepted decision, otherwise the first repaired decision.
+`telemetry()` returns synchronized aggregate counters.
+`RuntimeShieldMonitor` accepts only compatible certified decisions and
+classifies timestamped observations as `OnCertifiedPlan`,
+`CertifiedDeviation`, `UncertifiedState`, or `Inactive`.
+
+Python exposes `RuntimeShield.check_action` plus typed
+`check_joint_action`, `check_end_effector_action`, and
+`check_trajectory_action` conveniences. See the
+[runtime shield guide](runtime-shield.md) for complete semantics and limits.
+
 ## Error model
 
 All expected C++ failures use `Result<T>` with one of `InvalidArgument`,

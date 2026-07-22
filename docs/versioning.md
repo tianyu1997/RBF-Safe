@@ -60,6 +60,12 @@ and trajectory assignments are derived in-memory artifacts. Persisting one in
 a future release requires a separately versioned format rather than reusing an
 Atlas, corridor, or region-database schema.
 
+The v0.9 runtime shield also leaves every input and storage schema unchanged.
+Actions, decisions, proposal batches, telemetry snapshots, and monitor state
+are transient application-facing values. Decision IDs are deterministic
+audit identifiers for the exact in-memory decision content; they are not a
+new persistent schema or a replacement for Atlas certificate IDs.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene

@@ -14,6 +14,7 @@
 #include <rbfsafe/result.h>
 #include <rbfsafe/safe_ik.h>
 #include <rbfsafe/scene_delta.h>
+#include <rbfsafe/shield.h>
 #include <rbfsafe/trajectory.h>
 #include <rbfsafe/types.h>
 #include <rbfsafe/version.h>

@@ -21,19 +21,18 @@
   records, arbitrary AABB/OBB Portal discovery, deterministic OBB Atlas
   growth, correlation-preserving first-order Taylor IFK, schema-1
   region-database persistence, and C++/Python/CLI queries.
-- **v0.8 (current):** deterministic certified-union sampling and roadmap
+- **v0.8:** deterministic certified-union sampling and roadmap
   construction, Atlas-guided OMPL RRT/RRT*/PRM/BIT* helpers with final path
   audit, MoveIt certified constraint sampling with optional roadmap bias, and
   solver-neutral region constraints with TrajOpt, CHOMP, STOMP, and MPC front
   ends.
+- **v0.9 (current):** joint, end-effector, and trajectory action checks with
+  deterministic `ACCEPT`, `REPAIR`, and `REJECT`; component-constrained
+  bounded repair; ordered VLA proposal batches; synchronized telemetry; and a
+  runtime state monitor. All evidence remains below `RuntimeExecutable`.
 
 ## Remaining `project.md` product phases
 
-- **v0.9 - Learning and runtime shield:** joint, end-effector, and trajectory
-  action checks with explicit `ACCEPT`, `REPAIR`, and `REJECT`; VLA-facing
-  batching; bounded repair; telemetry; and a runtime monitor. Evidence remains
-  below `RuntimeExecutable` until timing, tracking error, and deployment
-  assumptions are explicitly modeled and verified.
 - **v1.0 - Stable geometric safety library:** reviewed public API, documented
   schema migrations, long-term compatibility policy, benchmark/soak gates,
   and reproducible IIWA, UR5, Panda/Franka, shelf, clutter, industrial-cell,

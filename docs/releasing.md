@@ -28,6 +28,9 @@ schema-v1 compatibility fixture and schema-v2 payload hashes. Build the
 certified roadmap and optimization quickstarts, exercise all four supported
 OMPL planner kinds when that component is enabled, and run the MoveIt request,
 response, IK, and constraint-sampler plugin tests in a sourced Jazzy workspace.
+Run the runtime-shield quickstart and tests for all three action types,
+accept/repair/reject outcomes, deterministic IDs, proposal selection,
+telemetry, cancellation, and monitor classifications.
 
 ## 3. Package
 

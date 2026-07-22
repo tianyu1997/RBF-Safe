@@ -181,14 +181,31 @@ an external optimizer respects the constraints between waypoints. Any emitted
 trajectory still requires continuous audit before it can carry geometric
 trajectory evidence.
 
-## Explicit exclusions in v0.8
+## Runtime-shield claims
+
+The v0.9 shield issues no new geometric certificate. `ACCEPT` means the exact
+joint-space output polyline passed the continuous Atlas auditor. `REPAIR`
+means the bounded replacement was assembled from certified routes and then
+independently audited. `REJECT` means that this bounded procedure found no
+eligible output; it does not prove that the proposal is in collision or that
+no safe repair exists.
+
+The runtime monitor checks two geometric observations: Atlas membership and
+Euclidean joint-space distance to the active certified polyline. Its tracking
+tolerance is diagnostic. Timestamps are checked for monotonic ordering but
+latency, time synchronization, state-estimation error, controller tracking,
+velocity, acceleration, and swept-time collision are not certified. Monitor
+outputs therefore remain `Unknown`, `CertifiedRegion`, or
+`CertifiedConnectivity`, never `RuntimeExecutable`.
+
+## Explicit exclusions in v0.9
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
   by the supplied link radii and optional tool link.
 - Continuous-time dynamic obstacles, swept motion, localization/calibration
   uncertainty, control error, deformation, and latency are not modeled
-  automatically. v0.8 updates only between explicit static AABB snapshots.
+  automatically. v0.9 updates only between explicit static AABB snapshots.
 - AABB separation is the only workspace collision proof; OBB certification
   uses a conservative C-space enclosure rather than a correlated workspace
   proof, and no mesh, KDOP, or swept-time validation is performed.
@@ -200,6 +217,9 @@ trajectory evidence.
   runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
+- Shield acceptance, repair, telemetry, on-plan classification, and monotonic
+  observation timestamps do not model real-time deadlines or authorize motor
+  execution.
 
 RBF-Safe therefore does not replace emergency stops, independent collision
 monitoring, controller limits, calibration checks, or application-specific

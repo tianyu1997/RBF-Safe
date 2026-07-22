@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "rbfsafe"
-version = "0.8.0"
+version = "0.9.0"
 description = "Reusable geometric safety certificates for robot configuration spaces"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -76,6 +76,9 @@ sdist.exclude = [
   ".venv/**",
   "build*/**",
   "dist/**",
+  "plugins/moveit2/build/**",
+  "plugins/moveit2/install/**",
+  "plugins/moveit2/log/**",
   "**/__pycache__/**",
   "**/*.pyc",
   "**/*.pyo",

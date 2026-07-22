@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 0.8
+geometric safety certificates in robot configuration space. Version 0.9
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -30,6 +30,9 @@ The planning-consumer layer adds reusable certified sampling and exact-witness
 roadmaps; the OMPL helper runs and audits RRT, RRT*, PRM, and BIT*. The
 optimization layer compiles heterogeneous convex regions into solver-neutral
 TrajOpt/CHOMP/STOMP/MPC constraints.
+The runtime shield checks joint, end-effector, and trajectory proposals,
+performs bounded certified repair, batches VLA proposals, records telemetry,
+and monitors execution observations without overstating runtime evidence.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -69,11 +72,14 @@ certificate.
 - Public `RBFSafe::optimization` direct/lifted convex constraints, residuals,
   gradients, bounded projection, waypoint assignment, and named adapters for
   TrajOpt, CHOMP, STOMP, and MPC.
+- Public `RBFSafe::shield` action checks with deterministic
+  `ACCEPT`/`REPAIR`/`REJECT` decisions, bounded repair, VLA proposal batching,
+  synchronized telemetry, and an Atlas-backed runtime monitor.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 continuous-time obstacle motion, execution guarantees, and legacy
-RapidBoxForest cache compatibility remain outside v0.8.
+RapidBoxForest cache compatibility remain outside v0.9.
 
 ## Quick start
 
@@ -124,6 +130,20 @@ result.atlas.save("atlas")
 print(result.atlas.contains([0.0, 0.0]))
 ```
 
+Gate a learned-policy joint action:
+
+```python
+shield = rbfsafe.RuntimeShield()
+decision = shield.check_joint_action(
+    robot,
+    scene,
+    result.atlas,
+    [0.0, 0.0],
+    rbfsafe.JointDeltaAction([0.1, -0.05]),
+)
+print(decision.outcome, decision.output_trajectory)
+```
+
 Incrementally update a schema-2 Atlas:
 
 ```python
@@ -157,6 +177,7 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [OMPL adapter](docs/ompl-adapter.md)
 - [Certified planning consumers](docs/planning-consumers.md)
 - [Optimization adapters](docs/optimization.md)
+- [Runtime action shield](docs/runtime-shield.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)

@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "0.8.0"
+    assert rbfsafe.__version__ == "0.9.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -361,6 +361,66 @@ def test_certified_planning_and_optimization_consumers() -> None:
     assert rbfsafe.ChompRegionAdapter().compile(database, assignment.region_ids).valid()
     assert rbfsafe.StompRegionAdapter().compile(database, assignment.region_ids).valid()
     assert rbfsafe.MpcRegionAdapter().compile(database, assignment.region_ids).valid()
+
+
+def test_runtime_shield_batch_telemetry_and_monitor() -> None:
+    robot = make_robot()
+    scene = rbfsafe.SceneSnapshot([], "python-shield-v1")
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
+    shield = rbfsafe.RuntimeShield()
+
+    accepted = shield.check_joint_action(
+        robot,
+        scene,
+        atlas,
+        [0.0, 0.0],
+        rbfsafe.JointDeltaAction([0.1, -0.05]),
+    )
+    assert accepted.outcome == rbfsafe.ShieldOutcome.ACCEPT
+    assert accepted.reason == rbfsafe.ShieldReason.CERTIFIED
+    assert accepted.audit.status == rbfsafe.TrajectoryAuditStatus.CERTIFIED
+    assert accepted.evidence == rbfsafe.EvidenceLevel.CERTIFIED_CONNECTIVITY
+    assert accepted.evidence != rbfsafe.EvidenceLevel.RUNTIME_EXECUTABLE
+
+    trajectory = shield.check_action(
+        robot,
+        scene,
+        atlas,
+        [0.0, 0.0],
+        rbfsafe.TrajectoryAction([[0.2, -0.1], [0.4, -0.2]]),
+    )
+    assert trajectory.outcome == rbfsafe.ShieldOutcome.ACCEPT
+
+    options = rbfsafe.ShieldBatchOptions()
+    options.action.maximum_waypoint_repair_distance = 0.6
+    options.action.maximum_total_repair_distance = 1.0
+    batch = shield.check_actions(
+        robot,
+        scene,
+        atlas,
+        [0.0, 0.0],
+        [
+            rbfsafe.JointDeltaAction([2.0, 0.0]),
+            rbfsafe.JointDeltaAction([0.1, 0.0]),
+        ],
+        options,
+    )
+    assert batch.selected_index == 1
+    assert batch.decisions[0].outcome == rbfsafe.ShieldOutcome.REPAIR
+    assert batch.decisions[1].outcome == rbfsafe.ShieldOutcome.ACCEPT
+    assert shield.telemetry.total_actions == 4
+    assert shield.telemetry.batches == 1
+
+    monitor_options = rbfsafe.RuntimeMonitorOptions()
+    monitor_options.tracking_tolerance = 0.05
+    monitor = rbfsafe.RuntimeShieldMonitor(atlas, monitor_options)
+    monitor.arm(accepted)
+    assert monitor.observe([0.05, -0.025], 1.0).state == rbfsafe.MonitorState.ON_CERTIFIED_PLAN
+    deviation = monitor.observe([1.0, 1.0], 2.0)
+    assert deviation.state == rbfsafe.MonitorState.CERTIFIED_DEVIATION
+    assert deviation.evidence == rbfsafe.EvidenceLevel.CERTIFIED_REGION
+    assert monitor.observe([2.0, 2.0], 3.0).state == rbfsafe.MonitorState.UNCERTIFIED_STATE
+    assert monitor.stats.observations == 3
 
 
 def test_tool_link_and_specific_identity_error() -> None:

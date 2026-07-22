@@ -573,6 +573,198 @@ PYBIND11_MODULE(_rbfsafe, module) {
             },
             py::arg("atlas"), py::arg("trajectory"), py::arg("options") = TrajectoryAuditOptions{});
 
+    py::enum_<ShieldActionType>(module, "ShieldActionType")
+        .value("JOINT_DELTA", ShieldActionType::JointDelta)
+        .value("END_EFFECTOR_POSE", ShieldActionType::EndEffectorPose)
+        .value("TRAJECTORY", ShieldActionType::Trajectory);
+
+    py::enum_<ShieldOutcome>(module, "ShieldOutcome")
+        .value("ACCEPT", ShieldOutcome::Accept)
+        .value("REPAIR", ShieldOutcome::Repair)
+        .value("REJECT", ShieldOutcome::Reject);
+
+    py::enum_<ShieldReason>(module, "ShieldReason")
+        .value("CERTIFIED", ShieldReason::Certified)
+        .value("JOINT_TARGET_REPAIRED", ShieldReason::JointTargetRepaired)
+        .value("SAFE_IK_ROUTE", ShieldReason::SafeIkRoute)
+        .value("TRAJECTORY_REPAIRED", ShieldReason::TrajectoryRepaired)
+        .value("CURRENT_STATE_NOT_CERTIFIED", ShieldReason::CurrentStateNotCertified)
+        .value("TARGET_NOT_CERTIFIED", ShieldReason::TargetNotCertified)
+        .value("REPAIR_DISABLED", ShieldReason::RepairDisabled)
+        .value("REPAIR_LIMIT_EXCEEDED", ShieldReason::RepairLimitExceeded)
+        .value("NO_SAFE_IK_SOLUTION", ShieldReason::NoSafeIkSolution)
+        .value("DISCONNECTED", ShieldReason::Disconnected);
+
+    py::class_<JointDeltaAction>(module, "JointDeltaAction")
+        .def(py::init<>())
+        .def(py::init<Configuration>(), py::arg("delta"))
+        .def_readwrite("delta", &JointDeltaAction::delta);
+
+    py::class_<EndEffectorAction>(module, "EndEffectorAction")
+        .def(py::init<>())
+        .def(py::init<Pose3d>(), py::arg("target"))
+        .def_readwrite("target", &EndEffectorAction::target);
+
+    py::class_<TrajectoryAction>(module, "TrajectoryAction")
+        .def(py::init<>())
+        .def(py::init<std::vector<Configuration>>(), py::arg("waypoints"))
+        .def_readwrite("waypoints", &TrajectoryAction::waypoints);
+
+    py::class_<ShieldOptions>(module, "ShieldOptions")
+        .def(py::init<>())
+        .def_readwrite("allow_repair", &ShieldOptions::allow_repair)
+        .def_readwrite("maximum_waypoint_repair_distance", &ShieldOptions::maximum_waypoint_repair_distance)
+        .def_readwrite("maximum_total_repair_distance", &ShieldOptions::maximum_total_repair_distance)
+        .def_readwrite("maximum_input_waypoints", &ShieldOptions::maximum_input_waypoints)
+        .def_readwrite("maximum_output_waypoints", &ShieldOptions::maximum_output_waypoints)
+        .def_readwrite("maximum_repair_region_tests", &ShieldOptions::maximum_repair_region_tests)
+        .def_readwrite("audit", &ShieldOptions::audit)
+        .def_readwrite("safe_ik", &ShieldOptions::safe_ik)
+        .def_readwrite("cancellation", &ShieldOptions::cancellation);
+
+    py::class_<ShieldDecision>(module, "ShieldDecision")
+        .def_readonly("action_type", &ShieldDecision::action_type)
+        .def_readonly("outcome", &ShieldDecision::outcome)
+        .def_readonly("reason", &ShieldDecision::reason)
+        .def_readonly("id", &ShieldDecision::id)
+        .def_readonly("action_digest", &ShieldDecision::action_digest)
+        .def_readonly("robot_digest", &ShieldDecision::robot_digest)
+        .def_readonly("scene_digest", &ShieldDecision::scene_digest)
+        .def_readonly("requested_target", &ShieldDecision::requested_target)
+        .def_readonly("output_trajectory", &ShieldDecision::output_trajectory)
+        .def_readonly("audit", &ShieldDecision::audit)
+        .def_readonly("connectivity_certificate", &ShieldDecision::connectivity_certificate)
+        .def_readonly("repair_distance", &ShieldDecision::repair_distance)
+        .def_readonly("evidence", &ShieldDecision::evidence);
+
+    py::class_<ShieldBatchOptions>(module, "ShieldBatchOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_actions", &ShieldBatchOptions::maximum_actions)
+        .def_readwrite("action", &ShieldBatchOptions::action)
+        .def_readwrite("cancellation", &ShieldBatchOptions::cancellation);
+
+    py::class_<ShieldBatchReport>(module, "ShieldBatchReport")
+        .def_readonly("decisions", &ShieldBatchReport::decisions)
+        .def_readonly("selected_index", &ShieldBatchReport::selected_index);
+
+    py::class_<ShieldTelemetrySnapshot>(module, "ShieldTelemetrySnapshot")
+        .def_readonly("total_actions", &ShieldTelemetrySnapshot::total_actions)
+        .def_readonly("accepted_actions", &ShieldTelemetrySnapshot::accepted_actions)
+        .def_readonly("repaired_actions", &ShieldTelemetrySnapshot::repaired_actions)
+        .def_readonly("rejected_actions", &ShieldTelemetrySnapshot::rejected_actions)
+        .def_readonly("joint_actions", &ShieldTelemetrySnapshot::joint_actions)
+        .def_readonly("end_effector_actions", &ShieldTelemetrySnapshot::end_effector_actions)
+        .def_readonly("trajectory_actions", &ShieldTelemetrySnapshot::trajectory_actions)
+        .def_readonly("repair_attempts", &ShieldTelemetrySnapshot::repair_attempts)
+        .def_readonly("successful_repairs", &ShieldTelemetrySnapshot::successful_repairs)
+        .def_readonly("input_waypoints", &ShieldTelemetrySnapshot::input_waypoints)
+        .def_readonly("output_waypoints", &ShieldTelemetrySnapshot::output_waypoints)
+        .def_readonly("batches", &ShieldTelemetrySnapshot::batches);
+
+    py::class_<RuntimeShield>(module, "RuntimeShield")
+        .def(py::init<>())
+        .def(
+            "check_action",
+            [](RuntimeShield& shield, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const SafeAtlas& atlas, const Configuration& current, const ShieldAction& action,
+               const ShieldOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return shield.check_action(robot, scene, atlas, view(current), action, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("atlas"), py::arg("current"), py::arg("action"),
+            py::arg("options") = ShieldOptions{})
+        .def(
+            "check_joint_action",
+            [](RuntimeShield& shield, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const SafeAtlas& atlas, const Configuration& current, const JointDeltaAction& action,
+               const ShieldOptions& options) {
+                return unwrap(
+                    shield.check_action(robot, scene, atlas, view(current), ShieldAction{action}, options));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("atlas"), py::arg("current"), py::arg("action"),
+            py::arg("options") = ShieldOptions{})
+        .def(
+            "check_end_effector_action",
+            [](RuntimeShield& shield, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const SafeAtlas& atlas, const Configuration& current, const EndEffectorAction& action,
+               const ShieldOptions& options) {
+                return unwrap(
+                    shield.check_action(robot, scene, atlas, view(current), ShieldAction{action}, options));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("atlas"), py::arg("current"), py::arg("action"),
+            py::arg("options") = ShieldOptions{})
+        .def(
+            "check_trajectory_action",
+            [](RuntimeShield& shield, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const SafeAtlas& atlas, const Configuration& current, const TrajectoryAction& action,
+               const ShieldOptions& options) {
+                return unwrap(
+                    shield.check_action(robot, scene, atlas, view(current), ShieldAction{action}, options));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("atlas"), py::arg("current"), py::arg("action"),
+            py::arg("options") = ShieldOptions{})
+        .def(
+            "check_actions",
+            [](RuntimeShield& shield, const SerialRobotModel& robot, const SceneSnapshot& scene,
+               const SafeAtlas& atlas, const Configuration& current, const std::vector<ShieldAction>& actions,
+               const ShieldBatchOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return shield.check_actions(robot, scene, atlas, view(current), actions, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("atlas"), py::arg("current"), py::arg("actions"),
+            py::arg("options") = ShieldBatchOptions{})
+        .def_property_readonly("telemetry", &RuntimeShield::telemetry)
+        .def("reset_telemetry", &RuntimeShield::reset_telemetry);
+
+    py::enum_<MonitorState>(module, "MonitorState")
+        .value("INACTIVE", MonitorState::Inactive)
+        .value("ON_CERTIFIED_PLAN", MonitorState::OnCertifiedPlan)
+        .value("CERTIFIED_DEVIATION", MonitorState::CertifiedDeviation)
+        .value("UNCERTIFIED_STATE", MonitorState::UncertifiedState);
+
+    py::class_<RuntimeMonitorOptions>(module, "RuntimeMonitorOptions")
+        .def(py::init<>())
+        .def_readwrite("tracking_tolerance", &RuntimeMonitorOptions::tracking_tolerance)
+        .def_readwrite("maximum_plan_waypoints", &RuntimeMonitorOptions::maximum_plan_waypoints);
+
+    py::class_<MonitorObservation>(module, "MonitorObservation")
+        .def_readonly("state", &MonitorObservation::state)
+        .def_readonly("decision_id", &MonitorObservation::decision_id)
+        .def_readonly("timestamp", &MonitorObservation::timestamp)
+        .def_readonly("distance_to_plan", &MonitorObservation::distance_to_plan)
+        .def_readonly("evidence", &MonitorObservation::evidence);
+
+    py::class_<RuntimeMonitorStats>(module, "RuntimeMonitorStats")
+        .def_readonly("observations", &RuntimeMonitorStats::observations)
+        .def_readonly("on_plan", &RuntimeMonitorStats::on_plan)
+        .def_readonly("certified_deviations", &RuntimeMonitorStats::certified_deviations)
+        .def_readonly("uncertified_states", &RuntimeMonitorStats::uncertified_states);
+
+    py::class_<RuntimeShieldMonitor>(module, "RuntimeShieldMonitor")
+        .def(py::init([](const SafeAtlas& atlas, const RuntimeMonitorOptions& options) {
+                 return std::make_unique<RuntimeShieldMonitor>(std::make_shared<SafeAtlas>(atlas), options);
+             }),
+             py::arg("atlas"), py::arg("options") = RuntimeMonitorOptions{})
+        .def("arm", [](RuntimeShieldMonitor& monitor,
+                       const ShieldDecision& decision) { unwrap_void(monitor.arm(decision)); })
+        .def("disarm", &RuntimeShieldMonitor::disarm)
+        .def("observe",
+             [](RuntimeShieldMonitor& monitor, const Configuration& configuration, double timestamp) {
+                 return unwrap(monitor.observe(view(configuration), timestamp));
+             })
+        .def_property_readonly("stats", &RuntimeShieldMonitor::stats);
+
+    module.def("shield_action_type_name", &shield_action_type_name);
+    module.def("shield_outcome_name", &shield_outcome_name);
+    module.def("shield_reason_name", &shield_reason_name);
+    module.def("monitor_state_name", &monitor_state_name);
+
     py::enum_<HipacBuildStatus>(module, "HipacBuildStatus")
         .value("CERTIFIED", HipacBuildStatus::Certified)
         .value("PARTIAL", HipacBuildStatus::Partial)
