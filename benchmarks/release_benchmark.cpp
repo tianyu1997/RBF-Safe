@@ -1,6 +1,7 @@
 #include <rbfsafe/rbfsafe.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -49,6 +50,7 @@ struct CaseMetrics {
     std::size_t memory_reuses = 0;
     std::size_t fleet_schedule_checks = 0;
     std::size_t fleet_schedule_versions = 0;
+    std::size_t artifact_attestations = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -392,6 +394,24 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     metrics.memory_artifacts = memory.summary().artifacts;
     metrics.memory_reuses = memory.summary().recorded_reuses;
 
+    const std::string authenticated_payload = "release fixture authenticated artifact\n";
+    const auto authenticated_bytes =
+        std::as_bytes(std::span(authenticated_payload.data(), authenticated_payload.size()));
+    std::array<std::byte, 32> authentication_key{};
+    for (std::size_t index = 0; index < authentication_key.size(); ++index)
+        authentication_key[index] = static_cast<std::byte>(index + 1);
+    auto attestation =
+        rbfsafe::attest_artifact(memory_artifact.value(), authenticated_bytes, "release-service",
+                                 "release-test-key", authentication_key, 1, "application/octet-stream");
+    if (!attestation ||
+        !rbfsafe::verify_artifact(memory_artifact.value(), authenticated_bytes, attestation.value(),
+                                  "release-service", "release-test-key", authentication_key)) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture artifact attestation was inconsistent",
+                                                     fixture.name);
+    }
+    metrics.artifact_attestations = 1;
+
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
     auto fleet =
         rbfsafe::make_fleet_snapshot(fixture.name + "-fleet", scene.value().digest(),
@@ -465,6 +485,9 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, memory.identity());
     hash_field(logical_hash, std::to_string(metrics.memory_artifacts));
     hash_field(logical_hash, std::to_string(metrics.memory_reuses));
+    hash_field(logical_hash, "artifact-attestation-verified");
+    hash_field(logical_hash, attestation.value().id);
+    hash_field(logical_hash, std::to_string(metrics.artifact_attestations));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -490,6 +513,7 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"inherited_certificates\":" << item.inherited_certificates
                   << ",\"policy_feedback_records\":" << item.policy_feedback_records
                   << ",\"fleet_schedule_versions\":" << item.fleet_schedule_versions
+                  << ",\"artifact_attestations\":" << item.artifact_attestations
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -506,8 +530,8 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " estimated_memory_bytes=" << item.estimated_memory_bytes
                   << " policy_feedback_records=" << item.policy_feedback_records
                   << " fleet_schedule_versions=" << item.fleet_schedule_versions
-                  << " build_ms=" << item.build_ms << " query_ms=" << item.query_ms
-                  << " update_ms=" << item.update_ms << '\n';
+                  << " artifact_attestations=" << item.artifact_attestations << " build_ms=" << item.build_ms
+                  << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
     }
 }
 

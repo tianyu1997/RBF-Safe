@@ -657,6 +657,7 @@ PYBIND11_MODULE(_rbfsafe, module) {
 
     bind_policy(module);
     bind_memory(module);
+    bind_trust(module);
 
     py::enum_<MonitorState>(module, "MonitorState")
         .value("INACTIVE", MonitorState::Inactive)

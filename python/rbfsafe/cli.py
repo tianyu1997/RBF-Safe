@@ -31,11 +31,14 @@ from . import (
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
+    artifact_authentication_algorithm_name,
     fleet_schedule_status_name,
+    load_artifact_attestation,
     policy_feedback_label_name,
     memory_artifact_state_name,
     memory_artifact_type_name,
     memory_event_type_name,
+    verify_artifact_file,
 )
 
 
@@ -123,6 +126,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--fleet-schedule-version",
         help="inspect a specific version from a fleet-schedule archive",
     )
+    parser.add_argument("--artifact-payload", type=Path, help="payload to verify against an attestation")
+    parser.add_argument(
+        "--attestation-memory", type=Path, help="safety-memory directory containing the attested artifact"
+    )
+    parser.add_argument("--hmac-key-file", type=Path, help="external HMAC key used to verify an attestation")
+    parser.add_argument("--expected-service-id", help="trusted service ID for attestation verification")
+    parser.add_argument("--expected-key-id", help="trusted key ID for attestation verification")
     parser.add_argument(
         "--max-memory-results",
         type=int,
@@ -192,6 +202,96 @@ def _print_safety_memory(memory: SafetyMemory, args: argparse.Namespace, parser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    try:
+        file_document = (
+            json.loads(args.atlas.read_text(encoding="utf-8")) if args.atlas.is_file() else {}
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        file_document = {}
+    attestation_arguments = (
+        args.artifact_payload,
+        args.attestation_memory,
+        args.hmac_key_file,
+        args.expected_service_id,
+        args.expected_key_id,
+    )
+    if file_document.get("format") == "rbfsafe-artifact-attestation":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error("Atlas, memory-query, fleet, and planning options do not apply to attestations")
+        attestation = load_artifact_attestation(args.atlas)
+        print("RBF-Safe artifact-attestation schema=1")
+        print(
+            f"attestation={attestation.id} service={attestation.service_id} key={attestation.key_id} "
+            f"algorithm={artifact_authentication_algorithm_name(attestation.algorithm)}"
+        )
+        print(
+            f"artifact={attestation.artifact_id} generation={attestation.artifact_generation} "
+            f"state={memory_artifact_state_name(attestation.artifact_state)}"
+        )
+        print(
+            f"payload={attestation.payload_digest} bytes={attestation.payload_bytes} "
+            f"media_type={attestation.media_type}"
+        )
+        if not any(value is not None for value in attestation_arguments):
+            print("verified=false")
+            return 0
+        if not all(value is not None for value in attestation_arguments):
+            parser.error(
+                "--artifact-payload, --attestation-memory, --hmac-key-file, "
+                "--expected-service-id, and --expected-key-id must be used together"
+            )
+        try:
+            key = args.hmac_key_file.read_bytes()
+        except OSError as error:
+            parser.error(f"cannot read --hmac-key-file: {error}")
+        if not 32 <= len(key) <= 4096:
+            parser.error("--hmac-key-file must contain 32 to 4096 bytes")
+        memory = SafetyMemory.load(args.attestation_memory)
+        artifact = memory.artifact(attestation.artifact_id)
+        if artifact is None:
+            parser.error("attested artifact is not present in --attestation-memory")
+        verify_artifact_file(
+            artifact,
+            args.artifact_payload,
+            attestation,
+            args.expected_service_id,
+            args.expected_key_id,
+            key,
+        )
+        print("verified=true")
+        return 0
+    if any(value is not None for value in attestation_arguments):
+        parser.error("artifact-attestation verification options require an attestation JSON file")
     try:
         manifest = json.loads((args.atlas / "manifest.json").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):

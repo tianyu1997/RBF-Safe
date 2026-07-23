@@ -328,6 +328,22 @@ the [memory format](safety-memory-format.md). Multi-process deployments should
 also read the [transactional store contract](safety-memory-store.md) and
 [fleet archive contract](fleet-schedule-archive.md).
 
+## Artifact authentication
+
+Include `<rbfsafe/trust.h>` and link `RBFSafe::trust`.
+`attest_artifact` and `attest_artifact_file` create deterministic,
+full-length HMAC-SHA256 sidecars for exact `MemoryArtifact` lifecycle metadata
+and payload bytes. `verify_artifact` and `verify_artifact_file` require the
+service ID, key ID, and shared key selected by trusted application
+configuration; an untrusted sidecar cannot choose its own trust anchor.
+
+`ArtifactVerificationOptions` bounds payload and metadata bytes and carries a
+cancellation token. `save_artifact_attestation` and
+`load_artifact_attestation` use independent schema 1. Loading validates
+structure and deterministic identity only; authentication occurs exclusively
+in a verify call with an external key. See
+[authenticated artifact attestations](artifact-attestation.md).
+
 ## Error model
 
 All expected C++ failures use `Result<T>` with one of `InvalidArgument`,

@@ -127,6 +127,14 @@ whole-memory identity used to validate its source artifacts. The format is
 independent of both safety-memory formats; loading recomputes report semantics,
 version identities, parent continuity, checksums, and aggregate limits.
 
+### Artifact trust boundary
+
+`RBFSafe::trust` depends on `RBFSafe::memory` and authenticates exact external
+payload bytes plus artifact lifecycle metadata. It owns canonical attestation
+identity, HMAC-SHA256, bounded sidecar I/O, and verification. Shared keys,
+transport, access control, and payload interpretation remain outside the
+module. A successful tag check never changes certificate evidence.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -215,6 +223,9 @@ components and bind subject digests.
 - Fleet-schedule-archive schema 1 is a v3.2 immutable report history. It binds
   exact memory and fleet identities but remains coordination metadata rather
   than certificate or runtime evidence.
+- Artifact-attestation schema 1 is a v3.3 symmetric-authentication sidecar.
+  Keys are never persisted, metadata-only loading is explicitly unverified,
+  and payload formats retain their independent validators.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

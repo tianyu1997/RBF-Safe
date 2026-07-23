@@ -3,6 +3,24 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.3.0] - 2026-07-23
+
+### Added
+
+- Public `RBFSafe::trust` target with HMAC-SHA256 artifact attestations bound
+  to exact `SafetyMemory` artifact identity, lifecycle state, logical content,
+  payload bytes, service/key identity, media type, and sequence.
+- Bounded schema-1 attestation sidecars, atomic save, constant-time tag
+  comparison, RFC 4231 conformance coverage, C++/Python APIs, CLI/native
+  inspection, fixed fixtures, and runnable examples.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.3.0. Existing 3.x APIs and storage readers remain available.
+- Installed fixtures and public API review now include artifact attestations
+  and the `RBFSafe::trust` target.
+
 ## [3.2.0] - 2026-07-23
 
 ### Added

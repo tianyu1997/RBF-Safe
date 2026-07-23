@@ -1,5 +1,6 @@
 #include "internal/sha256.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fstream>
@@ -162,6 +163,47 @@ Result<std::string> sha256_file(const std::filesystem::path& path) {
         return Result<std::string>::failure(StatusCode::IoError, "failed while hashing file", path.string());
     }
     return hex_digest(state.finish());
+}
+
+std::string hmac_sha256(std::span<const std::byte> key, std::span<const std::byte> message) {
+    constexpr std::size_t block_size = 64;
+    std::array<std::uint8_t, block_size> key_block{};
+    if (key.size() > block_size) {
+        Sha256 key_hash;
+        key_hash.update(key);
+        const auto digest = key_hash.finish();
+        std::copy(digest.begin(), digest.end(), key_block.begin());
+    } else {
+        for (std::size_t index = 0; index < key.size(); ++index)
+            key_block[index] = static_cast<std::uint8_t>(key[index]);
+    }
+
+    std::array<std::byte, block_size> inner_pad{};
+    std::array<std::byte, block_size> outer_pad{};
+    for (std::size_t index = 0; index < block_size; ++index) {
+        inner_pad[index] = static_cast<std::byte>(key_block[index] ^ 0x36U);
+        outer_pad[index] = static_cast<std::byte>(key_block[index] ^ 0x5cU);
+    }
+    Sha256 inner;
+    inner.update(inner_pad);
+    inner.update(message);
+    const auto inner_digest = inner.finish();
+
+    Sha256 outer;
+    outer.update(outer_pad);
+    outer.update(std::as_bytes(std::span(inner_digest)));
+    return hex_digest(outer.finish());
+}
+
+bool constant_time_equal(std::string_view first, std::string_view second) noexcept {
+    const auto maximum = std::max(first.size(), second.size());
+    std::size_t difference = first.size() ^ second.size();
+    for (std::size_t index = 0; index < maximum; ++index) {
+        const unsigned char left = index < first.size() ? static_cast<unsigned char>(first[index]) : 0U;
+        const unsigned char right = index < second.size() ? static_cast<unsigned char>(second[index]) : 0U;
+        difference |= left ^ right;
+    }
+    return difference == 0;
 }
 
 } // namespace rbfsafe::internal

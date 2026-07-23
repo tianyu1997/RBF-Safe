@@ -58,7 +58,8 @@ Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
 targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
 `RBFSafe::update`, `RBFSafe::corridor`, `RBFSafe::ik`, and
 `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`,
-`RBFSafe::shield`, `RBFSafe::policy`, and `RBFSafe::memory` are
+`RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, and
+`RBFSafe::trust` are
 available when the aggregate target is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
@@ -81,6 +82,11 @@ RBF-Safe targets they consume and are included by `RBFSafe::rbfsafe`.
 fleet reservation analysis, and immutable optimistic-concurrency revision
 stores. It depends only on RBF-Safe core targets and is included by
 `RBFSafe::rbfsafe`.
+
+`RBFSafe::trust` authenticates exact immutable artifact bytes and their
+`SafetyMemory` lifecycle identity with caller-supplied HMAC-SHA256 keys. Keys
+are never stored by RBF-Safe. Loading an attestation validates its schema and
+deterministic identity; only explicit verification authenticates it.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

@@ -11,6 +11,26 @@ int main(int argc, char** argv) {
         std::cerr << "usage: rbfsafe-inspect <database-or-archive> [q0 q1 ...]\n";
         return 2;
     }
+    auto attestation = rbfsafe::load_artifact_attestation(std::filesystem::path(argv[1]));
+    if (attestation) {
+        if (argc > 2) {
+            std::cerr << "configuration queries do not apply to artifact attestations\n";
+            return 2;
+        }
+        std::cout << "RBF-Safe artifact attestation\n"
+                  << "schema: 1\n"
+                  << "attestation: " << attestation.value().id << '\n'
+                  << "service: " << attestation.value().service_id << '\n'
+                  << "key: " << attestation.value().key_id << '\n'
+                  << "algorithm: "
+                  << rbfsafe::artifact_authentication_algorithm_name(attestation.value().algorithm) << '\n'
+                  << "artifact: " << attestation.value().artifact_id << '\n'
+                  << "generation: " << attestation.value().artifact_generation << '\n'
+                  << "payload: " << attestation.value().payload_digest << '\n'
+                  << "bytes: " << attestation.value().payload_bytes << '\n'
+                  << "verified: false\n";
+        return 0;
+    }
     auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[1]));
     bool loaded_from_store = false;
     std::size_t stored_versions = 0;

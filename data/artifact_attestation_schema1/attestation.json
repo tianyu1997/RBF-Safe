@@ -1,0 +1,18 @@
+{
+  "algorithm": 0,
+  "artifact_content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "artifact_generation": "1",
+  "artifact_id": "af0daab13736492bb78c3a0bc4a157b440be5171e4c26b1ea0fd7cfa275962cd",
+  "artifact_state": 0,
+  "authentication_tag": "632675274bb35c76bd7819b27e4309acaa5f21ed125121d3a11a26e96461615c",
+  "format": "rbfsafe-artifact-attestation",
+  "id": "899b221e1f50f23caa9d7a328cb5ad09f07545d31c5d6a69d57dda420d956e52",
+  "key_id": "example-key-1",
+  "library_version": "3.3.0",
+  "media_type": "application/vnd.rbfsafe.atlas",
+  "payload_bytes": "24",
+  "payload_digest": "4753e499617943c6b3dfa197752908e793797df2a669c7696ab3e53e534df4bd",
+  "schema": 1,
+  "sequence": "1",
+  "service_id": "factory-service"
+}

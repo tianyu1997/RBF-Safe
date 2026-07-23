@@ -244,7 +244,12 @@ same declared-envelope analysis under the exact historical memory and fleet;
 it neither authenticates those declarations nor upgrades the report to a
 certificate.
 
-## Explicit exclusions in v3.2
+The v3.3 trust layer authenticates exact payload bytes and memory lifecycle
+metadata to holders of one shared HMAC key. It does not validate payload
+semantics, elevate evidence, authorize reuse, identify an individual signer,
+or protect keys. Metadata inspection without a verify call remains untrusted.
+
+## Explicit exclusions in v3.3
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -275,6 +280,10 @@ certificate.
   artifacts. Direct `SafetyMemory` object mutation still requires in-process
   serialization; `SafetyMemoryStore` serializes publication but does not merge
   concurrent edits or automatically remove a lock left by a crashed writer.
+- Artifact HMAC keys, key rotation, access control, transport security,
+  encryption, remote retrieval, and secret erasure are deployment
+  responsibilities. Shared-key verification is not a public-key signature,
+  non-repudiation, payload certificate, or execution authorization.
 - Fleet member envelopes and reservation occupancy are caller-supplied
   conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller

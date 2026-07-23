@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(RBFSafeOmplConsumer LANGUAGES CXX)
 
-find_package(RBFSafe 3.2 REQUIRED COMPONENTS ompl)
+find_package(RBFSafe 3.3 REQUIRED COMPONENTS ompl)
 
 add_executable(rbfsafe_ompl_consumer main.cpp)
 target_link_libraries(rbfsafe_ompl_consumer PRIVATE RBFSafe::ompl)

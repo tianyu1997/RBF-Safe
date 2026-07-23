@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.2.0"
+    assert rbfsafe.__version__ == "3.3.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -712,6 +712,120 @@ def test_tool_link_and_specific_identity_error() -> None:
     other_scene = rbfsafe.SceneSnapshot([], "different-version")
     with pytest.raises(rbfsafe.IdentityMismatchError):
         atlas.verify_compatible(robot, other_scene)
+
+
+def test_authenticated_artifact_attestation(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def digest(value: str) -> str:
+        return value * 64
+
+    item = rbfsafe.MemoryArtifactInput()
+    item.type = rbfsafe.MemoryArtifactType.SAFE_ATLAS
+    item.deployment_id = "arm-a"
+    item.robot_digest = digest("a")
+    item.scene_digest = digest("b")
+    item.task_id = "shelf-pick"
+    item.content_digest = digest("c")
+    item.locator = "artifacts/shelf-atlas"
+    item.evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+    memory = rbfsafe.SafetyMemory()
+    artifact = memory.register_artifact(item)
+
+    payload = b"immutable atlas payload\n"
+    key = bytes(range(1, 33))
+    attestation = rbfsafe.attest_artifact(
+        artifact,
+        payload,
+        "factory-service",
+        "rotation-7",
+        key,
+        12,
+        "application/vnd.rbfsafe.atlas",
+    )
+    assert rbfsafe.valid_artifact_attestation(attestation)
+    assert attestation.artifact_id == artifact.id
+    assert attestation.payload_bytes == len(payload)
+    assert attestation.algorithm == rbfsafe.ArtifactAuthenticationAlgorithm.HMAC_SHA256
+    assert rbfsafe.verify_artifact(
+        artifact, payload, attestation, "factory-service", "rotation-7", key
+    ) is None
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.verify_artifact(
+            artifact,
+            payload,
+            attestation,
+            "factory-service",
+            "rotation-7",
+            b"x" * 32,
+        )
+
+    payload_path = tmp_path / "atlas.bin"
+    payload_path.write_bytes(payload)
+    file_attestation = rbfsafe.attest_artifact_file(
+        artifact,
+        payload_path,
+        "factory-service",
+        "rotation-7",
+        key,
+        13,
+        "application/vnd.rbfsafe.atlas",
+    )
+    rbfsafe.verify_artifact_file(
+        artifact,
+        payload_path,
+        file_attestation,
+        "factory-service",
+        "rotation-7",
+        key,
+    )
+    attestation_path = tmp_path / "atlas.attestation.json"
+    rbfsafe.save_artifact_attestation(file_attestation, attestation_path)
+    loaded = rbfsafe.load_artifact_attestation(attestation_path)
+    assert loaded.id == file_attestation.id
+    assert rbfsafe.artifact_authentication_algorithm_name(loaded.algorithm) == "hmac_sha256"
+    limited = rbfsafe.ArtifactVerificationOptions()
+    limited.maximum_payload_bytes = 1
+    with pytest.raises(MemoryError):
+        rbfsafe.verify_artifact_file(
+            artifact,
+            payload_path,
+            loaded,
+            "factory-service",
+            "rotation-7",
+            key,
+            limited,
+        )
+
+    memory_path = tmp_path / "safety-memory"
+    memory.save(memory_path)
+    key_path = tmp_path / "attestation.key"
+    key_path.write_bytes(key)
+    from rbfsafe.cli import main
+
+    assert main([str(attestation_path)]) == 0
+    inspect_output = capsys.readouterr().out
+    assert "RBF-Safe artifact-attestation schema=1" in inspect_output
+    assert "verified=false" in inspect_output
+    assert (
+        main(
+            [
+                str(attestation_path),
+                "--artifact-payload",
+                str(payload_path),
+                "--attestation-memory",
+                str(memory_path),
+                "--hmac-key-file",
+                str(key_path),
+                "--expected-service-id",
+                "factory-service",
+                "--expected-key-id",
+                "rotation-7",
+            ]
+        )
+        == 0
+    )
+    assert "verified=true" in capsys.readouterr().out
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

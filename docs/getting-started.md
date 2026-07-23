@@ -217,7 +217,41 @@ revision = store.publish(memory, expected)
 A stale `expected` value raises `IdentityMismatchError`; no newer revision is
 overwritten. See [transactional safety memory](safety-memory-store.md).
 
-## 10. Persist fleet-schedule history
+## 10. Authenticate immutable artifact bytes
+
+After registering an artifact, bind its exact bytes and current memory
+lifecycle to an attestation. Provision the key through a deployment secret
+manager; do not store production keys beside artifacts or attestations.
+
+```python
+key = secret_manager_bytes  # 32 to 4096 bytes; not persisted by RBF-Safe
+attestation = rbfsafe.attest_artifact_file(
+    artifact,
+    Path("artifacts/shelf-atlas.bin"),
+    "factory-attestation-service",
+    "rotation-2026-07",
+    key,
+    1,
+    "application/vnd.rbfsafe.atlas",
+)
+rbfsafe.save_artifact_attestation(attestation, Path("shelf-atlas.attestation.json"))
+
+loaded = rbfsafe.load_artifact_attestation(Path("shelf-atlas.attestation.json"))
+rbfsafe.verify_artifact_file(
+    artifact,
+    Path("artifacts/shelf-atlas.bin"),
+    loaded,
+    "factory-attestation-service",
+    "rotation-2026-07",
+    key,
+)
+```
+
+HMAC verification proves knowledge of a shared key; it is not a public-key
+signature, non-repudiation, execution approval, or new safety evidence. See
+[authenticated artifact attestations](artifact-attestation.md).
+
+## 11. Persist fleet-schedule history
 
 Publish canonical reservation reports against the exact memory revision used
 to validate their source artifacts:

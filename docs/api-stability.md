@@ -4,7 +4,8 @@ RBF-Safe 1.0 froze the initial reviewed public source surface. RBF-Safe 2.0
 retained it and added `RBFSafe::policy`; RBF-Safe 3.0 retains both surfaces and
 adds `RBFSafe::memory`; RBF-Safe 3.1 additively introduces deterministic memory
 identities and `SafetyMemoryStore`; RBF-Safe 3.2 adds `FleetScheduleArchive`
-and its version/load-option records. Public headers under `include/rbfsafe`,
+and its version/load-option records; RBF-Safe 3.3 adds `RBFSafe::trust` and
+artifact-attestation records/functions. Public headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
 historical contracts; `tools/check_api_surface.py` selects the snapshot for the
@@ -47,7 +48,8 @@ The following installed target names are stable in 3.x:
 - `RBFSafe::update`, `RBFSafe::ik`, `RBFSafe::corridor`;
 - `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`;
 - `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, and aggregate
-  `RBFSafe::rbfsafe`; and
+- `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, `RBFSafe::trust`,
+  and aggregate `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 
 Every public C++ failure that is part of normal control flow remains a

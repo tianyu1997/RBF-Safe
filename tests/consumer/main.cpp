@@ -19,6 +19,7 @@ int main() {
     const rbfsafe::SafetyMemory memory;
     const rbfsafe::FleetScheduleOptions fleet_options;
     const rbfsafe::FleetScheduleArchiveLoadOptions fleet_archive_options;
+    const rbfsafe::ArtifactVerificationOptions artifact_verification_options;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
     return interval.contains(0.0) && options.maximum_region_tests > 0 &&
@@ -30,6 +31,9 @@ int main() {
                    memory_store_options.maximum_revisions > 0 && memory.identity().size() == 64 &&
                    fleet_options.maximum_pair_evaluations > 0 && fleet_archive_options.maximum_versions > 0 &&
                    fleet_archive && fleet_archive.value().valid() &&
+                   artifact_verification_options.maximum_payload_bytes > 0 &&
+                   rbfsafe::artifact_authentication_algorithm_name(
+                       rbfsafe::ArtifactAuthenticationAlgorithm::HmacSha256) == "hmac_sha256" &&
                    report.status == rbfsafe::TrajectoryAuditStatus::Invalid
                ? 0
                : 1;

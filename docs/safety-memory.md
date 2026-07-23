@@ -107,12 +107,16 @@ status and do not raise evidence. See the
 1. Persist Atlas/corridor/audit artifacts in their own checksummed formats.
 2. Compute the stored artifact's content digest and register its relative or
    service locator in `SafetyMemory`.
-3. Query direct reuse using the live robot and scene identities.
-4. Record every accepted reuse and lifecycle transition with a meaningful
+3. When artifact authenticity is required, create and separately store an
+   [artifact attestation](artifact-attestation.md); keep its HMAC key in the
+   deployment secret manager.
+4. Query direct reuse using the live robot and scene identities, then verify
+   the exact artifact bytes before consuming them.
+5. Record every accepted reuse and lifecycle transition with a meaningful
    audit detail.
-5. On a scene change, invalidate the old identity before rebuilding or
+6. On a scene change, invalidate the old identity before rebuilding or
    publishing a replacement.
-6. Use fleet reports as a conservative coordination guard in addition to,
+7. Use fleet reports as a conservative coordination guard in addition to,
    never instead of, robot-level runtime monitoring and hardware safety.
 
 An individual database object is not internally synchronized. In-process

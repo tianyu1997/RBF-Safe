@@ -79,3 +79,10 @@ fixture. It contains a conflict-free root and a conflicted child for two
 declared robot envelopes. Tests verify fixed version and head IDs, whole-memory
 and fleet-snapshot bindings, report semantics, parent continuity, aggregate
 limits, checksum failures, and cross-platform schema-1 loading.
+
+`data/artifact_attestation_schema1` is the fixed RBF-Safe 3.3 attestation
+fixture. It contains a 24-byte synthetic payload and schema-1 sidecar created
+with the public test-only key bytes `01 02 ... 20`. Tests verify fixed artifact,
+payload, attestation and HMAC identities, bounded loading, exact lifecycle
+binding, wrong-key rejection, and C++/Python/native inspection. The key is
+public interoperability data and must never protect real artifacts.

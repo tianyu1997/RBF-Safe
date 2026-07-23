@@ -40,6 +40,11 @@ Run both fleet-schedule archive quickstarts; verify expected-head and
 idempotent publication, historical replay, every aggregate load limit,
 checksum/semantic corruption rejection, fixed fixture identities, and both
 inspection paths.
+Run both artifact-attestation quickstarts and the RFC 4231 vector; verify
+wrong-key/service/payload/lifecycle rejection, payload and metadata budgets,
+cancellation, atomic overwrite behavior, fixed fixture identities, and
+metadata-only versus authenticated CLI output. Confirm no secret key appears
+in an installed artifact or committed non-fixture file.
 Build `rbfsafe-release-benchmark`, run its 128-iteration smoke gate and
 8192-iteration soak gate, and confirm zero false-safe point checks and an exact
 match with the committed cross-platform logical digest. Inspect timing and

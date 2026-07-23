@@ -7,7 +7,8 @@ compatibility promise. Version 2.0 retained it and added learning-policy
 safety. Version 3.0 retains the complete documented 2.0 surface and adds the
 persistent safety-memory and fleet-coordination module. Version 3.1 adds an
 immutable optimistic-concurrency memory revision store. Version 3.2 adds a
-deterministic versioned fleet-schedule archive. Documented public C++
+deterministic versioned fleet-schedule archive. Version 3.3 adds symmetric
+artifact attestations and the `RBFSafe::trust` target. Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
 minor releases. Deprecated APIs remain functional through 3.x and may be
@@ -113,6 +114,12 @@ checksums, identities, report semantics, aggregate limits, sequence and parent
 continuity, and the active head. This format is independent of safety-memory
 and store schemas and does not promote a coordination report to a certificate.
 
+The v3.3 artifact-attestation schema 1 is an independent JSON sidecar. Its
+deterministic ID binds exact artifact lifecycle and payload metadata; its
+HMAC-SHA256 tag binds those fields to a caller-managed shared key. Loading a
+sidecar is not verification. Existing Atlas, memory, corridor, feedback, and
+fleet formats remain byte-for-byte independent and retain their validators.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -138,7 +145,7 @@ inherited link dependency is unchanged.
 For identical inputs, options, schema, and library version, region IDs, region
 order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
-hashes, committed memory/store/fleet-archive fixtures, and the v0.5 schema-1 Atlas fixture
+hashes, committed memory/store/fleet-archive/attestation fixtures, and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 
 Floating-point behavior is tested against conservative containment properties,
