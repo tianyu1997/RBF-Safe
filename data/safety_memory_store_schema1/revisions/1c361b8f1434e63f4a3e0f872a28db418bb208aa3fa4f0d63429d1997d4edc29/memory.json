@@ -1,0 +1,47 @@
+{
+  "artifacts": [
+    {
+      "content_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "deployment_id": "arm-a",
+      "evidence": 2,
+      "generation": "2",
+      "id": "91df3038bfb06c60b2436fd242da58c585a037ae10a19c36955c027aa3563f28",
+      "locator": "artifacts/shelf-atlas",
+      "registered_sequence": "1",
+      "robot_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scene_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "state": 1,
+      "tags": [
+        "production",
+        "shelf"
+      ],
+      "task_id": "shelf-pick",
+      "type": 0
+    }
+  ],
+  "events": [
+    {
+      "artifact_id": "91df3038bfb06c60b2436fd242da58c585a037ae10a19c36955c027aa3563f28",
+      "current_state": 0,
+      "detail": "registered",
+      "id": "7e63e4dd24d8e1cd56184e2a3f6020aac85d0c25be53b81d4dee9df4ebe74709",
+      "previous_state": 0,
+      "sequence": "1",
+      "task_id": "shelf-pick",
+      "type": 0
+    },
+    {
+      "artifact_id": "91df3038bfb06c60b2436fd242da58c585a037ae10a19c36955c027aa3563f28",
+      "current_state": 1,
+      "detail": "scene maintenance",
+      "id": "1d1dbf378ed5b4c3a38714ee926271fd326bbee859c079a43bbb54d3703cf0e6",
+      "previous_state": 0,
+      "sequence": "2",
+      "task_id": "shelf-pick",
+      "type": 1
+    }
+  ],
+  "format": "rbfsafe-safety-memory-records",
+  "next_sequence": "3",
+  "schema": 1
+}

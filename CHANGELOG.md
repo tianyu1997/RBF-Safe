@@ -3,6 +3,27 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.1.0] - 2026-07-23
+
+### Added
+
+- Deterministic `SafetyMemory::identity()` and immutable
+  `SafetyMemoryRevisionInfo` records.
+- `SafetyMemoryStore` with bounded open/load operations, historical revision
+  reads, idempotent publication, explicit expected-head concurrency control,
+  and a fail-closed cross-process writer lock.
+- Independent safety-memory-store schema 1 using immutable revision
+  directories and immutable commit files, with fixed-format fixtures,
+  C++/Python APIs, CLI/native inspection, and runnable examples.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.1.0. All 3.0 APIs and safety-memory schema-1 bytes remain
+  readable; the store is an additive wrapper with its own schema.
+- The release logical digest now covers the deterministic safety-memory
+  identity, and installation exports the fixed two-revision store fixture.
+
 ## [3.0.0] - 2026-07-22
 
 ### Added

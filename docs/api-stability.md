@@ -2,8 +2,9 @@
 
 RBF-Safe 1.0 froze the initial reviewed public source surface. RBF-Safe 2.0
 retained it and added `RBFSafe::policy`; RBF-Safe 3.0 retains both surfaces and
-adds `RBFSafe::memory`. Public headers under `include/rbfsafe`, installed CMake
-targets, and names exported from `rbfsafe.__init__` are tracked by the current
+adds `RBFSafe::memory`; RBF-Safe 3.1 additively introduces deterministic memory
+identities and `SafetyMemoryStore`. Public headers under `include/rbfsafe`,
+installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
 historical contracts; `tools/check_api_surface.py` selects the snapshot for the
 library's current major version.

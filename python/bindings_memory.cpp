@@ -112,6 +112,7 @@ void bind_memory(py::module_& module) {
         .def_property_readonly("artifacts", &SafetyMemory::artifacts)
         .def_property_readonly("events", &SafetyMemory::events)
         .def_property_readonly("next_sequence", &SafetyMemory::next_sequence)
+        .def_property_readonly("identity", &SafetyMemory::identity)
         .def(
             "register_artifact",
             [](SafetyMemory& memory, MemoryArtifactInput input, std::size_t maximum_artifacts,
@@ -168,6 +169,44 @@ void bind_memory(py::module_& module) {
                 return unwrap(SafetyMemory::load(path, options));
             },
             py::arg("path"), py::arg("options") = SafetyMemoryLoadOptions{});
+
+    py::class_<SafetyMemoryRevisionInfo>(module, "SafetyMemoryRevisionInfo")
+        .def_readonly("sequence", &SafetyMemoryRevisionInfo::sequence)
+        .def_readonly("id", &SafetyMemoryRevisionInfo::id)
+        .def_readonly("parent_id", &SafetyMemoryRevisionInfo::parent_id)
+        .def_readonly("memory_id", &SafetyMemoryRevisionInfo::memory_id);
+
+    py::class_<SafetyMemoryStoreOpenOptions>(module, "SafetyMemoryStoreOpenOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_revisions", &SafetyMemoryStoreOpenOptions::maximum_revisions)
+        .def_readwrite("maximum_metadata_bytes", &SafetyMemoryStoreOpenOptions::maximum_metadata_bytes)
+        .def_readwrite("memory_load", &SafetyMemoryStoreOpenOptions::memory_load);
+
+    py::class_<SafetyMemoryStore>(module, "SafetyMemoryStore")
+        .def_static("create",
+                    [](const std::filesystem::path& path, const SafetyMemory& memory) {
+                        return unwrap(SafetyMemoryStore::create(path, memory));
+                    })
+        .def_static(
+            "open",
+            [](const std::filesystem::path& path, const SafetyMemoryStoreOpenOptions& options) {
+                return unwrap(SafetyMemoryStore::open(path, options));
+            },
+            py::arg("path"), py::arg("options") = SafetyMemoryStoreOpenOptions{})
+        .def_property_readonly("directory", &SafetyMemoryStore::directory)
+        .def_property_readonly("current_revision_id", &SafetyMemoryStore::current_revision_id)
+        .def_property_readonly("revisions", &SafetyMemoryStore::revisions)
+        .def("load_current", [](const SafetyMemoryStore& store) { return unwrap(store.load_current()); })
+        .def("load_revision", [](const SafetyMemoryStore& store,
+                                 const std::string& id) { return unwrap(store.load_revision(id)); })
+        .def(
+            "publish",
+            [](SafetyMemoryStore& store, const SafetyMemory& memory, const std::string& expected,
+               std::size_t maximum_revisions) {
+                return unwrap(store.publish(memory, expected, maximum_revisions));
+            },
+            py::arg("memory"), py::arg("expected_current_revision_id"),
+            py::arg("maximum_revisions") = 1'000'000);
 
     py::class_<FleetMember>(module, "FleetMember")
         .def(py::init<>())

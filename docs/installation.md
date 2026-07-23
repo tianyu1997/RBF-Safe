@@ -78,8 +78,9 @@ constraints and trajectory assignment. Both are dependency-free beyond the
 RBF-Safe targets they consume and are included by `RBFSafe::rbfsafe`.
 
 `RBFSafe::memory` provides persistent artifact lifecycle, cross-task reuse,
-and fleet reservation analysis. It depends only on RBF-Safe core targets and
-is included by `RBFSafe::rbfsafe`.
+fleet reservation analysis, and immutable optimistic-concurrency revision
+stores. It depends only on RBF-Safe core targets and is included by
+`RBFSafe::rbfsafe`.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

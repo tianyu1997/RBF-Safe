@@ -5,7 +5,8 @@
 RBF-Safe uses Semantic Versioning. Version 1.0 established the public source
 compatibility promise. Version 2.0 retained it and added learning-policy
 safety. Version 3.0 retains the complete documented 2.0 surface and adds the
-persistent safety-memory and fleet-coordination module. Documented public C++
+persistent safety-memory and fleet-coordination module. Version 3.1 adds an
+immutable optimistic-concurrency memory revision store. Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
 minor releases. Deprecated APIs remain functional through 3.x and may be
@@ -96,6 +97,14 @@ deterministic in-memory coordination artifacts in 3.0; a fleet schedule may be
 registered by its report digest, but has no separate persistent format and is
 not an execution certificate.
 
+The v3.1 safety-memory-store schema 1 wraps complete, unchanged memory schema-1
+directories in a deterministic linear revision chain. The immutable root and
+commit documents bind memory identities, parent IDs, and decimal-string
+sequences. Publication uses a cross-process writer lock and a required
+expected head, then atomically introduces a new commit filename. The store
+does not merge histories, authenticate artifact locators, or change contained
+memory evidence.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -121,8 +130,8 @@ inherited link dependency is unchanged.
 For identical inputs, options, schema, and library version, region IDs, region
 order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
-hashes plus a committed v0.5 schema-1 fixture enforce interoperability across
-CI platforms.
+hashes, committed memory/store fixtures, and the v0.5 schema-1 Atlas fixture
+enforce interoperability across CI platforms.
 
 Floating-point behavior is tested against conservative containment properties,
 registered legacy golden fixtures, and named v1.0 release cases. The release

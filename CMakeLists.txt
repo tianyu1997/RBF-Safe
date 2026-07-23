@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 3.0.0
+    VERSION 3.1.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -174,7 +174,7 @@ target_include_directories(rbfsafe_policy
 target_link_libraries(rbfsafe_policy PUBLIC rbfsafe_shield)
 rbfsafe_configure_target(rbfsafe_policy)
 
-add_library(rbfsafe_memory src/memory.cpp src/memory_persistence.cpp)
+add_library(rbfsafe_memory src/memory.cpp src/memory_persistence.cpp src/memory_store.cpp)
 add_library(RBFSafe::memory ALIAS rbfsafe_memory)
 set_target_properties(rbfsafe_memory PROPERTIES EXPORT_NAME memory)
 target_include_directories(rbfsafe_memory
@@ -262,6 +262,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_safety_memory_quickstart examples/safety_memory_quickstart.cpp)
     target_link_libraries(rbfsafe_safety_memory_quickstart PRIVATE RBFSafe::memory)
     rbfsafe_configure_target(rbfsafe_safety_memory_quickstart)
+    add_executable(rbfsafe_safety_memory_store_quickstart examples/safety_memory_store_quickstart.cpp)
+    target_link_libraries(rbfsafe_safety_memory_store_quickstart PRIVATE RBFSafe::memory)
+    rbfsafe_configure_target(rbfsafe_safety_memory_store_quickstart)
     if(RBFSAFE_BUILD_OMPL)
         add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
         target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
@@ -336,6 +339,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures)
     install(DIRECTORY data/safety_memory_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/safety_memory_schema1)
+    install(DIRECTORY data/safety_memory_store_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/safety_memory_store_schema1)
     install(EXPORT RBFSafeTargets
         FILE RBFSafeTargets.cmake
         NAMESPACE RBFSafe::

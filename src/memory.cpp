@@ -101,6 +101,30 @@ internal::Json event_identity_json(const MemoryEvent& event) {
     };
 }
 
+internal::Json safety_memory_identity_json(const SafetyMemory& memory) {
+    internal::Json::Array artifacts;
+    artifacts.reserve(memory.artifacts().size());
+    for (const auto& artifact : memory.artifacts()) {
+        artifacts.emplace_back(internal::Json::Object{
+            {"generation", std::to_string(artifact.generation)},
+            {"id", artifact.id},
+            {"registered_sequence", std::to_string(artifact.registered_sequence)},
+            {"state", static_cast<int>(artifact.state)},
+        });
+    }
+    internal::Json::Array events;
+    events.reserve(memory.events().size());
+    for (const auto& event : memory.events())
+        events.emplace_back(event.id);
+    return internal::Json::Object{
+        {"artifacts", std::move(artifacts)},
+        {"events", std::move(events)},
+        {"format", "rbfsafe-safety-memory-identity"},
+        {"next_sequence", std::to_string(memory.next_sequence())},
+        {"schema", 1},
+    };
+}
+
 Result<void> validate_reuse_query(const MemoryReuseQuery& query) {
     if (!valid_identifier(query.deployment_id) || !internal::valid_sha256(query.robot_digest) ||
         !internal::valid_sha256(query.scene_digest) || !valid_identifier(query.target_task_id) ||
@@ -257,6 +281,17 @@ std::string memory_artifact_identity(const MemoryArtifact& artifact) {
 
 std::string memory_event_identity(const MemoryEvent& event) {
     return sha256(event_identity_json(event).dump(false));
+}
+
+std::string safety_memory_revision_identity(const SafetyMemoryRevisionInfo& revision) {
+    return sha256(internal::Json(internal::Json::Object{
+                                     {"format", "rbfsafe-safety-memory-revision"},
+                                     {"memory_id", revision.memory_id},
+                                     {"parent_id", revision.parent_id},
+                                     {"schema", 1},
+                                     {"sequence", std::to_string(revision.sequence)},
+                                 })
+                      .dump(false));
 }
 
 Result<void> validate_memory_artifact(const MemoryArtifact& artifact) {
@@ -634,6 +669,10 @@ bool SafetyMemory::valid() const {
         }
     }
     return true;
+}
+
+std::string SafetyMemory::identity() const {
+    return internal::sha256(safety_memory_identity_json(*this).dump(false));
 }
 
 Result<void> SafetyMemory::save(const std::filesystem::path& directory, const SaveOptions& options) const {

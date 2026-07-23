@@ -233,7 +233,12 @@ with unmodeled objects. `ConflictFreeUnderDeclaredEnvelopes` therefore remains
 a coordination status, not `CertifiedConnectivity`, `RuntimeExecutable`, or a
 hardware command authorization.
 
-## Explicit exclusions in v3.0
+The v3.1 revision store protects publication order and historical integrity,
+not authenticity. A memory identity is a deterministic SHA-256 integrity key;
+it is not a digital signature, access-control decision, or proof that a remote
+artifact service is trusted.
+
+## Explicit exclusions in v3.1
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -261,9 +266,11 @@ hardware command authorization.
   not an online-learning or cross-task safety-memory guarantee.
 - Memory locators and content digests are caller-provided metadata. Loading a
   catalog does not fetch, authenticate, decrypt, or revalidate referenced
-  artifacts. Multi-process mutation requires external serialization.
+  artifacts. Direct `SafetyMemory` object mutation still requires in-process
+  serialization; `SafetyMemoryStore` serializes publication but does not merge
+  concurrent edits or automatically remove a lock left by a crashed writer.
 - Fleet member envelopes and reservation occupancy are caller-supplied
-  conservative bounds. The v3.0 analyzer does not provide continuous-time
+  conservative bounds. The v3.1 analyzer does not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller
   interlocks.
 - Named release fixtures and benchmark success demonstrate deterministic API

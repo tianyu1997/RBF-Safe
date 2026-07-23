@@ -1,0 +1,10 @@
+{
+  "format": "rbfsafe-safety-memory-commit",
+  "id": "1c361b8f1434e63f4a3e0f872a28db418bb208aa3fa4f0d63429d1997d4edc29",
+  "identity": "6222594d611f23d2dbee46698b9dbf1f378910a5a77e7728f3b4bb536f7e9d20",
+  "library_version": "3.1.0",
+  "memory_id": "192ac7eb3b27a3d0575f91de68b3180338e50d36c09b3fe3fe45a54099e86c0d",
+  "parent_id": "033a8a61cc33066599d49f31c377540537b011ae1ab8963a2640d6c9743a483e",
+  "schema": 1,
+  "sequence": "1"
+}

@@ -104,12 +104,36 @@ int main(int argc, char** argv) {
                       << "recorded reuses: " << summary.recorded_reuses << '\n';
             return 0;
         }
+        auto memory_store = rbfsafe::SafetyMemoryStore::open(std::filesystem::path(argv[1]));
+        if (memory_store) {
+            if (argc > 2) {
+                std::cerr << "configuration queries do not apply to safety memory stores\n";
+                return 2;
+            }
+            auto current_memory = memory_store.value().load_current();
+            if (!current_memory) {
+                std::cerr << current_memory.error().describe() << '\n';
+                return 1;
+            }
+            const auto summary = current_memory.value().summary();
+            std::cout << "RBF-Safe safety memory store\n"
+                      << "schema: 1\n"
+                      << "revisions: " << memory_store.value().revisions().size() << '\n'
+                      << "current: " << memory_store.value().current_revision_id() << '\n'
+                      << "memory identity: " << current_memory.value().identity() << '\n'
+                      << "artifacts: " << summary.artifacts << '\n'
+                      << "active: " << summary.active << '\n'
+                      << "stale: " << summary.stale << '\n'
+                      << "events: " << summary.events << '\n';
+            return 0;
+        }
         auto corridor = rbfsafe::HipacCorridor::load(std::filesystem::path(argv[1]));
         if (!corridor) {
             std::cerr << "Atlas load failed: " << atlas.error().describe() << '\n'
                       << "region database load failed: " << database.error().describe() << '\n'
                       << "policy feedback load failed: " << feedback.error().describe() << '\n'
                       << "safety memory load failed: " << memory.error().describe() << '\n'
+                      << "safety memory store load failed: " << memory_store.error().describe() << '\n'
                       << "corridor load failed: " << corridor.error().describe() << '\n';
             return 1;
         }

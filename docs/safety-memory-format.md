@@ -49,3 +49,7 @@ Schema 1 is the first persistent robot-memory format. There is no legacy cache
 import and no implicit conversion from a policy-feedback database or Atlas
 version store. Future schema migrations must write a new destination, preserve
 the source, and replay equivalent lifecycle history before publication.
+
+RBF-Safe 3.1 can place unchanged schema-1 directories inside an immutable
+[`SafetyMemoryStore`](safety-memory-store.md). The wrapper has its own schema;
+it does not alter or reinterpret these payload bytes.

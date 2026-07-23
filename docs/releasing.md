@@ -58,8 +58,8 @@ memory only as release diagnostics.
    source archive, and identify the Atlas schema version.
 4. Verify release downloads in clean Linux and Windows environments.
 
-Atlas, corridor, region-database, version-store, policy-feedback, or
-safety-memory schema changes require an
+Atlas, corridor, region-database, version-store, policy-feedback,
+safety-memory, or safety-memory-store schema changes require an
 independent schema number, fixed-format fixtures, and a documented reader or
 explicit incompatibility error. A library version change must never silently
 reinterpret an existing storage schema.

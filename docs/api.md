@@ -304,6 +304,10 @@ direct and optionally revalidation-required candidates under exact deployment,
 robot, scene, type, tag, task, and minimum-evidence rules. `record_reuse`
 accepts only a direct candidate. `save` and `load` use the independent bounded,
 checksummed safety-memory schema 1 and replay the complete history.
+`identity` hashes the complete canonical memory state. `SafetyMemoryStore`
+wraps immutable memory directories in a deterministic parent/revision chain;
+`publish` requires the current revision observed by the caller, serializes
+cross-process writers, and never overwrites a commit.
 
 `make_fleet_snapshot` binds sorted fleet members to one scene.
 `make_fleet_reservation` requires an active, compatible, region-certified
@@ -313,7 +317,8 @@ reports duplicate robot windows, declared workspace overlap, and
 separation-margin violations under pair and cancellation budgets.
 Its `ConflictFreeUnderDeclaredEnvelopes` status is not a `Certificate` or
 execution authorization. See [persistent safety memory](safety-memory.md) and
-the [memory format](safety-memory-format.md).
+the [memory format](safety-memory-format.md). Multi-process deployments should
+also read the [transactional store contract](safety-memory-store.md).
 
 ## Error model
 

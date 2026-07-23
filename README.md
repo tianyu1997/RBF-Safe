@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.0
+geometric safety certificates in robot configuration space. Version 3.1
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -40,7 +40,8 @@ identity-bound training feedback.
 The persistent safety-memory layer catalogs immutable safety artifacts with
 monotonic lifecycle and replayable audit events, permits exact-identity
 cross-task reuse, and checks multi-robot workspace reservations under bounded
-declared-envelope assumptions.
+declared-envelope assumptions. Immutable safety-memory revision stores add
+expected-head transactions and fail-closed cross-process publication.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -88,15 +89,17 @@ certificate.
   queries, and checksummed schema-1 feedback persistence.
 - Public `RBFSafe::memory` persistent artifact catalog, lifecycle/audit log,
   exact-identity cross-task reuse, scene invalidation, fleet snapshots,
-  reservation conflict analysis, and checksummed schema-1 persistence.
+  reservation conflict analysis, checksummed schema-1 persistence, and an
+  immutable optimistic-concurrency revision store.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated/calibrated policy metadata,
-continuous-time fleet occupancy proofs, execution guarantees, and legacy
-RapidBoxForest cache compatibility remain outside v3.0.
+continuous-time fleet occupancy proofs, authenticated artifact services,
+execution guarantees, and legacy RapidBoxForest cache compatibility remain
+outside v3.1.
 
 ## Quick start
 

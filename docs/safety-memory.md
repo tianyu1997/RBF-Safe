@@ -109,12 +109,16 @@ produce the occupancy envelopes and retain their source artifacts.
 6. Use fleet reports as a conservative coordination guard in addition to,
    never instead of, robot-level runtime monitoring and hardware safety.
 
-The database is not internally synchronized. A process should serialize
-mutations or use generation checks around a load-modify-save transaction.
-Writers publish a complete new directory atomically and refuse overwrite by
-default. See [the schema-1 format](safety-memory-format.md).
+An individual database object is not internally synchronized. In-process
+callers must serialize mutations. Multiple processes should use
+`SafetyMemoryStore`, which adds immutable revisions, expected-head optimistic
+concurrency, and a fail-closed writer lock. See the
+[transactional store](safety-memory-store.md) and the underlying
+[schema-1 memory format](safety-memory-format.md).
 
 Runnable examples are
 [`examples/safety_memory_quickstart.cpp`](../examples/safety_memory_quickstart.cpp)
 and
 [`examples/safety_memory_quickstart.py`](../examples/safety_memory_quickstart.py).
+Transactional examples are linked from the
+[store guide](safety-memory-store.md).

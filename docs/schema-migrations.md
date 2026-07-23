@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.0 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.1 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.0 |
+| Format | Read | Write | Migration in 3.1 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -15,6 +15,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Atlas version store | 1 | 1 | Contained Atlas versions retain their own schema |
 | Policy feedback | 1 | 1 | New independent format; no legacy format is interpreted |
 | Safety memory | 1 | 1 | New independent format; locators do not import referenced payloads |
+| Safety-memory revision store | 1 | 1 | Immutable wrapper; contained memories retain schema 1 |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -51,7 +52,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.0 remain available throughout 3.x.
+- Readers for schemas supported by 3.1 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -67,3 +68,9 @@ Safety-memory schema 1 is described separately in
 replayed during load; migration cannot synthesize missing registration,
 transition, invalidation, or reuse events. There is no implicit conversion
 from Atlas version stores, policy feedback, or RapidBoxForest caches.
+
+Safety-memory-store schema 1 is specified in
+[Transactional safety memory](safety-memory-store.md). It adds immutable
+revision metadata around unchanged memory directories. Importing an existing
+memory is explicit: create a new store with that validated memory as revision
+zero. The source directory remains untouched.

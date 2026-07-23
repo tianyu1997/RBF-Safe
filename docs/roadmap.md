@@ -40,19 +40,22 @@
   accept/repair selection; identity-bound aligned training feedback; bounded
   queryable schema-1 feedback persistence; C++/Python APIs, inspection tools,
   examples, telemetry, and fail-closed evidence rules.
-- **v3.0 (current) - Robot safety memory:** deterministic persistent artifact
+- **v3.0 - Robot safety memory:** deterministic persistent artifact
   catalog, monotonic lifecycle and replayable audit log, exact-identity
   cross-task reuse, scene-wide invalidation, multi-robot fleet snapshots, and
   conservative time-window workspace-reservation analysis. The independent
   schema-1 memory format, C++/Python/CLI interfaces, resource and cancellation
   gates, and industrial deployment guidance are included.
+- **v3.1 (current) - Transactional memory history:** deterministic whole-memory
+  identities, immutable revision/commit chains, historical reads,
+  expected-head optimistic concurrency, cross-process writer exclusion,
+  bounded loading, fixed-format fixtures, and C++/Python/CLI tooling.
 
 ## Continued product hardening
 
 - **later v3.x:** authenticated artifact services, calibrated policy metadata,
-  transactional multi-process memory backends, fleet schedule persistence and
-  versioning, and execution evidence only for separately modeled and reviewed
-  deployment profiles.
+  fleet schedule persistence and versioning, and execution evidence only for
+  separately modeled and reviewed deployment profiles.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 

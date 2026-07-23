@@ -114,6 +114,13 @@ remain opaque; the module neither opens referenced payloads nor converts their
 certificates. Fleet analysis returns a coordination report rather than a
 geometric or runtime certificate.
 
+The 3.1 revision-store backend adds deterministic whole-memory identities and
+an append-only commit chain. Each commit points to an immutable schema-1 memory
+directory. An atomically created writer-lock directory serializes processes;
+the writer reopens the store and verifies the caller's expected head before it
+publishes a new immutable commit filename. Readers never consume temporary or
+uncommitted revisions.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -196,6 +203,9 @@ components and bind subject digests.
   requires exact deployment, robot, and scene identity. Fleet reports reason
   only about declared conservative workspace envelopes and logical time
   windows; they never raise `EvidenceLevel`.
+- Safety-memory-store schema 1 is a v3.1 immutable wrapper. It versions whole
+  memory states without changing safety-memory schema 1 or merging concurrent
+  histories.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

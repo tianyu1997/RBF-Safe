@@ -48,9 +48,9 @@ For each case the benchmark:
 The executable fails on any false-safe point check, identity mismatch,
 uncertified path/action, lost coverage, update failure, or missing inheritance.
 Its `logical_digest` covers canonical fixture identities, discrete counts,
-runtime-shield, learning-policy feedback, safety-memory reuse, and fleet
-coordination outcomes, and
-required outcomes while excluding wall-clock time, approximate memory, and
+runtime-shield, learning-policy feedback, deterministic safety-memory
+identity/reuse, fleet coordination, update, and inheritance outcomes while
+excluding wall-clock time, approximate memory, and
 floating-point-derived certificate IDs. CI compares it with the committed
 expected digest on every platform instead of applying a machine-dependent
 timing threshold.
@@ -68,3 +68,8 @@ The C++ memory test verifies its payload checksum, deterministic artifact and
 event IDs, sequence replay, state/generation summary, and a fixed first
 artifact ID on every supported platform. It is synthetic interoperability
 data, not physical-robot calibration or deployment certification.
+
+`data/safety_memory_store_schema1` is the fixed RBF-Safe 3.1 store fixture. It
+contains a one-artifact active root and a second revision that marks the
+artifact stale. Tests verify the root/current revision IDs, parent chain,
+memory identities, commit filenames, schema-1 payloads, and historical reads.

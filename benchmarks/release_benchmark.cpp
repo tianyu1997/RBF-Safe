@@ -444,6 +444,7 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, "policy-rejected-low-confidence");
     hash_field(logical_hash, std::to_string(metrics.policy_feedback_records));
     hash_field(logical_hash, "memory-direct-cross-task-reuse");
+    hash_field(logical_hash, memory.identity());
     hash_field(logical_hash, std::to_string(metrics.memory_artifacts));
     hash_field(logical_hash, std::to_string(metrics.memory_reuses));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");

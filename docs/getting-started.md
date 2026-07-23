@@ -203,3 +203,16 @@ Cross-task direct reuse still requires exact deployment, robot, and scene
 identity. Scene changes must invalidate old records and publish a newly
 validated artifact. Read [persistent safety memory](safety-memory.md) before
 using the catalog or fleet coordination APIs.
+
+For multiple processes, create a revision store and always publish against the
+head you observed:
+
+```python
+store = rbfsafe.SafetyMemoryStore.create("safety-memory-store", memory)
+expected = store.current_revision_id
+memory.invalidate_scene("arm-a", scene.digest, "cell layout changed")
+revision = store.publish(memory, expected)
+```
+
+A stale `expected` value raises `IdentityMismatchError`; no newer revision is
+overwritten. See [transactional safety memory](safety-memory-store.md).

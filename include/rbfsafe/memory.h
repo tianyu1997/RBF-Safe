@@ -130,6 +130,7 @@ class SafetyMemory {
     const std::vector<MemoryArtifact>& artifacts() const noexcept { return artifacts_; }
     const std::vector<MemoryEvent>& events() const noexcept { return events_; }
     std::uint64_t next_sequence() const noexcept { return next_sequence_; }
+    std::string identity() const;
 
     Result<MemoryArtifact> register_artifact(MemoryArtifactInput input,
                                              std::size_t maximum_artifacts = 1'000'000,
@@ -163,6 +164,43 @@ class SafetyMemory {
     std::vector<MemoryArtifact> artifacts_;
     std::vector<MemoryEvent> events_;
     std::uint64_t next_sequence_ = 1;
+};
+
+struct SafetyMemoryRevisionInfo {
+    std::uint64_t sequence = 0;
+    std::string id;
+    std::string parent_id;
+    std::string memory_id;
+};
+
+struct SafetyMemoryStoreOpenOptions {
+    std::size_t maximum_revisions = 1'000'000;
+    std::uintmax_t maximum_metadata_bytes = 65'536ULL;
+    SafetyMemoryLoadOptions memory_load;
+};
+
+class SafetyMemoryStore {
+  public:
+    static Result<SafetyMemoryStore> create(const std::filesystem::path& directory,
+                                            const SafetyMemory& initial_memory);
+    static Result<SafetyMemoryStore> open(const std::filesystem::path& directory,
+                                          const SafetyMemoryStoreOpenOptions& options = {});
+
+    const std::filesystem::path& directory() const noexcept { return directory_; }
+    const std::string& current_revision_id() const noexcept { return current_revision_id_; }
+    const std::vector<SafetyMemoryRevisionInfo>& revisions() const noexcept { return revisions_; }
+
+    Result<SafetyMemory> load_current() const;
+    Result<SafetyMemory> load_revision(const std::string& revision_id) const;
+    Result<SafetyMemoryRevisionInfo> publish(const SafetyMemory& memory,
+                                             const std::string& expected_current_revision_id,
+                                             std::size_t maximum_revisions = 1'000'000);
+
+  private:
+    std::filesystem::path directory_;
+    std::string current_revision_id_;
+    std::vector<SafetyMemoryRevisionInfo> revisions_;
+    SafetyMemoryStoreOpenOptions options_;
 };
 
 struct FleetMember {

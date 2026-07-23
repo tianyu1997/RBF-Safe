@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>rbfsafe_moveit</name>
-  <version>3.0.0</version>
+  <version>3.1.0</version>
   <description>Fail-closed MoveIt 2 adapters, certified sampling, and Safe IK for RBF-Safe.</description>
   <maintainer email="tianyu1997@users.noreply.github.com">Tianyu</maintainer>
   <license>MIT</license>

@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.0.0"
+    assert rbfsafe.__version__ == "3.1.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -586,6 +586,27 @@ def test_safety_memory_reuse_fleet_persistence_and_cli(
     assert loaded.valid()
     assert loaded.summary.artifacts == 2
     assert loaded.summary.recorded_reuses == 1
+    assert loaded.identity == memory.identity
+
+    store_destination = tmp_path / "safety-memory-store"
+    store = rbfsafe.SafetyMemoryStore.create(store_destination, memory)
+    root_revision = store.current_revision_id
+    assert len(store.revisions) == 1
+    assert store.revisions[0].memory_id == memory.identity
+    memory.transition(
+        source_a.id,
+        source_a.generation,
+        rbfsafe.MemoryArtifactState.STALE,
+        "maintenance window",
+    )
+    revision = store.publish(memory, root_revision)
+    assert revision.sequence == 1
+    assert revision.parent_id == root_revision
+    assert store.load_current().summary.stale == 1
+    assert store.load_revision(root_revision).summary.stale == 0
+    reopened_store = rbfsafe.SafetyMemoryStore.open(store_destination)
+    assert reopened_store.current_revision_id == revision.id
+    assert len(reopened_store.revisions) == 2
 
     from rbfsafe.cli import main
 
@@ -608,6 +629,24 @@ def test_safety_memory_reuse_fleet_persistence_and_cli(
     assert "recorded_reuses=1" in output
     assert "type=safe_atlas state=active deployment=arm-a" in output
     assert "type=reuse_recorded" in output
+
+    assert (
+        main(
+            [
+                str(store_destination),
+                "--memory-revision",
+                root_revision,
+                "--deployment-id",
+                "arm-a",
+            ]
+        )
+        == 0
+    )
+    store_output = capsys.readouterr().out
+    assert "RBF-Safe safety-memory-store schema=1" in store_output
+    assert "revisions=2" in store_output
+    assert f"selected={root_revision}" in store_output
+    assert "type=safe_atlas state=active deployment=arm-a" in store_output
 
 
 def test_tool_link_and_specific_identity_error() -> None:

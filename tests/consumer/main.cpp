@@ -15,6 +15,8 @@ int main() {
     const rbfsafe::ShieldOptions shield_options;
     const rbfsafe::PolicyGateOptions policy_options;
     const rbfsafe::SafetyMemoryLoadOptions memory_load_options;
+    const rbfsafe::SafetyMemoryStoreOpenOptions memory_store_options;
+    const rbfsafe::SafetyMemory memory;
     const rbfsafe::FleetScheduleOptions fleet_options;
     (void)updater;
     return interval.contains(0.0) && options.maximum_region_tests > 0 &&
@@ -23,6 +25,7 @@ int main() {
                    sampler_options.maximum_attempts > 0 && roadmap_options.maximum_nodes > 0 &&
                    projection_options.maximum_iterations > 0 && shield_options.maximum_input_waypoints > 0 &&
                    policy_options.maximum_proposals > 0 && memory_load_options.maximum_artifacts > 0 &&
+                   memory_store_options.maximum_revisions > 0 && memory.identity().size() == 64 &&
                    fleet_options.maximum_pair_evaluations > 0 &&
                    report.status == rbfsafe::TrajectoryAuditStatus::Invalid
                ? 0

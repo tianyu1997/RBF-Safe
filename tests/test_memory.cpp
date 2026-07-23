@@ -61,6 +61,8 @@ int main() {
     CHECK(first.value().registered_sequence == 1);
     CHECK(first.value().generation == 1);
     CHECK(memory.valid());
+    const auto first_memory_id = memory.identity();
+    CHECK(first_memory_id.size() == 64);
 
     auto repeated = memory.register_artifact(
         artifact_input("arm-a", robot_a, scene_a, "shelf-pick", digest('e'), "atlases/pick"));
@@ -75,6 +77,7 @@ int main() {
     auto second = memory.register_artifact(std::move(second_input));
     CHECK(second);
     CHECK(memory.valid());
+    CHECK(memory.identity() != first_memory_id);
 
     MemoryReuseQuery query;
     query.deployment_id = "arm-a";
@@ -142,6 +145,7 @@ int main() {
     CHECK(fixed.value().events().size() == 3);
     CHECK(fixed.value().next_sequence() == 4);
     CHECK(fixed.value().summary().recorded_reuses == 1);
+    CHECK(fixed.value().identity() == "b79cb94a4ce614b5800a14c4b89cc5059da88753d0348341b81e49636958f281");
     CHECK(fixed.value().artifacts().front().id ==
           "91df3038bfb06c60b2436fd242da58c585a037ae10a19c36955c027aa3563f28");
 
@@ -186,6 +190,126 @@ int main() {
     CHECK(!corrupted);
     CHECK(corrupted.error().code == StatusCode::CorruptData);
     write_text(payload, original_payload);
+
+    const auto store_path = temporary / "memory-store";
+    auto store = SafetyMemoryStore::create(store_path, fixed.value());
+    CHECK(store);
+    CHECK(store.value().revisions().size() == 1);
+    CHECK(store.value().revisions().front().sequence == 0);
+    CHECK(store.value().revisions().front().parent_id.empty());
+    CHECK(store.value().revisions().front().memory_id == fixed.value().identity());
+    CHECK(store.value().current_revision_id() == store.value().revisions().front().id);
+    auto reopened_store = SafetyMemoryStore::open(store_path);
+    CHECK(reopened_store);
+    auto root_memory = reopened_store.value().load_current();
+    CHECK(root_memory);
+    CHECK(root_memory.value().identity() == fixed.value().identity());
+
+    auto next_memory = fixed.value();
+    const auto root_id = store.value().current_revision_id();
+    auto next_transition =
+        next_memory.transition(next_memory.artifacts().front().id, next_memory.artifacts().front().generation,
+                               MemoryArtifactState::Stale, "maintenance window");
+    CHECK(next_transition);
+    auto published = store.value().publish(next_memory, root_id);
+    CHECK(published);
+    CHECK(published.value().sequence == 1);
+    CHECK(published.value().parent_id == root_id);
+    CHECK(published.value().memory_id == next_memory.identity());
+    CHECK(store.value().revisions().size() == 2);
+    auto current_memory = store.value().load_current();
+    CHECK(current_memory);
+    CHECK(current_memory.value().summary().stale == 1);
+    auto historical_memory = store.value().load_revision(root_id);
+    CHECK(historical_memory);
+    CHECK(historical_memory.value().summary().stale == 0);
+
+    auto idempotent = store.value().publish(next_memory, published.value().id);
+    CHECK(idempotent);
+    CHECK(idempotent.value().id == published.value().id);
+    CHECK(store.value().revisions().size() == 2);
+    auto stale_publish = reopened_store.value().publish(next_memory, root_id);
+    CHECK(!stale_publish);
+    CHECK(stale_publish.error().code == StatusCode::IdentityMismatch);
+
+    auto third_memory = next_memory;
+    auto third_transition = third_memory.transition(third_memory.artifacts().front().id,
+                                                    third_memory.artifacts().front().generation,
+                                                    MemoryArtifactState::Retired, "retired by operator");
+    CHECK(third_transition);
+    auto revision_limit = store.value().publish(third_memory, published.value().id, 2);
+    CHECK(!revision_limit);
+    CHECK(revision_limit.error().code == StatusCode::ResourceLimit);
+    CHECK(std::filesystem::create_directory(store_path / ".writer-lock"));
+    auto locked_publish = store.value().publish(third_memory, published.value().id);
+    CHECK(!locked_publish);
+    CHECK(locked_publish.error().code == StatusCode::ResourceLimit);
+    CHECK(std::filesystem::remove(store_path / ".writer-lock"));
+
+    SafetyMemoryStoreOpenOptions one_revision;
+    one_revision.maximum_revisions = 1;
+    auto bounded_store = SafetyMemoryStore::open(store_path, one_revision);
+    CHECK(!bounded_store);
+    CHECK(bounded_store.error().code == StatusCode::ResourceLimit);
+    SafetyMemoryStoreOpenOptions tiny_metadata;
+    tiny_metadata.maximum_metadata_bytes = 1;
+    auto oversized_metadata = SafetyMemoryStore::open(store_path, tiny_metadata);
+    CHECK(!oversized_metadata);
+    CHECK(oversized_metadata.error().code == StatusCode::ResourceLimit);
+
+    const auto store_manifest_path = store_path / "manifest.json";
+    const auto original_store_manifest = read_text(store_manifest_path);
+    auto unknown_store_manifest = original_store_manifest;
+    const auto store_schema_position = unknown_store_manifest.find("\"schema\": 1");
+    CHECK(store_schema_position != std::string::npos);
+    unknown_store_manifest.replace(store_schema_position, std::string("\"schema\": 1").size(),
+                                   "\"schema\": 999");
+    write_text(store_manifest_path, unknown_store_manifest);
+    auto unknown_store_schema = SafetyMemoryStore::open(store_path);
+    CHECK(!unknown_store_schema);
+    CHECK(unknown_store_schema.error().code == StatusCode::IncompatibleFormat);
+    write_text(store_manifest_path, original_store_manifest);
+    CHECK(SafetyMemoryStore::open(store_path));
+
+    std::filesystem::path current_commit_path;
+    for (const auto& entry : std::filesystem::directory_iterator(store_path / "commits")) {
+        if (entry.path().filename().string().find(published.value().id) != std::string::npos)
+            current_commit_path = entry.path();
+    }
+    CHECK(!current_commit_path.empty());
+    const auto original_commit = read_text(current_commit_path);
+    auto corrupted_commit = original_commit;
+    const auto memory_id_position = corrupted_commit.find(published.value().memory_id);
+    CHECK(memory_id_position != std::string::npos);
+    corrupted_commit[memory_id_position] = corrupted_commit[memory_id_position] == '0' ? '1' : '0';
+    write_text(current_commit_path, corrupted_commit);
+    auto invalid_commit = SafetyMemoryStore::open(store_path);
+    CHECK(!invalid_commit);
+    CHECK(invalid_commit.error().code == StatusCode::CorruptData);
+    write_text(current_commit_path, original_commit);
+
+    const auto current_payload_path = store_path / "revisions" / published.value().id / "memory.json";
+    const auto staged_payload_path = current_payload_path.parent_path() / "memory.json.missing";
+    std::filesystem::rename(current_payload_path, staged_payload_path);
+    auto missing_payload_store = SafetyMemoryStore::open(store_path);
+    CHECK(!missing_payload_store);
+    CHECK(missing_payload_store.error().code == StatusCode::CorruptData);
+    std::filesystem::rename(staged_payload_path, current_payload_path);
+    CHECK(SafetyMemoryStore::open(store_path));
+
+    auto fixed_store =
+        SafetyMemoryStore::open(std::filesystem::path(RBFSAFE_TEST_DATA_DIR) / "safety_memory_store_schema1");
+    CHECK(fixed_store);
+    CHECK(fixed_store.value().revisions().size() == 2);
+    CHECK(fixed_store.value().revisions().front().id ==
+          "033a8a61cc33066599d49f31c377540537b011ae1ab8963a2640d6c9743a483e");
+    CHECK(fixed_store.value().current_revision_id() ==
+          "1c361b8f1434e63f4a3e0f872a28db418bb208aa3fa4f0d63429d1997d4edc29");
+    auto fixed_store_current = fixed_store.value().load_current();
+    CHECK(fixed_store_current);
+    CHECK(fixed_store_current.value().identity() ==
+          "192ac7eb3b27a3d0575f91de68b3180338e50d36c09b3fe3fe45a54099e86c0d");
+    CHECK(fixed_store_current.value().summary().stale == 1);
 
     SafetyMemory fleet_memory;
     auto source_a = fleet_memory.register_artifact(
