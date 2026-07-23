@@ -1,0 +1,41 @@
+{
+  "action_uncertainty_unit": "normalized-joint-range-rms",
+  "bins": [
+    {
+      "absolute_calibration_error": 0.049999999999999989,
+      "lower_confidence": 0,
+      "lower_confidence_bound_95": 0.16728549897175743,
+      "mean_confidence": 0.25,
+      "observed_success_rate": 0.20000000000000001,
+      "samples": "500",
+      "successes": "100",
+      "upper_confidence": 0.5
+    },
+    {
+      "absolute_calibration_error": 0.049999999999999933,
+      "lower_confidence": 0.5,
+      "lower_confidence_bound_95": 0.76271089469482611,
+      "mean_confidence": 0.84999999999999998,
+      "observed_success_rate": 0.80000000000000004,
+      "samples": "500",
+      "successes": "400",
+      "upper_confidence": 1
+    }
+  ],
+  "dataset_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "expected_calibration_error": 0.049999999999999954,
+  "format": "rbfsafe-policy-calibration-profile",
+  "id": "7df9fb165b202f0d6e77dc98e409253f991780992e0b1be4920b690bcb0060c4",
+  "library_version": "3.4.0",
+  "maximum_calibration_error": 0.049999999999999989,
+  "method": "held-out-reliability-bins",
+  "method_version": "1",
+  "outcome_definition": "shield accepted or repaired proposal",
+  "policy_id": "vla-policy-a",
+  "policy_model_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "sample_count": "1000",
+  "schema": 1,
+  "scope_id": "factory-cell-a",
+  "state_uncertainty_unit": "normalized-joint-range-rms",
+  "task_id": "shelf-pick"
+}

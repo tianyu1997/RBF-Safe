@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.3.0"
+    assert rbfsafe.__version__ == "3.4.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -501,6 +501,93 @@ def test_learning_policy_gate_feedback_and_cli(
     assert "RBF-Safe policy-feedback schema=1" in output
     assert "query_records=1" in output
     assert "policy=vla-primary" in output
+
+
+def test_calibrated_policy_profile_and_gate(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    profile_input = rbfsafe.PolicyCalibrationProfileInput()
+    profile_input.policy_id = "vla-primary"
+    profile_input.policy_model_digest = "a" * 64
+    profile_input.scope_id = "factory-cell-a"
+    profile_input.task_id = "shelf-pick"
+    profile_input.dataset_digest = "b" * 64
+    profile_input.method = "held-out-reliability-bins"
+    profile_input.method_version = "1"
+    profile_input.outcome_definition = "shield accepted or repaired proposal"
+    profile_input.state_uncertainty_unit = "normalized-joint-range-rms"
+    profile_input.action_uncertainty_unit = "normalized-joint-range-rms"
+    profile_input.bins = [
+        rbfsafe.PolicyCalibrationBinInput(0.0, 0.5, 0.25, 500, 100),
+        rbfsafe.PolicyCalibrationBinInput(0.5, 1.0, 0.85, 500, 400),
+    ]
+    profile = rbfsafe.PolicyCalibrationProfile.create(profile_input)
+    assert profile.valid()
+    assert profile.sample_count == 1_000
+    assert profile.lookup(0.5).bin_index == 1
+    assert 0.7 < profile.lookup(0.9).conservative_confidence < 0.8
+
+    profile_path = tmp_path / "policy-calibration.json"
+    profile.save(profile_path)
+    loaded = rbfsafe.PolicyCalibrationProfile.load(profile_path)
+    assert loaded.id == profile.id
+    from rbfsafe.cli import main
+
+    assert main([str(profile_path), "--policy-confidence", "0.9"]) == 0
+    output = capsys.readouterr().out
+    assert "RBF-Safe policy-calibration-profile schema=1" in output
+    assert "conservative_confidence=" in output
+    assert "runtime_executable=false" in output
+
+    robot = make_robot()
+    scene = rbfsafe.SceneSnapshot([], "python-calibration-v1")
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
+
+    def calibrated_metadata(sequence: int, confidence: float) -> rbfsafe.PolicyProposalMetadata:
+        metadata = rbfsafe.PolicyProposalMetadata()
+        metadata.policy_id = "vla-primary"
+        metadata.task_id = "shelf-pick"
+        metadata.episode_id = "episode-calibration"
+        metadata.sequence = sequence
+        metadata.confidence = confidence
+        metadata.state_uncertainty = 0.05
+        metadata.action_uncertainty = 0.04
+        return metadata
+
+    proposals = [
+        rbfsafe.PolicyProposal(
+            rbfsafe.JointDeltaAction([0.05, 0.0]), calibrated_metadata(1, 0.4)
+        ),
+        rbfsafe.PolicyProposal(
+            rbfsafe.JointDeltaAction([0.1, 0.0]), calibrated_metadata(2, 0.9)
+        ),
+    ]
+    options = rbfsafe.CalibratedPolicyGateOptions()
+    options.minimum_total_samples = 1_000
+    options.minimum_bin_samples = 500
+    options.maximum_expected_calibration_error = 0.06
+    options.maximum_bin_calibration_error = 0.06
+    options.policy.minimum_confidence = 0.7
+    options.policy.selection_mode = rbfsafe.PolicySelectionMode.HIGHEST_CONFIDENCE
+    gate = rbfsafe.CalibratedPolicySafetyGate()
+    report = gate.check_proposals(
+        loaded,
+        "factory-cell-a",
+        "a" * 64,
+        robot,
+        scene,
+        atlas,
+        [0.0, 0.0],
+        proposals,
+        options,
+    )
+    assert report.profile_id == profile.id
+    assert report.applications[0].raw_metadata.confidence == 0.4
+    assert report.applications[0].effective_metadata.confidence < 0.4
+    assert report.applications[1].effective_metadata.confidence > 0.7
+    assert report.policy_report.selected_index == 1
+    assert report.policy_report.feedback[0].label == rbfsafe.PolicyFeedbackLabel.POLICY_REJECTED
+    assert report.policy_report.feedback[1].evidence != rbfsafe.EvidenceLevel.RUNTIME_EXECUTABLE
 
 
 def test_safety_memory_reuse_fleet_persistence_and_cli(

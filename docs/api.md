@@ -289,6 +289,19 @@ nor feedback exceed `CertifiedConnectivity`; they are not execution
 authorization. See [learning-policy safety](policy-safety.md) and the
 [feedback format](policy-feedback-format.md).
 
+`PolicyCalibrationProfile::create(input)` validates contiguous confidence
+bins and binds policy/model, deployment scope, task, dataset, method, outcome,
+and uncertainty-unit identities. It derives observed success rates, 95%
+Wilson lower bounds, expected calibration error, maximum bin error, sample
+count, and a deterministic profile ID.
+
+`profile.lookup(raw_confidence)` returns the matching bin plus calibrated and
+conservative confidence. `CalibratedPolicySafetyGate::check_proposals(...)`
+requires trusted expected scope/model identities, enforces profile quality
+gates, records raw/effective metadata, and delegates effective proposals to
+`LearningPolicySafetyGate`. Profile `save`/`load` use bounded schema-1 JSON.
+See [policy calibration](policy-calibration.md).
+
 ## Persistent safety memory and fleets
 
 Include `<rbfsafe/memory.h>` and link `RBFSafe::memory`.

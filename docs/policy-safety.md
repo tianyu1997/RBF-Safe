@@ -117,11 +117,23 @@ if (!feedback || !feedback.value().save("policy-feedback")) return 1;
 Complete examples are in `examples/policy_safety_quickstart.cpp` and
 `examples/policy_safety_quickstart.py`.
 
+## Calibrated confidence
+
+RBF-Safe 3.4 optionally places a `PolicyCalibrationProfile` before this gate.
+The calibrated layer binds exact model/scope/task/data identity, recomputes
+reliability-bin statistics, enforces deployment quality thresholds, and
+replaces raw confidence only with a lower or equal conservative value. It
+then invokes the complete gate described above. Raw and effective metadata
+remain aligned in `CalibratedPolicyApplication`. See
+[policy calibration profiles](policy-calibration.md).
+
 ## Deployment boundary
 
-The gate assumes that proposal metadata is supplied honestly and calibrated
-by the caller. It does not authenticate a policy, sensor timestamp, task ID,
-or uncertainty estimator. It does not model controller dynamics, tracking
+The base gate assumes that proposal metadata is supplied honestly and, when
+appropriate, calibrated by the caller. The optional calibrated gate validates
+one declared aggregate confidence profile but does not authenticate a policy,
+sensor timestamp, task ID, dataset, outcome label, or uncertainty estimator.
+Neither gate models controller dynamics, tracking
 error, moving obstacles, sensor faults, deadlines, or hardware interlocks.
 The existing runtime monitor can observe Atlas membership and deviation after
 a shield decision, but it also remains below execution evidence.

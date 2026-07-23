@@ -46,6 +46,7 @@ struct CaseMetrics {
     std::size_t estimated_memory_bytes = 0;
     std::size_t inherited_certificates = 0;
     std::size_t policy_feedback_records = 0;
+    std::size_t policy_calibration_profiles = 0;
     std::size_t memory_artifacts = 0;
     std::size_t memory_reuses = 0;
     std::size_t fleet_schedule_checks = 0;
@@ -358,6 +359,37 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     if (!feedback_database)
         return feedback_database.error();
     metrics.policy_feedback_records = feedback_database.value().records().size();
+    rbfsafe::PolicyCalibrationProfileInput calibration_input;
+    calibration_input.policy_id = "release-policy";
+    calibration_input.policy_model_digest = robot.value().digest();
+    calibration_input.scope_id = fixture.name;
+    calibration_input.task_id = fixture.name;
+    calibration_input.dataset_digest = scene.value().digest();
+    calibration_input.method = "release-reliability-bins";
+    calibration_input.method_version = "1";
+    calibration_input.outcome_definition = "shield accepted or repaired proposal";
+    calibration_input.state_uncertainty_unit = "normalized-joint-range-rms";
+    calibration_input.action_uncertainty_unit = "normalized-joint-range-rms";
+    calibration_input.bins = {{0.0, 0.5, 0.25, 500, 100}, {0.5, 1.0, 0.85, 500, 400}};
+    auto calibration = rbfsafe::PolicyCalibrationProfile::create(std::move(calibration_input));
+    if (!calibration)
+        return calibration.error();
+    rbfsafe::CalibratedPolicyGateOptions calibrated_options;
+    calibrated_options.maximum_expected_calibration_error = 0.06;
+    calibrated_options.maximum_bin_calibration_error = 0.06;
+    calibrated_options.policy = policy_options;
+    rbfsafe::CalibratedPolicySafetyGate calibrated_gate;
+    auto calibrated_report = calibrated_gate.check_proposals(
+        calibration.value(), fixture.name, robot.value().digest(), robot.value(), scene.value(), atlas,
+        fixture.start, proposals, calibrated_options);
+    if (!calibrated_report || calibrated_report.value().policy_report.selected_index != 0 ||
+        calibrated_report.value().applications[0].conservative_confidence >=
+            calibrated_report.value().applications[0].raw_metadata.confidence) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture calibrated policy gate was inconsistent",
+            fixture.name);
+    }
+    metrics.policy_calibration_profiles = 1;
     rbfsafe::SafetyMemory memory;
     rbfsafe::MemoryArtifactInput memory_input;
     memory_input.type = rbfsafe::MemoryArtifactType::SafeAtlas;
@@ -481,6 +513,10 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, "policy-selected-accept");
     hash_field(logical_hash, "policy-rejected-low-confidence");
     hash_field(logical_hash, std::to_string(metrics.policy_feedback_records));
+    hash_field(logical_hash, "policy-calibration-conservative-selected-accept");
+    hash_field(logical_hash, calibration.value().id());
+    hash_field(logical_hash, calibrated_report.value().applications[0].id);
+    hash_field(logical_hash, std::to_string(metrics.policy_calibration_profiles));
     hash_field(logical_hash, "memory-direct-cross-task-reuse");
     hash_field(logical_hash, memory.identity());
     hash_field(logical_hash, std::to_string(metrics.memory_artifacts));
@@ -512,6 +548,7 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"estimated_memory_bytes\":" << item.estimated_memory_bytes
                   << ",\"inherited_certificates\":" << item.inherited_certificates
                   << ",\"policy_feedback_records\":" << item.policy_feedback_records
+                  << ",\"policy_calibration_profiles\":" << item.policy_calibration_profiles
                   << ",\"fleet_schedule_versions\":" << item.fleet_schedule_versions
                   << ",\"artifact_attestations\":" << item.artifact_attestations
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
@@ -529,6 +566,7 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " false_safe=" << item.false_safe << " coverage=" << item.certified_path_ratio
                   << " estimated_memory_bytes=" << item.estimated_memory_bytes
                   << " policy_feedback_records=" << item.policy_feedback_records
+                  << " policy_calibration_profiles=" << item.policy_calibration_profiles
                   << " fleet_schedule_versions=" << item.fleet_schedule_versions
                   << " artifact_attestations=" << item.artifact_attestations << " build_ms=" << item.build_ms
                   << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';

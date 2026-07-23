@@ -8,8 +8,53 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "usage: rbfsafe-inspect <database-or-archive> [q0 q1 ...]\n";
+        std::cerr << "usage: rbfsafe-inspect <database-archive-or-profile> [query values ...]\n";
         return 2;
+    }
+    auto calibration = rbfsafe::PolicyCalibrationProfile::load(std::filesystem::path(argv[1]));
+    if (calibration) {
+        if (argc > 3) {
+            std::cerr << "policy calibration accepts at most one raw confidence query\n";
+            return 2;
+        }
+        std::cout << "RBF-Safe policy calibration profile\n"
+                  << "schema: 1\n"
+                  << "profile: " << calibration.value().id() << '\n'
+                  << "policy: " << calibration.value().policy_id() << '\n'
+                  << "model: " << calibration.value().policy_model_digest() << '\n'
+                  << "scope: " << calibration.value().scope_id() << '\n'
+                  << "task: " << calibration.value().task_id() << '\n'
+                  << "dataset: " << calibration.value().dataset_digest() << '\n'
+                  << "method: " << calibration.value().method() << '@' << calibration.value().method_version()
+                  << '\n'
+                  << "samples: " << calibration.value().sample_count() << '\n'
+                  << "bins: " << calibration.value().bins().size() << '\n'
+                  << "expected calibration error: " << calibration.value().expected_calibration_error()
+                  << '\n'
+                  << "maximum calibration error: " << calibration.value().maximum_calibration_error() << '\n'
+                  << "runtime executable: false\n";
+        if (argc == 3) {
+            try {
+                std::size_t consumed = 0;
+                const double confidence = std::stod(argv[2], &consumed);
+                if (consumed != std::string(argv[2]).size() || !std::isfinite(confidence))
+                    throw std::invalid_argument("invalid confidence");
+                auto lookup = calibration.value().lookup(confidence);
+                if (!lookup) {
+                    std::cerr << lookup.error().describe() << '\n';
+                    return 1;
+                }
+                std::cout << "lookup bin: " << lookup.value().bin_index << '\n'
+                          << "raw confidence: " << lookup.value().raw_confidence << '\n'
+                          << "calibrated confidence: " << lookup.value().calibrated_confidence << '\n'
+                          << "conservative confidence: " << lookup.value().conservative_confidence << '\n'
+                          << "bin samples: " << lookup.value().samples << '\n';
+            } catch (const std::exception&) {
+                std::cerr << "raw confidence must be a finite number in [0, 1]\n";
+                return 2;
+            }
+        }
+        return 0;
     }
     auto attestation = rbfsafe::load_artifact_attestation(std::filesystem::path(argv[1]));
     if (attestation) {

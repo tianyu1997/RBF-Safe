@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 3.3.0
+    VERSION 3.4.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -163,7 +163,7 @@ target_include_directories(rbfsafe_shield
 target_link_libraries(rbfsafe_shield PUBLIC rbfsafe_ik)
 rbfsafe_configure_target(rbfsafe_shield)
 
-add_library(rbfsafe_policy src/policy.cpp src/policy_persistence.cpp)
+add_library(rbfsafe_policy src/calibration.cpp src/policy.cpp src/policy_persistence.cpp)
 add_library(RBFSafe::policy ALIAS rbfsafe_policy)
 set_target_properties(rbfsafe_policy PROPERTIES EXPORT_NAME policy)
 target_include_directories(rbfsafe_policy
@@ -275,6 +275,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_policy_safety_quickstart examples/policy_safety_quickstart.cpp)
     target_link_libraries(rbfsafe_policy_safety_quickstart PRIVATE RBFSafe::policy)
     rbfsafe_configure_target(rbfsafe_policy_safety_quickstart)
+    add_executable(rbfsafe_calibrated_policy_quickstart examples/calibrated_policy_quickstart.cpp)
+    target_link_libraries(rbfsafe_calibrated_policy_quickstart PRIVATE RBFSafe::policy)
+    rbfsafe_configure_target(rbfsafe_calibrated_policy_quickstart)
     add_executable(rbfsafe_safety_memory_quickstart examples/safety_memory_quickstart.cpp)
     target_link_libraries(rbfsafe_safety_memory_quickstart PRIVATE RBFSafe::memory)
     rbfsafe_configure_target(rbfsafe_safety_memory_quickstart)
@@ -324,7 +327,7 @@ endif()
 if(RBFSAFE_BUILD_PYTHON)
     find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
-    pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp python/bindings_memory.cpp python/bindings_trust.cpp)
+    pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp python/bindings_calibration.cpp python/bindings_memory.cpp python/bindings_trust.cpp)
     target_link_libraries(_rbfsafe PRIVATE RBFSafe::rbfsafe)
     target_include_directories(_rbfsafe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     install(TARGETS _rbfsafe LIBRARY DESTINATION rbfsafe RUNTIME DESTINATION rbfsafe)
@@ -367,6 +370,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/fleet_schedule_archive_schema1)
     install(DIRECTORY data/artifact_attestation_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/artifact_attestation_schema1)
+    install(DIRECTORY data/policy_calibration_profile_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
     install(EXPORT RBFSafeTargets
         FILE RBFSafeTargets.cmake
         NAMESPACE RBFSafe::

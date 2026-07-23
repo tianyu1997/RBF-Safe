@@ -79,6 +79,7 @@ inline std::span<const double> view(const Configuration& values) {
 }
 
 void bind_policy(py::module_& module);
+void bind_calibration(py::module_& module);
 void bind_memory(py::module_& module);
 void bind_trust(py::module_& module);
 

@@ -66,6 +66,12 @@ Byte-identical valid input records in the same order produce byte-identical
 files across supported platforms. Record order is retained because it carries
 batch/training alignment; the database does not silently sort observations.
 
+When produced by `CalibratedPolicySafetyGate`, feedback metadata contains the
+effective conservative confidence passed to the base policy gate. The aligned
+`CalibratedPolicyApplication` carries the corresponding raw metadata and
+profile ID in memory. Schema 1 feedback alone does not imply that calibration
+was used and does not persist that raw/effective mapping.
+
 ## Inspection
 
 The native tool prints aggregate label counts:

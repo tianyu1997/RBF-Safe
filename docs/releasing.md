@@ -45,6 +45,10 @@ wrong-key/service/payload/lifecycle rejection, payload and metadata budgets,
 cancellation, atomic overwrite behavior, fixed fixture identities, and
 metadata-only versus authenticated CLI output. Confirm no secret key appears
 in an installed artifact or committed non-fixture file.
+Run both calibrated-policy quickstarts and inspect the fixed profile at raw
+confidence `0.9`; verify derived statistics are recomputed, conservative
+confidence never exceeds raw confidence, and output remains explicitly below
+runtime-executable evidence.
 Build `rbfsafe-release-benchmark`, run its 128-iteration smoke gate and
 8192-iteration soak gate, and confirm zero false-safe point checks and an exact
 match with the committed cross-platform logical digest. Inspect timing and

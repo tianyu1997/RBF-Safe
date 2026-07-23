@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.3 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.4 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.3 |
+| Format | Read | Write | Migration in 3.4 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -18,6 +18,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Safety-memory revision store | 1 | 1 | Immutable wrapper; contained memories retain schema 1 |
 | Fleet-schedule archive | 1 | 1 | Independent version history; no report-only legacy bytes are inferred |
 | Artifact attestation | 1 | 1 | Independent sidecar; existing payloads require a new keyed attestation |
+| Policy calibration profile | 1 | 1 | Independent empirical record; no uncalibrated metadata is upgraded implicitly |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -54,7 +55,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.3 remain available throughout 3.x.
+- Readers for schemas supported by 3.4 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -88,3 +89,10 @@ Artifact-attestation schema 1 is specified in
 can invent authentication for an older payload. A trusted service must read
 the immutable bytes, select an external key/key ID, and publish a new sidecar;
 the original payload and its format remain unchanged.
+
+Policy-calibration-profile schema 1 is specified in
+[Policy calibration profiles](policy-calibration.md). Existing policy
+feedback cannot be converted implicitly because it does not declare held-out
+bin boundaries, outcome semantics, exact model/data identity, or evaluation
+method. Build a new profile from independently reviewed calibration data;
+existing feedback bytes remain unchanged.

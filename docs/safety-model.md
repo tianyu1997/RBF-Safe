@@ -203,8 +203,17 @@ outputs therefore remain `Unknown`, `CertifiedRegion`, or
 The v2.0 policy gate applies caller-configured confidence, uncertainty,
 observation-age, and inference-latency thresholds before invoking the runtime
 shield. Passing a threshold means only that the supplied numeric metadata met
-that policy. RBF-Safe neither derives nor calibrates these values and cannot
-verify that a policy or sensor reported them honestly.
+that policy. The base gate neither derives nor calibrates these values and
+cannot verify that a policy or sensor reported them honestly.
+
+The v3.4 calibrated gate can replace raw confidence with the smaller of that
+raw score and a held-out bin's 95% Wilson lower bound. It requires exact
+profile/model/scope/task identity and explicit sample/error gates. This is an
+empirical measurement transform, not a per-proposal correctness proof.
+Dataset selection, outcome labels, dependence, distribution shift, and
+uncertainty units remain deployment responsibilities. State/action
+uncertainty values are named by the profile but are not statistically
+recalibrated in 3.4.
 
 `SelectedAccepted` and `SelectedRepaired` feedback records bind the exact
 shield decision and geometric evidence. `EligibleNotSelected`,
@@ -249,7 +258,7 @@ metadata to holders of one shared HMAC key. It does not validate payload
 semantics, elevate evidence, authorize reuse, identify an individual signer,
 or protect keys. Metadata inspection without a verify call remains untrusted.
 
-## Explicit exclusions in v3.3
+## Explicit exclusions in v3.4
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -272,9 +281,10 @@ or protect keys. Metadata inspection without a verify call remains untrusted.
   observation timestamps do not model real-time deadlines or authorize motor
   execution.
 - Policy confidence, uncertainty, task/episode identity, observation age, and
-  inference latency are caller assertions. The gate does not authenticate,
-  calibrate, or independently measure them, and persisted feedback alone is
-  not an online-learning or cross-task safety-memory guarantee.
+  inference latency remain caller assertions. A calibration profile provides
+  aggregate held-out evidence for confidence only; it does not authenticate
+  inference, detect drift, recalibrate state/action uncertainty, or make
+  persisted feedback an online-learning safety guarantee.
 - Memory locators and content digests are caller-provided metadata. Loading a
   catalog does not fetch, authenticate, decrypt, or revalidate referenced
   artifacts. Direct `SafetyMemory` object mutation still requires in-process

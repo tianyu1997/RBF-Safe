@@ -88,6 +88,11 @@ stores. It depends only on RBF-Safe core targets and is included by
 are never stored by RBF-Safe. Loading an attestation validates its schema and
 deterministic identity; only explicit verification authenticates it.
 
+`RBFSafe::policy` also provides policy-calibration profiles and calibrated
+gating in 3.4. This adds no ML framework dependency: callers supply aggregate
+held-out counts and retain responsibility for model inference and dataset
+governance.
+
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:
 

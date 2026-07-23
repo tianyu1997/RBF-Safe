@@ -269,3 +269,34 @@ loaded.verify_version(current.id, fleet, memory)
 Preserve that memory revision if the live catalog is later changed. The
 archive status remains a declared-envelope coordination result, not an
 execution certificate. See [versioned fleet schedules](fleet-schedule-archive.md).
+
+## 12. Apply calibrated policy confidence
+
+Create a profile from reviewed held-out aggregate counts, persist it, then
+require the independently configured model and scope identity at use time:
+
+```python
+profile = rbfsafe.PolicyCalibrationProfile.load("policy-calibration.json")
+options = rbfsafe.CalibratedPolicyGateOptions()
+options.minimum_total_samples = 1_000
+options.minimum_bin_samples = 30
+options.maximum_expected_calibration_error = 0.1
+options.maximum_bin_calibration_error = 0.2
+options.policy.minimum_confidence = 0.7
+
+report = rbfsafe.CalibratedPolicySafetyGate().check_proposals(
+    profile,
+    "factory-cell-a",
+    trusted_policy_model_digest,
+    robot,
+    scene,
+    atlas,
+    current,
+    proposals,
+    options,
+)
+```
+
+Inspect `report.applications` to retain both raw and effective confidence.
+The nested `policy_report` still requires geometric shield acceptance and
+never authorizes execution. See [policy calibration](policy-calibration.md).

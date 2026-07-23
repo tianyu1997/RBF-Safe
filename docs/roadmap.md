@@ -54,15 +54,20 @@
   histories bound to exact fleet snapshots and safety-memory revisions,
   expected-head publication, replay verification, bounded schema-1 storage,
   fixed fixtures, C++/Python APIs, and inspection tooling.
-- **v3.3 (current) - Authenticated artifact bytes:** caller-keyed HMAC-SHA256
+- **v3.3 - Authenticated artifact bytes:** caller-keyed HMAC-SHA256
   attestations bound to memory lifecycle and exact payload bytes, bounded
   schema-1 sidecars, constant-time verification, fixed fixtures, C++/Python
   APIs, and inspection tooling. Secret management and transport remain external.
+- **v3.4 (current) - Calibrated policy metadata:** exact model/scope/task/data
+  identity, deterministic reliability bins, recomputed ECE and maximum error,
+  conservative 95% Wilson lower-bound confidence, quality gates, bounded
+  schema-1 persistence, and C++/Python/inspection tooling. Statistical
+  calibration remains below geometric certificate and execution evidence.
 
 ## Continued product hardening
 
-- **later v3.x:** calibrated policy metadata, public-key/remote artifact
-  service adapters, and execution evidence only for
+- **later v3.x:** public-key/remote artifact service adapters, distribution-
+  shift lifecycle controls, and execution evidence only for
   separately modeled and reviewed deployment profiles.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.

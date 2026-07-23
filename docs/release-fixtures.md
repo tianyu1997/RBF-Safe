@@ -40,16 +40,23 @@ For each case the benchmark:
 5. verifies an accepted runtime-shield action; and
 6. gates an accepted and a low-confidence policy proposal and validates their
    aligned feedback labels;
-7. registers, directly reuses, and audits an identity-bound safety-memory
-   artifact, then validates a source-bound single-robot fleet reservation; and
-8. advances the scene version, then checks conservative certificate inheritance
+7. applies a scoped empirical calibration profile and conservatively selects
+   the expected proposal;
+8. registers, directly reuses, and audits an identity-bound safety-memory
+   artifact;
+9. authenticates fixed payload bytes against that artifact and an external
+   test key;
+10. validates a source-bound single-robot fleet reservation, publishes its
+    schedule archive, and replays the stored report; and
+11. advances the scene version, then checks conservative certificate inheritance
    and retained endpoint coverage.
 
 The executable fails on any false-safe point check, identity mismatch,
 uncertified path/action, lost coverage, update failure, or missing inheritance.
 Its `logical_digest` covers canonical fixture identities, discrete counts,
-runtime-shield, learning-policy feedback, deterministic safety-memory
-identity/reuse, fleet coordination, update, and inheritance outcomes while
+runtime-shield, learning-policy feedback and calibration, deterministic
+safety-memory identity/reuse, artifact authentication, fleet coordination and
+archive replay, update, and inheritance outcomes while
 excluding wall-clock time, approximate memory, and
 floating-point-derived certificate IDs. CI compares it with the committed
 expected digest on every platform instead of applying a machine-dependent
@@ -86,3 +93,10 @@ with the public test-only key bytes `01 02 ... 20`. Tests verify fixed artifact,
 payload, attestation and HMAC identities, bounded loading, exact lifecycle
 binding, wrong-key rejection, and C++/Python/native inspection. The key is
 public interoperability data and must never protect real artifacts.
+
+`data/policy_calibration_profile_schema1` is the fixed RBF-Safe 3.4 profile
+fixture. It contains two synthetic reliability bins with 1,000 aggregate
+observations. Tests verify the fixed profile ID, contiguous coverage, exact
+model/scope/task/data identity, recomputed ECE and Wilson bounds, bounded
+loading, C++/Python queries, and native/CLI inspection. It is interoperability
+data, not evidence that any deployed policy is calibrated.

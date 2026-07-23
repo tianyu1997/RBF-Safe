@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.3
+geometric safety certificates in robot configuration space. Version 3.4
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -37,6 +37,10 @@ The learning-policy safety layer additionally gates proposals on declared
 confidence, uncertainty, freshness, and inference latency, deterministically
 selects a shield-accepted or repaired action, and persists aligned,
 identity-bound training feedback.
+Policy-calibration profiles bind those confidence claims to exact model,
+scope, task, dataset, method, outcome, and empirical reliability-bin metadata;
+the calibrated gate applies a conservative statistical lower bound before the
+existing policy and geometric gates.
 The persistent safety-memory layer catalogs immutable safety artifacts with
 monotonic lifecycle and replayable audit events, permits exact-identity
 cross-task reuse, and checks multi-robot workspace reservations under bounded
@@ -91,6 +95,9 @@ certificate.
 - Public `RBFSafe::policy` uncertainty/freshness gates, deterministic
   learned-policy selection, aligned feedback labels, telemetry, bounded
   queries, and checksummed schema-1 feedback persistence.
+- Deterministic confidence-calibration profiles with exact model/scope/task/
+  dataset identity, recomputed reliability statistics, conservative Wilson
+  lower-bound gating, and bounded schema-1 persistence.
 - Public `RBFSafe::memory` persistent artifact catalog, lifecycle/audit log,
   exact-identity cross-task reuse, scene invalidation, fleet snapshots,
   reservation conflict analysis, checksummed schema-1 persistence, and an
@@ -103,10 +110,10 @@ certificate.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
-continuous-time obstacle motion, authenticated/calibrated policy metadata,
+continuous-time obstacle motion, authenticated policy inference and metadata,
 continuous-time fleet occupancy proofs, authenticated artifact services,
 execution guarantees, and legacy RapidBoxForest cache compatibility remain
-outside v3.3. Public-key signatures, TLS, key storage, and network retrieval
+outside v3.4. Public-key signatures, TLS, key storage, and network retrieval
 also remain application responsibilities.
 
 ## Quick start
@@ -254,6 +261,7 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Optimization adapters](docs/optimization.md)
 - [Runtime action shield](docs/runtime-shield.md)
 - [Learning-policy safety](docs/policy-safety.md)
+- [Policy calibration profiles](docs/policy-calibration.md)
 - [Policy feedback schema v1](docs/policy-feedback-format.md)
 - [Persistent safety memory and fleets](docs/safety-memory.md)
 - [Safety memory schema v1](docs/safety-memory-format.md)

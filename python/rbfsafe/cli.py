@@ -17,6 +17,7 @@ from . import (
     PolicyFeedbackDatabase,
     PolicyFeedbackLabel,
     PolicyFeedbackQuery,
+    PolicyCalibrationProfile,
     Pose3d,
     RegionDatabase,
     RegionQueryOptions,
@@ -47,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "atlas",
         type=Path,
-        help="Atlas, safety memory, fleet schedule, version store, corridor, or region database directory",
+        help="Atlas/database/archive directory or attestation/calibration JSON file",
     )
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
@@ -134,6 +135,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-service-id", help="trusted service ID for attestation verification")
     parser.add_argument("--expected-key-id", help="trusted key ID for attestation verification")
     parser.add_argument(
+        "--policy-confidence",
+        type=float,
+        help="raw confidence to map through a policy-calibration profile",
+    )
+    parser.add_argument(
         "--max-memory-results",
         type=int,
         default=100_000,
@@ -202,12 +208,14 @@ def _print_safety_memory(memory: SafetyMemory, args: argparse.Namespace, parser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    file_document: dict[str, object] = {}
     try:
-        file_document = (
-            json.loads(args.atlas.read_text(encoding="utf-8")) if args.atlas.is_file() else {}
-        )
+        if args.atlas.is_file() and args.atlas.stat().st_size <= 1_048_576:
+            candidate = json.loads(args.atlas.read_text(encoding="utf-8"))
+            if isinstance(candidate, dict):
+                file_document = candidate
     except (OSError, UnicodeError, json.JSONDecodeError):
-        file_document = {}
+        pass
     attestation_arguments = (
         args.artifact_payload,
         args.attestation_memory,
@@ -215,6 +223,64 @@ def main(argv: list[str] | None = None) -> int:
         args.expected_service_id,
         args.expected_key_id,
     )
+    if file_document.get("format") == "rbfsafe-policy-calibration-profile":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+            *attestation_arguments,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error("Atlas, memory, fleet, and attestation options do not apply to calibration profiles")
+        profile = PolicyCalibrationProfile.load(args.atlas)
+        print("RBF-Safe policy-calibration-profile schema=1")
+        print(
+            f"profile={profile.id} policy={profile.policy_id} model={profile.policy_model_digest}"
+        )
+        print(f"scope={profile.scope_id} task={profile.task_id} dataset={profile.dataset_digest}")
+        print(
+            f"method={profile.method} method_version={profile.method_version} "
+            f"samples={profile.sample_count} bins={len(profile.bins)}"
+        )
+        print(
+            f"expected_calibration_error={profile.expected_calibration_error} "
+            f"maximum_calibration_error={profile.maximum_calibration_error}"
+        )
+        print("runtime_executable=false")
+        if args.policy_confidence is not None:
+            lookup = profile.lookup(args.policy_confidence)
+            print(
+                f"lookup_bin={lookup.bin_index} raw_confidence={lookup.raw_confidence} "
+                f"calibrated_confidence={lookup.calibrated_confidence} "
+                f"conservative_confidence={lookup.conservative_confidence} "
+                f"bin_samples={lookup.samples}"
+            )
+        return 0
     if file_document.get("format") == "rbfsafe-artifact-attestation":
         unsupported = (
             args.plot,
@@ -240,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
             args.artifact_type,
             args.memory_revision,
             args.fleet_schedule_version,
+            args.policy_confidence,
         )
         if (
             any(value is not None for value in unsupported)
@@ -292,6 +359,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if any(value is not None for value in attestation_arguments):
         parser.error("artifact-attestation verification options require an attestation JSON file")
+    if args.policy_confidence is not None:
+        parser.error("--policy-confidence requires a policy-calibration profile JSON file")
     try:
         manifest = json.loads((args.atlas / "manifest.json").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):

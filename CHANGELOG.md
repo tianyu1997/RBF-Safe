@@ -3,6 +3,27 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.4.0] - 2026-07-23
+
+### Added
+
+- Deterministic policy-calibration profiles binding exact policy-model,
+  deployment-scope, task, dataset, method, outcome, uncertainty-unit, and
+  reliability-bin metadata.
+- Recomputed ECE, maximum bin error, and 95% Wilson lower bounds; a calibrated
+  policy gate that never upgrades raw confidence and still delegates every
+  eligible action to the geometric shield.
+- Bounded schema-1 profile persistence, fixed fixtures, C++/Python APIs,
+  CLI/native inspection, runnable examples, and explicit measurement/drift
+  safety guidance.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.4.0. Existing 3.x APIs and storage readers remain available.
+- The public `RBFSafe::policy` target now also exposes the calibration layer;
+  calibrated outputs remain below `RuntimeExecutable` evidence.
+
 ## [3.3.0] - 2026-07-23
 
 ### Added

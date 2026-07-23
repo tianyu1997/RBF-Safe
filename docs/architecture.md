@@ -8,8 +8,8 @@ RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
           |-> RBFSafe::update
-          |-> RBFSafe::memory
-          |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy
+          |-> RBFSafe::memory -> RBFSafe::trust
+          |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy (+ calibration)
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
                                       `-> RBFSafe::optimization
@@ -102,6 +102,12 @@ policy selection above `RBFSafe::shield`. It owns proposal metadata, aligned
 training feedback, aggregate gate telemetry, and the independent checksummed
 policy-feedback schema. It does not load model weights, call inference
 services, update policies, execute commands, or promote shield evidence.
+
+The target also owns immutable calibration profiles and the calibrated policy
+gate. Profiles are empirical measurement records rather than certificates:
+they bind exact model/scope/task/data identities, recompute bin statistics,
+and replace raw confidence only with a value no greater than the raw score or
+its bin's 95% Wilson lower bound before entering the existing policy gate.
 
 ### Persistent safety memory
 
@@ -226,6 +232,9 @@ components and bind subject digests.
 - Artifact-attestation schema 1 is a v3.3 symmetric-authentication sidecar.
   Keys are never persisted, metadata-only loading is explicitly unverified,
   and payload formats retain their independent validators.
+- Policy-calibration-profile schema 1 is a v3.4 empirical measurement record.
+  Its statistics are recomputed and scope-bound, but it neither authenticates
+  observations nor raises geometric or runtime evidence.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

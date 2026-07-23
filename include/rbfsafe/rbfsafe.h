@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rbfsafe/atlas.h>
+#include <rbfsafe/calibration.h>
 #include <rbfsafe/certificate.h>
 #include <rbfsafe/corridor.h>
 #include <rbfsafe/dynamic.h>
