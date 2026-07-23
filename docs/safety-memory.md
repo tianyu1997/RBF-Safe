@@ -96,6 +96,12 @@ the reservation occupancy from link motion in v3.0. The report is not a
 never produces `RuntimeExecutable` evidence. Deployments must conservatively
 produce the occupancy envelopes and retain their source artifacts.
 
+RBF-Safe 3.2 can persist canonical reports in a `FleetScheduleArchive`.
+Archive versions bind the exact fleet snapshot and whole-memory identity and
+can be replayed against those inputs. They preserve the same coordination-only
+status and do not raise evidence. See the
+[versioned fleet archive contract](fleet-schedule-archive.md).
+
 ## Industrial deployment pattern
 
 1. Persist Atlas/corridor/audit artifacts in their own checksummed formats.

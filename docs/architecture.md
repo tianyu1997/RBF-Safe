@@ -121,6 +121,12 @@ the writer reopens the store and verifies the caller's expected head before it
 publishes a new immutable commit filename. Readers never consume temporary or
 uncommitted revisions.
 
+The 3.2 fleet-schedule archive backend stores deterministic linear histories
+of reservation reports. Every version binds the exact fleet snapshot and the
+whole-memory identity used to validate its source artifacts. The format is
+independent of both safety-memory formats; loading recomputes report semantics,
+version identities, parent continuity, checksums, and aggregate limits.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -206,6 +212,9 @@ components and bind subject digests.
 - Safety-memory-store schema 1 is a v3.1 immutable wrapper. It versions whole
   memory states without changing safety-memory schema 1 or merging concurrent
   histories.
+- Fleet-schedule-archive schema 1 is a v3.2 immutable report history. It binds
+  exact memory and fleet identities but remains coordination metadata rather
+  than certificate or runtime evidence.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

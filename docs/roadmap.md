@@ -46,15 +46,19 @@
   conservative time-window workspace-reservation analysis. The independent
   schema-1 memory format, C++/Python/CLI interfaces, resource and cancellation
   gates, and industrial deployment guidance are included.
-- **v3.1 (current) - Transactional memory history:** deterministic whole-memory
+- **v3.1 - Transactional memory history:** deterministic whole-memory
   identities, immutable revision/commit chains, historical reads,
   expected-head optimistic concurrency, cross-process writer exclusion,
   bounded loading, fixed-format fixtures, and C++/Python/CLI tooling.
+- **v3.2 (current) - Versioned fleet schedules:** deterministic linear schedule
+  histories bound to exact fleet snapshots and safety-memory revisions,
+  expected-head publication, replay verification, bounded schema-1 storage,
+  fixed fixtures, C++/Python APIs, and inspection tooling.
 
 ## Continued product hardening
 
 - **later v3.x:** authenticated artifact services, calibrated policy metadata,
-  fleet schedule persistence and versioning, and execution evidence only for
+  and execution evidence only for
   separately modeled and reviewed deployment profiles.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.

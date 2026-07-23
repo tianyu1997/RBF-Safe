@@ -272,6 +272,55 @@ Result<FleetScheduleReport> analyze_fleet_schedule(const FleetSnapshot& fleet, c
                                                    std::span<const FleetReservation> reservations,
                                                    const FleetScheduleOptions& options = {});
 
+struct FleetScheduleVersion {
+    std::uint64_t sequence = 0;
+    std::string id;
+    std::string parent_id;
+    std::string memory_id;
+    FleetSnapshot fleet;
+    FleetScheduleReport report;
+};
+
+struct FleetScheduleArchiveLoadOptions {
+    std::size_t maximum_versions = 100'000;
+    std::size_t maximum_members = 1'000'000;
+    std::size_t maximum_reservations = 1'000'000;
+    std::size_t maximum_conflicts = 1'000'000;
+    std::size_t maximum_pair_evaluations = 1'000'000;
+    std::uintmax_t maximum_metadata_bytes = 65'536ULL;
+    std::uintmax_t maximum_payload_bytes = 268'435'456ULL;
+};
+
+class FleetScheduleArchive {
+  public:
+    static Result<FleetScheduleArchive> create(std::string fleet_id);
+
+    const std::string& fleet_id() const noexcept { return fleet_id_; }
+    const std::string& current_version_id() const noexcept { return current_version_id_; }
+    const std::vector<FleetScheduleVersion>& versions() const noexcept { return versions_; }
+    bool valid() const;
+
+    Result<FleetScheduleVersion> current_version() const;
+    Result<FleetScheduleVersion> version(const std::string& version_id) const;
+    Result<FleetScheduleVersion> publish(const FleetSnapshot& fleet, const SafetyMemory& memory,
+                                         std::span<const FleetReservation> reservations,
+                                         const std::string& expected_current_version_id,
+                                         const FleetScheduleOptions& schedule_options = {},
+                                         std::size_t maximum_versions = 100'000);
+    Result<FleetScheduleReport> verify_version(const std::string& version_id, const FleetSnapshot& fleet,
+                                               const SafetyMemory& memory,
+                                               const FleetScheduleOptions& options = {}) const;
+
+    Result<void> save(const std::filesystem::path& directory, const SaveOptions& options = {}) const;
+    static Result<FleetScheduleArchive> load(const std::filesystem::path& directory,
+                                             const FleetScheduleArchiveLoadOptions& options = {});
+
+  private:
+    std::string fleet_id_;
+    std::string current_version_id_;
+    std::vector<FleetScheduleVersion> versions_;
+};
+
 std::string memory_artifact_type_name(MemoryArtifactType type);
 std::string memory_artifact_state_name(MemoryArtifactState state);
 std::string memory_event_type_name(MemoryEventType type);

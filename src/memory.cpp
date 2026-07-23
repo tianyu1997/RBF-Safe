@@ -390,6 +390,120 @@ std::string fleet_schedule_identity(const FleetScheduleReport& report) {
                       .dump(false));
 }
 
+std::string fleet_schedule_version_identity(const FleetScheduleVersion& version) {
+    return sha256(Json(Json::Object{
+                           {"fleet_snapshot_id", version.fleet.id},
+                           {"memory_id", version.memory_id},
+                           {"parent_id", version.parent_id},
+                           {"report_id", version.report.id},
+                           {"sequence", std::to_string(version.sequence)},
+                       })
+                      .dump(false));
+}
+
+Result<void> validate_fleet_snapshot(const FleetSnapshot& fleet) {
+    if (!valid_fleet_snapshot(fleet)) {
+        return Result<void>::failure(StatusCode::InvalidArgument,
+                                     "fleet snapshot content or identity is invalid", fleet.id);
+    }
+    return Result<void>::success();
+}
+
+Result<void> validate_fleet_schedule_report(const FleetSnapshot& fleet, const FleetScheduleReport& report,
+                                            std::size_t maximum_pair_evaluations) {
+    if (!valid_fleet_snapshot(fleet) || maximum_pair_evaluations == 0 ||
+        report.fleet_snapshot_id != fleet.id || !valid_sha256(report.id) ||
+        (report.status != FleetScheduleStatus::ConflictFreeUnderDeclaredEnvelopes &&
+         report.status != FleetScheduleStatus::Conflicted) ||
+        report.pair_evaluations > maximum_pair_evaluations) {
+        return Result<void>::failure(StatusCode::InvalidArgument, "fleet schedule report metadata is invalid",
+                                     report.id);
+    }
+
+    auto reservation_less = [](const FleetReservation& first, const FleetReservation& second) {
+        if (first.begin_tick != second.begin_tick)
+            return first.begin_tick < second.begin_tick;
+        if (first.end_tick != second.end_tick)
+            return first.end_tick < second.end_tick;
+        return first.id < second.id;
+    };
+    std::set<std::string> reservation_ids;
+    for (std::size_t index = 0; index < report.reservations.size(); ++index) {
+        const auto& reservation = report.reservations[index];
+        const auto* member = find_member(fleet, reservation.deployment_id);
+        if (member == nullptr || !valid_sha256(reservation.id) ||
+            !valid_sha256(reservation.source_artifact_id) || !reservation.occupancy.valid() ||
+            !contains_box(member->operating_envelope, reservation.occupancy) ||
+            reservation.begin_tick >= reservation.end_tick || !std::isfinite(reservation.separation_margin) ||
+            reservation.separation_margin < 0.0 ||
+            fleet_reservation_identity(fleet, reservation) != reservation.id ||
+            !reservation_ids.insert(reservation.id).second ||
+            (index != 0 && reservation_less(reservation, report.reservations[index - 1]))) {
+            return Result<void>::failure(StatusCode::InvalidArgument, "fleet schedule reservation is invalid",
+                                         reservation.id);
+        }
+    }
+
+    std::size_t pair_evaluations = 0;
+    std::size_t conflict_index = 0;
+    for (std::size_t first_index = 0; first_index < report.reservations.size(); ++first_index) {
+        for (std::size_t second_index = first_index + 1; second_index < report.reservations.size();
+             ++second_index) {
+            const auto& first = report.reservations[first_index];
+            const auto& second = report.reservations[second_index];
+            if (second.begin_tick >= first.end_tick)
+                break;
+            if (!time_overlaps(first, second))
+                continue;
+            if (pair_evaluations >= maximum_pair_evaluations) {
+                return Result<void>::failure(StatusCode::ResourceLimit,
+                                             "fleet schedule pair count exceeds validation limit");
+            }
+            ++pair_evaluations;
+            FleetConflict expected;
+            expected.first_reservation_id = first.id;
+            expected.second_reservation_id = second.id;
+            expected.clearance_lower_bound = first.occupancy.distance_lower_bound(second.occupancy);
+            expected.required_margin = std::max(first.separation_margin, second.separation_margin);
+            bool has_conflict = true;
+            if (first.deployment_id == second.deployment_id) {
+                expected.reason = FleetConflictReason::DuplicateRobotWindow;
+            } else if (first.occupancy.overlaps(second.occupancy)) {
+                expected.reason = FleetConflictReason::WorkspaceOverlap;
+            } else if (expected.clearance_lower_bound < expected.required_margin) {
+                expected.reason = FleetConflictReason::SeparationMarginViolated;
+            } else {
+                has_conflict = false;
+            }
+            if (!has_conflict)
+                continue;
+            if (conflict_index >= report.conflicts.size()) {
+                return Result<void>::failure(StatusCode::InvalidArgument,
+                                             "fleet schedule conflict list is incomplete", report.id);
+            }
+            const auto& actual = report.conflicts[conflict_index++];
+            if (actual.first_reservation_id != expected.first_reservation_id ||
+                actual.second_reservation_id != expected.second_reservation_id ||
+                actual.reason != expected.reason ||
+                actual.clearance_lower_bound != expected.clearance_lower_bound ||
+                actual.required_margin != expected.required_margin) {
+                return Result<void>::failure(StatusCode::InvalidArgument,
+                                             "fleet schedule conflict content is inconsistent", report.id);
+            }
+        }
+    }
+    const auto expected_status = report.conflicts.empty()
+                                     ? FleetScheduleStatus::ConflictFreeUnderDeclaredEnvelopes
+                                     : FleetScheduleStatus::Conflicted;
+    if (pair_evaluations != report.pair_evaluations || conflict_index != report.conflicts.size() ||
+        report.status != expected_status || fleet_schedule_identity(report) != report.id) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "fleet schedule report identity or derived values are invalid",
+                                     report.id);
+    }
+    return Result<void>::success();
+}
+
 } // namespace internal
 
 Result<MemoryArtifact> SafetyMemory::register_artifact(MemoryArtifactInput input,

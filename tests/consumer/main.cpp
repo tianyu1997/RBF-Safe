@@ -18,6 +18,8 @@ int main() {
     const rbfsafe::SafetyMemoryStoreOpenOptions memory_store_options;
     const rbfsafe::SafetyMemory memory;
     const rbfsafe::FleetScheduleOptions fleet_options;
+    const rbfsafe::FleetScheduleArchiveLoadOptions fleet_archive_options;
+    const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
     return interval.contains(0.0) && options.maximum_region_tests > 0 &&
                    hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
@@ -26,7 +28,8 @@ int main() {
                    projection_options.maximum_iterations > 0 && shield_options.maximum_input_waypoints > 0 &&
                    policy_options.maximum_proposals > 0 && memory_load_options.maximum_artifacts > 0 &&
                    memory_store_options.maximum_revisions > 0 && memory.identity().size() == 64 &&
-                   fleet_options.maximum_pair_evaluations > 0 &&
+                   fleet_options.maximum_pair_evaluations > 0 && fleet_archive_options.maximum_versions > 0 &&
+                   fleet_archive && fleet_archive.value().valid() &&
                    report.status == rbfsafe::TrajectoryAuditStatus::Invalid
                ? 0
                : 1;

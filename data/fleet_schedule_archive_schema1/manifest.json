@@ -1,0 +1,13 @@
+{
+  "conflicts": 1,
+  "current_version_id": "e87638cd2e4d302840138c416c4987fc3800951b078793ad2ed1ea351dc751aa",
+  "fleet_id": "cell-1",
+  "format": "rbfsafe-fleet-schedule-archive",
+  "library_version": "3.2.0",
+  "members": 4,
+  "pair_evaluations": 2,
+  "payload_sha256": "62e44ce3b3923efaca61e99c5b7433a50f6ddf18efc302d72e1be064c9f407df",
+  "reservations": 4,
+  "schema": 1,
+  "versions": 2
+}

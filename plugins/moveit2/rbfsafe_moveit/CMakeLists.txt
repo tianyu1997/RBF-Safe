@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(rbfsafe_moveit VERSION 3.1.0 LANGUAGES CXX)
+project(rbfsafe_moveit VERSION 3.2.0 LANGUAGES CXX)
 
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -7,7 +7,7 @@ find_package(moveit_core REQUIRED)
 find_package(moveit_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(RBFSafe 3.1 CONFIG REQUIRED)
+find_package(RBFSafe 3.2 CONFIG REQUIRED)
 
 add_library(rbfsafe_moveit_plugins SHARED
   src/certified_constraint_sampler.cpp

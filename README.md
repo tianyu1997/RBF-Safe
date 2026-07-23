@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.1
+geometric safety certificates in robot configuration space. Version 3.2
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -42,6 +42,8 @@ monotonic lifecycle and replayable audit events, permits exact-identity
 cross-task reuse, and checks multi-robot workspace reservations under bounded
 declared-envelope assumptions. Immutable safety-memory revision stores add
 expected-head transactions and fail-closed cross-process publication.
+Versioned fleet-schedule archives preserve exact memory-bound reservation
+analyses in a deterministic, checksummed history.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -90,7 +92,8 @@ certificate.
 - Public `RBFSafe::memory` persistent artifact catalog, lifecycle/audit log,
   exact-identity cross-task reuse, scene invalidation, fleet snapshots,
   reservation conflict analysis, checksummed schema-1 persistence, and an
-  immutable optimistic-concurrency revision store.
+  immutable optimistic-concurrency revision store plus versioned fleet-
+  schedule archives.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
@@ -99,7 +102,7 @@ Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated/calibrated policy metadata,
 continuous-time fleet occupancy proofs, authenticated artifact services,
 execution guarantees, and legacy RapidBoxForest cache compatibility remain
-outside v3.1.
+outside v3.2.
 
 ## Quick start
 
@@ -225,6 +228,7 @@ rbfsafe-inspect corridor --query 0.0 0.0  # Atlas/corridor auto-detection
 rbfsafe-inspect region-database --query 0.0 0.0 --include-portals
 rbfsafe-inspect policy-feedback --policy-id vla-primary
 rbfsafe-inspect safety-memory --deployment-id arm-a --include-memory-events
+rbfsafe-inspect fleet-schedules --fleet-schedule-version <version-id>
 rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
   --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
 ```
@@ -247,6 +251,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Policy feedback schema v1](docs/policy-feedback-format.md)
 - [Persistent safety memory and fleets](docs/safety-memory.md)
 - [Safety memory schema v1](docs/safety-memory-format.md)
+- [Transactional safety-memory store](docs/safety-memory-store.md)
+- [Versioned fleet-schedule archives](docs/fleet-schedule-archive.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)

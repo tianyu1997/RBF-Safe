@@ -48,6 +48,7 @@ struct CaseMetrics {
     std::size_t memory_artifacts = 0;
     std::size_t memory_reuses = 0;
     std::size_t fleet_schedule_checks = 0;
+    std::size_t fleet_schedule_versions = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -412,6 +413,23 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
                                                      fixture.name);
     }
     metrics.fleet_schedule_checks = 1;
+    auto schedule_archive = rbfsafe::FleetScheduleArchive::create(fleet.value().fleet_id);
+    if (!schedule_archive)
+        return schedule_archive.error();
+    auto schedule_version = schedule_archive.value().publish(fleet.value(), memory, reservations, "");
+    if (!schedule_version || !schedule_archive.value().valid()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture fleet schedule archive was inconsistent",
+            fixture.name);
+    }
+    auto verified_schedule =
+        schedule_archive.value().verify_version(schedule_version.value().id, fleet.value(), memory);
+    if (!verified_schedule || verified_schedule.value().id != schedule.value().id) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture fleet schedule replay was inconsistent",
+                                                     fixture.name);
+    }
+    metrics.fleet_schedule_versions = schedule_archive.value().versions().size();
     rbfsafe::SceneSnapshot next_scene(scene.value().obstacles(), scene.value().version() + "-refresh");
     rbfsafe::Result<rbfsafe::AtlasUpdateResult> updated =
         rbfsafe::Result<rbfsafe::AtlasUpdateResult>::failure(rbfsafe::StatusCode::InternalError,
@@ -449,6 +467,9 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.memory_reuses));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
+    hash_field(logical_hash, "fleet-schedule-archive-valid");
+    hash_field(logical_hash, schedule_version.value().id);
+    hash_field(logical_hash, std::to_string(metrics.fleet_schedule_versions));
     hash_field(logical_hash, "updated-compatible-and-covered");
     return metrics;
 }
@@ -468,6 +489,7 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"estimated_memory_bytes\":" << item.estimated_memory_bytes
                   << ",\"inherited_certificates\":" << item.inherited_certificates
                   << ",\"policy_feedback_records\":" << item.policy_feedback_records
+                  << ",\"fleet_schedule_versions\":" << item.fleet_schedule_versions
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -483,6 +505,7 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " false_safe=" << item.false_safe << " coverage=" << item.certified_path_ratio
                   << " estimated_memory_bytes=" << item.estimated_memory_bytes
                   << " policy_feedback_records=" << item.policy_feedback_records
+                  << " fleet_schedule_versions=" << item.fleet_schedule_versions
                   << " build_ms=" << item.build_ms << " query_ms=" << item.query_ms
                   << " update_ms=" << item.update_ms << '\n';
     }

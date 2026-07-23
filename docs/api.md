@@ -315,10 +315,18 @@ source artifact and bounds occupancy by the member operating envelope.
 `analyze_fleet_schedule` rechecks every source against the current memory and
 reports duplicate robot windows, declared workspace overlap, and
 separation-margin violations under pair and cancellation budgets.
+`FleetScheduleArchive` publishes those reports into a deterministic linear
+history. Each `FleetScheduleVersion` binds its sequence, parent, exact fleet
+snapshot, report, and `SafetyMemory::identity()`. Publication requires an
+expected head and is idempotent for unchanged content; `verify_version`
+replays the stored reservations against the exact supplied fleet and memory.
+`save` and `load` use the independently versioned, checksummed and bounded
+fleet-schedule-archive schema 1.
 Its `ConflictFreeUnderDeclaredEnvelopes` status is not a `Certificate` or
 execution authorization. See [persistent safety memory](safety-memory.md) and
 the [memory format](safety-memory-format.md). Multi-process deployments should
-also read the [transactional store contract](safety-memory-store.md).
+also read the [transactional store contract](safety-memory-store.md) and
+[fleet archive contract](fleet-schedule-archive.md).
 
 ## Error model
 

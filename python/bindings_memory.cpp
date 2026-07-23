@@ -262,6 +262,67 @@ void bind_memory(py::module_& module) {
         .def_readonly("conflicts", &FleetScheduleReport::conflicts)
         .def_readonly("pair_evaluations", &FleetScheduleReport::pair_evaluations);
 
+    py::class_<FleetScheduleVersion>(module, "FleetScheduleVersion")
+        .def_readonly("sequence", &FleetScheduleVersion::sequence)
+        .def_readonly("id", &FleetScheduleVersion::id)
+        .def_readonly("parent_id", &FleetScheduleVersion::parent_id)
+        .def_readonly("memory_id", &FleetScheduleVersion::memory_id)
+        .def_readonly("fleet", &FleetScheduleVersion::fleet)
+        .def_readonly("report", &FleetScheduleVersion::report);
+
+    py::class_<FleetScheduleArchiveLoadOptions>(module, "FleetScheduleArchiveLoadOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_versions", &FleetScheduleArchiveLoadOptions::maximum_versions)
+        .def_readwrite("maximum_members", &FleetScheduleArchiveLoadOptions::maximum_members)
+        .def_readwrite("maximum_reservations", &FleetScheduleArchiveLoadOptions::maximum_reservations)
+        .def_readwrite("maximum_conflicts", &FleetScheduleArchiveLoadOptions::maximum_conflicts)
+        .def_readwrite("maximum_pair_evaluations", &FleetScheduleArchiveLoadOptions::maximum_pair_evaluations)
+        .def_readwrite("maximum_metadata_bytes", &FleetScheduleArchiveLoadOptions::maximum_metadata_bytes)
+        .def_readwrite("maximum_payload_bytes", &FleetScheduleArchiveLoadOptions::maximum_payload_bytes);
+
+    py::class_<FleetScheduleArchive>(module, "FleetScheduleArchive")
+        .def_static(
+            "create",
+            [](std::string fleet_id) { return unwrap(FleetScheduleArchive::create(std::move(fleet_id))); })
+        .def_property_readonly("fleet_id", &FleetScheduleArchive::fleet_id)
+        .def_property_readonly("current_version_id", &FleetScheduleArchive::current_version_id)
+        .def_property_readonly("versions", &FleetScheduleArchive::versions)
+        .def("valid", &FleetScheduleArchive::valid)
+        .def("current_version",
+             [](const FleetScheduleArchive& archive) { return unwrap(archive.current_version()); })
+        .def("version", [](const FleetScheduleArchive& archive,
+                           const std::string& id) { return unwrap(archive.version(id)); })
+        .def(
+            "publish",
+            [](FleetScheduleArchive& archive, const FleetSnapshot& fleet, const SafetyMemory& memory,
+               const std::vector<FleetReservation>& reservations, const std::string& expected,
+               const FleetScheduleOptions& options, std::size_t maximum_versions) {
+                return unwrap(
+                    archive.publish(fleet, memory, reservations, expected, options, maximum_versions));
+            },
+            py::arg("fleet"), py::arg("memory"), py::arg("reservations"),
+            py::arg("expected_current_version_id"), py::arg("options") = FleetScheduleOptions{},
+            py::arg("maximum_versions") = 100'000)
+        .def(
+            "verify_version",
+            [](const FleetScheduleArchive& archive, const std::string& id, const FleetSnapshot& fleet,
+               const SafetyMemory& memory, const FleetScheduleOptions& options) {
+                return unwrap(archive.verify_version(id, fleet, memory, options));
+            },
+            py::arg("version_id"), py::arg("fleet"), py::arg("memory"),
+            py::arg("options") = FleetScheduleOptions{})
+        .def(
+            "save",
+            [](const FleetScheduleArchive& archive, const std::filesystem::path& path,
+               const SaveOptions& options) { unwrap_void(archive.save(path, options)); },
+            py::arg("path"), py::arg("options") = SaveOptions{})
+        .def_static(
+            "load",
+            [](const std::filesystem::path& path, const FleetScheduleArchiveLoadOptions& options) {
+                return unwrap(FleetScheduleArchive::load(path, options));
+            },
+            py::arg("path"), py::arg("options") = FleetScheduleArchiveLoadOptions{});
+
     module.def("make_fleet_snapshot", [](std::string fleet_id, std::string scene_digest,
                                          std::vector<FleetMember> members) {
         return unwrap(make_fleet_snapshot(std::move(fleet_id), std::move(scene_digest), std::move(members)));

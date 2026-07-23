@@ -1,3 +1,4 @@
+#include "internal/sha256.h"
 #include "test_support.h"
 
 #include <chrono>
@@ -347,6 +348,147 @@ int main() {
     CHECK(conflicted.value().conflicts.size() == 1);
     CHECK(conflicted.value().conflicts.front().reason == FleetConflictReason::WorkspaceOverlap);
 
+    CHECK(!FleetScheduleArchive::create("cell-7\nbad"));
+    auto archive = FleetScheduleArchive::create("cell-7");
+    CHECK(archive);
+    CHECK(archive.value().valid());
+    CHECK(archive.value().versions().empty());
+    CHECK(!archive.value().current_version());
+    CHECK(!archive.value().version(digest('9')));
+    const auto empty_archive_path = temporary / "empty-fleet-schedule-archive";
+    CHECK(archive.value().save(empty_archive_path));
+    auto loaded_empty_archive = FleetScheduleArchive::load(empty_archive_path);
+    CHECK(loaded_empty_archive);
+    CHECK(loaded_empty_archive.value().valid());
+    CHECK(loaded_empty_archive.value().versions().empty());
+    CHECK(loaded_empty_archive.value().current_version_id().empty());
+    auto first_schedule = archive.value().publish(fleet.value(), fleet_memory, clear_reservations, "");
+    CHECK(first_schedule);
+    CHECK(first_schedule.value().sequence == 0);
+    CHECK(first_schedule.value().parent_id.empty());
+    CHECK(first_schedule.value().memory_id == fleet_memory.identity());
+    CHECK(first_schedule.value().report.id == clear.value().id);
+    CHECK(archive.value().current_version_id() == first_schedule.value().id);
+    CHECK(archive.value().valid());
+    auto idempotent_schedule =
+        archive.value().publish(fleet.value(), fleet_memory, clear_reservations, first_schedule.value().id);
+    CHECK(idempotent_schedule);
+    CHECK(idempotent_schedule.value().id == first_schedule.value().id);
+    CHECK(archive.value().versions().size() == 1);
+    auto stale_schedule_head = archive.value().publish(fleet.value(), fleet_memory, colliding, "");
+    CHECK(!stale_schedule_head);
+    CHECK(stale_schedule_head.error().code == StatusCode::IdentityMismatch);
+    auto second_schedule =
+        archive.value().publish(fleet.value(), fleet_memory, colliding, first_schedule.value().id);
+    CHECK(second_schedule);
+    CHECK(second_schedule.value().sequence == 1);
+    CHECK(second_schedule.value().parent_id == first_schedule.value().id);
+    CHECK(second_schedule.value().report.id == conflicted.value().id);
+    CHECK(archive.value().versions().size() == 2);
+    auto replayed_schedule =
+        archive.value().verify_version(first_schedule.value().id, fleet.value(), fleet_memory);
+    CHECK(replayed_schedule);
+    CHECK(replayed_schedule.value().id == clear.value().id);
+    auto selected_schedule = archive.value().version(first_schedule.value().id);
+    CHECK(selected_schedule);
+    CHECK(selected_schedule.value().report.status == FleetScheduleStatus::ConflictFreeUnderDeclaredEnvelopes);
+
+    auto fixed_archive = FleetScheduleArchive::load(std::filesystem::path(RBFSAFE_TEST_DATA_DIR) /
+                                                    "fleet_schedule_archive_schema1");
+    CHECK(fixed_archive);
+    CHECK(fixed_archive.value().valid());
+    CHECK(fixed_archive.value().fleet_id() == "cell-1");
+    CHECK(fixed_archive.value().versions().size() == 2);
+    CHECK(fixed_archive.value().versions().front().id ==
+          "850f934f814d11a61c0f3c6fd10b514bb75d61b141d7735dbfc17abacaf325f8");
+    CHECK(fixed_archive.value().current_version_id() ==
+          "e87638cd2e4d302840138c416c4987fc3800951b078793ad2ed1ea351dc751aa");
+    CHECK(fixed_archive.value().current_version().value().report.status == FleetScheduleStatus::Conflicted);
+
+    const auto fleet_archive_path = temporary / "fleet-schedule-archive";
+    CHECK(archive.value().save(fleet_archive_path));
+    CHECK(!archive.value().save(fleet_archive_path));
+    SaveOptions overwrite_archive;
+    overwrite_archive.overwrite = true;
+    CHECK(archive.value().save(fleet_archive_path, overwrite_archive));
+    auto loaded_archive = FleetScheduleArchive::load(fleet_archive_path);
+    CHECK(loaded_archive);
+    CHECK(loaded_archive.value().fleet_id() == "cell-7");
+    CHECK(loaded_archive.value().current_version_id() == second_schedule.value().id);
+    CHECK(loaded_archive.value().versions().size() == 2);
+    CHECK(loaded_archive.value().valid());
+    CHECK(loaded_archive.value().current_version().value().report.status == FleetScheduleStatus::Conflicted);
+    FleetScheduleArchiveLoadOptions one_schedule;
+    one_schedule.maximum_versions = 1;
+    auto schedule_version_limit = FleetScheduleArchive::load(fleet_archive_path, one_schedule);
+    CHECK(!schedule_version_limit);
+    CHECK(schedule_version_limit.error().code == StatusCode::ResourceLimit);
+    FleetScheduleArchiveLoadOptions one_pair;
+    one_pair.maximum_pair_evaluations = 1;
+    auto schedule_pair_limit = FleetScheduleArchive::load(fleet_archive_path, one_pair);
+    CHECK(!schedule_pair_limit);
+    CHECK(schedule_pair_limit.error().code == StatusCode::ResourceLimit);
+    FleetScheduleArchiveLoadOptions three_members;
+    three_members.maximum_members = 3;
+    auto schedule_member_limit = FleetScheduleArchive::load(fleet_archive_path, three_members);
+    CHECK(!schedule_member_limit);
+    CHECK(schedule_member_limit.error().code == StatusCode::ResourceLimit);
+    FleetScheduleArchiveLoadOptions three_reservations;
+    three_reservations.maximum_reservations = 3;
+    auto schedule_reservation_limit = FleetScheduleArchive::load(fleet_archive_path, three_reservations);
+    CHECK(!schedule_reservation_limit);
+    CHECK(schedule_reservation_limit.error().code == StatusCode::ResourceLimit);
+    FleetScheduleArchiveLoadOptions tiny_archive_metadata;
+    tiny_archive_metadata.maximum_metadata_bytes = 1;
+    auto schedule_metadata_limit = FleetScheduleArchive::load(fleet_archive_path, tiny_archive_metadata);
+    CHECK(!schedule_metadata_limit);
+    CHECK(schedule_metadata_limit.error().code == StatusCode::ResourceLimit);
+    FleetScheduleArchiveLoadOptions tiny_archive_payload;
+    tiny_archive_payload.maximum_payload_bytes = 1;
+    auto schedule_payload_limit = FleetScheduleArchive::load(fleet_archive_path, tiny_archive_payload);
+    CHECK(!schedule_payload_limit);
+    CHECK(schedule_payload_limit.error().code == StatusCode::ResourceLimit);
+
+    const auto fleet_manifest_path = fleet_archive_path / "manifest.json";
+    const auto original_fleet_manifest = read_text(fleet_manifest_path);
+    auto unknown_fleet_manifest = original_fleet_manifest;
+    const auto fleet_schema_position = unknown_fleet_manifest.find("\"schema\": 1");
+    CHECK(fleet_schema_position != std::string::npos);
+    unknown_fleet_manifest.replace(fleet_schema_position, std::string("\"schema\": 1").size(),
+                                   "\"schema\": 999");
+    write_text(fleet_manifest_path, unknown_fleet_manifest);
+    auto unknown_fleet_schema = FleetScheduleArchive::load(fleet_archive_path);
+    CHECK(!unknown_fleet_schema);
+    CHECK(unknown_fleet_schema.error().code == StatusCode::IncompatibleFormat);
+    write_text(fleet_manifest_path, original_fleet_manifest);
+    const auto fleet_payload_path = fleet_archive_path / "schedules.json";
+    const auto original_fleet_payload = read_text(fleet_payload_path);
+    write_text(fleet_payload_path, original_fleet_payload + " ");
+    auto corrupted_fleet_archive = FleetScheduleArchive::load(fleet_archive_path);
+    CHECK(!corrupted_fleet_archive);
+    CHECK(corrupted_fleet_archive.error().code == StatusCode::CorruptData);
+    write_text(fleet_payload_path, original_fleet_payload);
+    CHECK(FleetScheduleArchive::load(fleet_archive_path));
+
+    auto semantic_payload = original_fleet_payload;
+    const auto status_position = semantic_payload.rfind("\"status\": 1");
+    CHECK(status_position != std::string::npos);
+    semantic_payload.replace(status_position, std::string("\"status\": 1").size(), "\"status\": 0");
+    auto semantic_manifest = original_fleet_manifest;
+    const auto original_payload_sha = internal::sha256(original_fleet_payload);
+    const auto semantic_payload_sha = internal::sha256(semantic_payload);
+    const auto checksum_position = semantic_manifest.find(original_payload_sha);
+    CHECK(checksum_position != std::string::npos);
+    semantic_manifest.replace(checksum_position, original_payload_sha.size(), semantic_payload_sha);
+    write_text(fleet_payload_path, semantic_payload);
+    write_text(fleet_manifest_path, semantic_manifest);
+    auto semantically_corrupt_archive = FleetScheduleArchive::load(fleet_archive_path);
+    CHECK(!semantically_corrupt_archive);
+    CHECK(semantically_corrupt_archive.error().code == StatusCode::CorruptData);
+    write_text(fleet_payload_path, original_fleet_payload);
+    write_text(fleet_manifest_path, original_fleet_manifest);
+    CHECK(FleetScheduleArchive::load(fleet_archive_path));
+
     auto near_b = make_fleet_reservation(fleet.value(), fleet_memory, "arm-b", source_b.value().id,
                                          box(-0.7, -0.6), 0, 10, 0.2);
     CHECK(near_b);
@@ -379,6 +521,10 @@ int main() {
     auto stale_source = fleet_memory.transition(source_a.value().id, source_a.value().generation,
                                                 MemoryArtifactState::Stale, "scene changed");
     CHECK(stale_source);
+    auto stale_archive_replay =
+        archive.value().verify_version(second_schedule.value().id, fleet.value(), fleet_memory);
+    CHECK(!stale_archive_replay);
+    CHECK(stale_archive_replay.error().code == StatusCode::IdentityMismatch);
     auto stale_schedule = analyze_fleet_schedule(fleet.value(), fleet_memory, clear_reservations);
     CHECK(!stale_schedule);
     CHECK(stale_schedule.error().code == StatusCode::IdentityMismatch);

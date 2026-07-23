@@ -36,6 +36,10 @@ telemetry, cancellation, and monitor classifications.
 Run both policy-safety quickstarts and test every metadata rejection reason,
 selection mode, duplicate handling, aligned feedback label, deterministic ID,
 query filter, load limit, checksum failure, and native/Python inspection path.
+Run both fleet-schedule archive quickstarts; verify expected-head and
+idempotent publication, historical replay, every aggregate load limit,
+checksum/semantic corruption rejection, fixed fixture identities, and both
+inspection paths.
 Build `rbfsafe-release-benchmark`, run its 128-iteration smoke gate and
 8192-iteration soak gate, and confirm zero false-safe point checks and an exact
 match with the committed cross-platform logical digest. Inspect timing and

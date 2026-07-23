@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.1.0"
+    assert rbfsafe.__version__ == "3.2.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -580,6 +580,38 @@ def test_safety_memory_reuse_fleet_persistence_and_cli(
     assert conflicted.status == rbfsafe.FleetScheduleStatus.CONFLICTED
     assert conflicted.conflicts[0].reason == rbfsafe.FleetConflictReason.WORKSPACE_OVERLAP
 
+    archive = rbfsafe.FleetScheduleArchive.create("cell-1")
+    root_schedule = archive.publish(fleet, memory, [reservation_b, reservation_a], "")
+    assert root_schedule.sequence == 0
+    assert root_schedule.memory_id == memory.identity
+    assert root_schedule.report.id == schedule.id
+    assert archive.valid()
+    assert (
+        archive.publish(
+            fleet,
+            memory,
+            [reservation_b, reservation_a],
+            root_schedule.id,
+        ).id
+        == root_schedule.id
+    )
+    current_schedule = archive.publish(
+        fleet,
+        memory,
+        [reservation_a, colliding_b],
+        root_schedule.id,
+    )
+    assert current_schedule.sequence == 1
+    assert current_schedule.parent_id == root_schedule.id
+    assert archive.verify_version(root_schedule.id, fleet, memory).id == schedule.id
+    archive_destination = tmp_path / "fleet-schedule-archive"
+    archive.save(archive_destination)
+    loaded_archive = rbfsafe.FleetScheduleArchive.load(archive_destination)
+    assert loaded_archive.valid()
+    assert loaded_archive.fleet_id == "cell-1"
+    assert loaded_archive.current_version_id == current_schedule.id
+    assert loaded_archive.current_version().report.status == rbfsafe.FleetScheduleStatus.CONFLICTED
+
     destination = tmp_path / "safety-memory"
     memory.save(destination)
     loaded = rbfsafe.SafetyMemory.load(destination)
@@ -607,6 +639,8 @@ def test_safety_memory_reuse_fleet_persistence_and_cli(
     reopened_store = rbfsafe.SafetyMemoryStore.open(store_destination)
     assert reopened_store.current_revision_id == revision.id
     assert len(reopened_store.revisions) == 2
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        archive.verify_version(current_schedule.id, fleet, memory)
 
     from rbfsafe.cli import main
 
@@ -647,6 +681,18 @@ def test_safety_memory_reuse_fleet_persistence_and_cli(
     assert "revisions=2" in store_output
     assert f"selected={root_revision}" in store_output
     assert "type=safe_atlas state=active deployment=arm-a" in store_output
+
+    assert main([str(archive_destination)]) == 0
+    archive_output = capsys.readouterr().out
+    assert "RBF-Safe fleet-schedule-archive schema=1" in archive_output
+    assert "fleet=cell-1 versions=2" in archive_output
+    assert f"current={current_schedule.id}" in archive_output
+    assert "status=conflicted reservations=2 conflicts=1 pair_evaluations=1" in archive_output
+
+    assert main([str(archive_destination), "--fleet-schedule-version", root_schedule.id]) == 0
+    root_output = capsys.readouterr().out
+    assert f"selected={root_schedule.id} sequence=0 parent=" in root_output
+    assert "status=conflict_free_under_declared_envelopes" in root_output
 
 
 def test_tool_link_and_specific_identity_error() -> None:

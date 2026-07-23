@@ -6,7 +6,8 @@ RBF-Safe uses Semantic Versioning. Version 1.0 established the public source
 compatibility promise. Version 2.0 retained it and added learning-policy
 safety. Version 3.0 retains the complete documented 2.0 surface and adds the
 persistent safety-memory and fleet-coordination module. Version 3.1 adds an
-immutable optimistic-concurrency memory revision store. Documented public C++
+immutable optimistic-concurrency memory revision store. Version 3.2 adds a
+deterministic versioned fleet-schedule archive. Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
 minor releases. Deprecated APIs remain functional through 3.x and may be
@@ -105,6 +106,13 @@ expected head, then atomically introduces a new commit filename. The store
 does not merge histories, authenticate artifact locators, or change contained
 memory evidence.
 
+The v3.2 fleet-schedule-archive schema 1 stores a deterministic linear history
+of complete fleet snapshots and schedule reports. Each version binds the
+whole-memory identity used to validate source artifacts. The reader verifies
+checksums, identities, report semantics, aggregate limits, sequence and parent
+continuity, and the active head. This format is independent of safety-memory
+and store schemas and does not promote a coordination report to a certificate.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -130,7 +138,7 @@ inherited link dependency is unchanged.
 For identical inputs, options, schema, and library version, region IDs, region
 order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
-hashes, committed memory/store fixtures, and the v0.5 schema-1 Atlas fixture
+hashes, committed memory/store/fleet-archive fixtures, and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 
 Floating-point behavior is tested against conservative containment properties,

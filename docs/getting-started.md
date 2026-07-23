@@ -216,3 +216,22 @@ revision = store.publish(memory, expected)
 
 A stale `expected` value raises `IdentityMismatchError`; no newer revision is
 overwritten. See [transactional safety memory](safety-memory-store.md).
+
+## 10. Persist fleet-schedule history
+
+Publish canonical reservation reports against the exact memory revision used
+to validate their source artifacts:
+
+```python
+archive = rbfsafe.FleetScheduleArchive.create(fleet.fleet_id)
+root = archive.publish(fleet, memory, reservations, "")
+current = archive.publish(fleet, memory, revised_reservations, root.id)
+archive.save("fleet-schedules")
+
+loaded = rbfsafe.FleetScheduleArchive.load("fleet-schedules")
+loaded.verify_version(current.id, fleet, memory)
+```
+
+Preserve that memory revision if the live catalog is later changed. The
+archive status remains a declared-envelope coordination result, not an
+execution certificate. See [versioned fleet schedules](fleet-schedule-archive.md).

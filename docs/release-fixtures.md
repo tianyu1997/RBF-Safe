@@ -73,3 +73,9 @@ data, not physical-robot calibration or deployment certification.
 contains a one-artifact active root and a second revision that marks the
 artifact stale. Tests verify the root/current revision IDs, parent chain,
 memory identities, commit filenames, schema-1 payloads, and historical reads.
+
+`data/fleet_schedule_archive_schema1` is the fixed RBF-Safe 3.2 fleet archive
+fixture. It contains a conflict-free root and a conflicted child for two
+declared robot envelopes. Tests verify fixed version and head IDs, whole-memory
+and fleet-snapshot bindings, report semantics, parent continuity, aggregate
+limits, checksum failures, and cross-platform schema-1 loading.

@@ -10,6 +10,7 @@ from pathlib import Path
 from . import (
     AtlasUpdater,
     AtlasVersionStore,
+    FleetScheduleArchive,
     HipacCorridor,
     MemoryArtifactState,
     MemoryArtifactType,
@@ -30,6 +31,7 @@ from . import (
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
+    fleet_schedule_status_name,
     policy_feedback_label_name,
     memory_artifact_state_name,
     memory_artifact_type_name,
@@ -40,7 +42,9 @@ from . import (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rbfsafe-inspect")
     parser.add_argument(
-        "atlas", type=Path, help="Atlas, safety memory, version store, corridor, or region database directory"
+        "atlas",
+        type=Path,
+        help="Atlas, safety memory, fleet schedule, version store, corridor, or region database directory",
     )
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
@@ -115,6 +119,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--include-memory-events", action="store_true", help="list safety-memory audit events")
     parser.add_argument("--memory-revision", help="load a specific revision from a safety-memory store")
+    parser.add_argument(
+        "--fleet-schedule-version",
+        help="inspect a specific version from a fleet-schedule archive",
+    )
     parser.add_argument(
         "--max-memory-results",
         type=int,
@@ -194,6 +202,63 @@ def main(argv: list[str] | None = None) -> int:
         store_manifest = {}
     feedback_filters = (args.policy_id, args.task_id, args.episode_id, args.feedback_label)
     memory_filters = (args.deployment_id, args.memory_state, args.artifact_type, args.memory_revision)
+    if manifest.get("format") == "rbfsafe-fleet-schedule-archive":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error("Atlas, policy-feedback, and safety-memory options do not apply to fleet schedules")
+        archive = FleetScheduleArchive.load(args.atlas)
+        print("RBF-Safe fleet-schedule-archive schema=1")
+        print(
+            f"fleet={archive.fleet_id} versions={len(archive.versions)} "
+            f"current={archive.current_version_id}"
+        )
+        if args.fleet_schedule_version is not None:
+            version = archive.version(args.fleet_schedule_version)
+        elif archive.current_version_id:
+            version = archive.current_version()
+        else:
+            return 0
+        report = version.report
+        print(
+            f"selected={version.id} sequence={version.sequence} parent={version.parent_id} "
+            f"memory={version.memory_id} snapshot={version.fleet.id}"
+        )
+        print(
+            f"status={fleet_schedule_status_name(report.status)} "
+            f"reservations={len(report.reservations)} conflicts={len(report.conflicts)} "
+            f"pair_evaluations={report.pair_evaluations}"
+        )
+        return 0
+    if args.fleet_schedule_version is not None:
+        parser.error("--fleet-schedule-version requires a fleet-schedule archive")
     if manifest.get("format") == "rbfsafe-safety-memory-store":
         unsupported = (
             args.plot,

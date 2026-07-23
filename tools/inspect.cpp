@@ -8,7 +8,7 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "usage: rbfsafe-inspect <certificate-database> [q0 q1 ...]\n";
+        std::cerr << "usage: rbfsafe-inspect <database-or-archive> [q0 q1 ...]\n";
         return 2;
     }
     auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[1]));
@@ -127,6 +127,33 @@ int main(int argc, char** argv) {
                       << "events: " << summary.events << '\n';
             return 0;
         }
+        auto schedule_archive = rbfsafe::FleetScheduleArchive::load(std::filesystem::path(argv[1]));
+        if (schedule_archive) {
+            if (argc > 2) {
+                std::cerr << "configuration queries do not apply to fleet schedule archives\n";
+                return 2;
+            }
+            std::cout << "RBF-Safe fleet schedule archive\n"
+                      << "schema: 1\n"
+                      << "fleet: " << schedule_archive.value().fleet_id() << '\n'
+                      << "versions: " << schedule_archive.value().versions().size() << '\n'
+                      << "current: " << schedule_archive.value().current_version_id() << '\n';
+            if (!schedule_archive.value().current_version_id().empty()) {
+                auto version = schedule_archive.value().current_version();
+                if (!version) {
+                    std::cerr << version.error().describe() << '\n';
+                    return 1;
+                }
+                std::cout << "memory: " << version.value().memory_id << '\n'
+                          << "snapshot: " << version.value().fleet.id << '\n'
+                          << "status: " << rbfsafe::fleet_schedule_status_name(version.value().report.status)
+                          << '\n'
+                          << "reservations: " << version.value().report.reservations.size() << '\n'
+                          << "conflicts: " << version.value().report.conflicts.size() << '\n'
+                          << "pair evaluations: " << version.value().report.pair_evaluations << '\n';
+            }
+            return 0;
+        }
         auto corridor = rbfsafe::HipacCorridor::load(std::filesystem::path(argv[1]));
         if (!corridor) {
             std::cerr << "Atlas load failed: " << atlas.error().describe() << '\n'
@@ -134,6 +161,7 @@ int main(int argc, char** argv) {
                       << "policy feedback load failed: " << feedback.error().describe() << '\n'
                       << "safety memory load failed: " << memory.error().describe() << '\n'
                       << "safety memory store load failed: " << memory_store.error().describe() << '\n'
+                      << "fleet schedule archive load failed: " << schedule_archive.error().describe() << '\n'
                       << "corridor load failed: " << corridor.error().describe() << '\n';
             return 1;
         }

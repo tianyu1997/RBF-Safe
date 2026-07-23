@@ -238,7 +238,13 @@ not authenticity. A memory identity is a deterministic SHA-256 integrity key;
 it is not a digital signature, access-control decision, or proof that a remote
 artifact service is trusted.
 
-## Explicit exclusions in v3.1
+The v3.2 fleet archive protects byte integrity, deterministic schedule
+identity, and linear publication order. Replaying a version confirms only the
+same declared-envelope analysis under the exact historical memory and fleet;
+it neither authenticates those declarations nor upgrades the report to a
+certificate.
+
+## Explicit exclusions in v3.2
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -270,9 +276,10 @@ artifact service is trusted.
   serialization; `SafetyMemoryStore` serializes publication but does not merge
   concurrent edits or automatically remove a lock left by a crashed writer.
 - Fleet member envelopes and reservation occupancy are caller-supplied
-  conservative bounds. The v3.1 analyzer does not provide continuous-time
+  conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller
-  interlocks.
+  interlocks. Archive integrity is not a signature, authorization decision, or
+  execution certificate.
 - Named release fixtures and benchmark success demonstrate deterministic API
   integration and regression behavior only. They are synthetic, uncalibrated,
   and do not validate a physical robot, workcell, payload, or deployment.

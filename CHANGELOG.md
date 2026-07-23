@@ -3,6 +3,27 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.2.0] - 2026-07-23
+
+### Added
+
+- `FleetScheduleArchive` with deterministic version identities, exact
+  `SafetyMemory` and fleet-snapshot binding, idempotent expected-head
+  publication, historical reads, and report replay verification.
+- Independent fleet-schedule-archive schema 1 with bounded loading, aggregate
+  resource limits, checksums, semantic conflict validation, atomic save,
+  fixed-format fixtures, C++/Python APIs, CLI/native inspection, and runnable
+  examples.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.2.0. Existing 3.x APIs and all previously supported storage
+  schemas remain readable.
+- The release logical digest now covers deterministic fleet-schedule archive
+  publication and replay, and installation exports the schema-1 archive
+  fixture.
+
 ## [3.1.0] - 2026-07-23
 
 ### Added

@@ -14,5 +14,9 @@ std::string safety_memory_revision_identity(const SafetyMemoryRevisionInfo& revi
 std::string fleet_snapshot_identity(const FleetSnapshot& fleet);
 std::string fleet_reservation_identity(const FleetSnapshot& fleet, const FleetReservation& reservation);
 std::string fleet_schedule_identity(const FleetScheduleReport& report);
+std::string fleet_schedule_version_identity(const FleetScheduleVersion& version);
+Result<void> validate_fleet_snapshot(const FleetSnapshot& fleet);
+Result<void> validate_fleet_schedule_report(const FleetSnapshot& fleet, const FleetScheduleReport& report,
+                                            std::size_t maximum_pair_evaluations);
 
 } // namespace rbfsafe::internal

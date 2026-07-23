@@ -1,0 +1,203 @@
+{
+  "fleet_id": "cell-1",
+  "format": "rbfsafe-fleet-schedule-records",
+  "schema": 1,
+  "versions": [
+    {
+      "fleet": {
+        "fleet_id": "cell-1",
+        "id": "f22251101c22857a0b8bf1d4abdf5ac1f26916e011f4b8c667d602b649bf6249",
+        "members": [
+          {
+            "deployment_id": "arm-a",
+            "operating_envelope": {
+              "lower": [
+                -2,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                2,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "robot_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "deployment_id": "arm-b",
+            "operating_envelope": {
+              "lower": [
+                -2,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                2,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "robot_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "scene_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "id": "850f934f814d11a61c0f3c6fd10b514bb75d61b141d7735dbfc17abacaf325f8",
+      "memory_id": "ca30f3894516c036fcf304ae7075fbc0972ac654689bc152ee9266e0c305ebaf",
+      "parent_id": "",
+      "report": {
+        "conflicts": [],
+        "fleet_snapshot_id": "f22251101c22857a0b8bf1d4abdf5ac1f26916e011f4b8c667d602b649bf6249",
+        "id": "8d61c812db79b50388d7e43f1bbb00dcb786a618c6006e2fe765d304ed39ec8e",
+        "pair_evaluations": "1",
+        "reservations": [
+          {
+            "begin_tick": "0",
+            "deployment_id": "arm-b",
+            "end_tick": "10",
+            "id": "18988de41de5ef4d642978b0304ce6bc59029ea140c0c8994325e467387a51b0",
+            "occupancy": {
+              "lower": [
+                0.80000000000000004,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                1,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "separation_margin": 0.050000000000000003,
+            "source_artifact_id": "8085ba5e888d999cb47f975b216b80f69de96018f0a86d90c489418bb81f568f"
+          },
+          {
+            "begin_tick": "0",
+            "deployment_id": "arm-a",
+            "end_tick": "10",
+            "id": "2f246d26494a8f37c9b17f4dc33fcb694d289d2b9c878b35dc6dec19c32af44e",
+            "occupancy": {
+              "lower": [
+                -1,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                -0.80000000000000004,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "separation_margin": 0.050000000000000003,
+            "source_artifact_id": "d2f9d640933daa28027797e9daa0d4af08704a013882657d64fd05d88cebf466"
+          }
+        ],
+        "status": 0
+      },
+      "sequence": "0"
+    },
+    {
+      "fleet": {
+        "fleet_id": "cell-1",
+        "id": "f22251101c22857a0b8bf1d4abdf5ac1f26916e011f4b8c667d602b649bf6249",
+        "members": [
+          {
+            "deployment_id": "arm-a",
+            "operating_envelope": {
+              "lower": [
+                -2,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                2,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "robot_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "deployment_id": "arm-b",
+            "operating_envelope": {
+              "lower": [
+                -2,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                2,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "robot_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "scene_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "id": "e87638cd2e4d302840138c416c4987fc3800951b078793ad2ed1ea351dc751aa",
+      "memory_id": "ca30f3894516c036fcf304ae7075fbc0972ac654689bc152ee9266e0c305ebaf",
+      "parent_id": "850f934f814d11a61c0f3c6fd10b514bb75d61b141d7735dbfc17abacaf325f8",
+      "report": {
+        "conflicts": [
+          {
+            "clearance_lower_bound": 0,
+            "first_reservation_id": "2f246d26494a8f37c9b17f4dc33fcb694d289d2b9c878b35dc6dec19c32af44e",
+            "reason": 1,
+            "required_margin": 0.050000000000000003,
+            "second_reservation_id": "707ef12e88bdd2ee76651444156c0dd6c0e4b20624c6dd9b6836fd3a8f79646b"
+          }
+        ],
+        "fleet_snapshot_id": "f22251101c22857a0b8bf1d4abdf5ac1f26916e011f4b8c667d602b649bf6249",
+        "id": "0a41c916468238bc7f517e4a567686227b0e28cfdc942e379f11a96eea119363",
+        "pair_evaluations": "1",
+        "reservations": [
+          {
+            "begin_tick": "0",
+            "deployment_id": "arm-a",
+            "end_tick": "10",
+            "id": "2f246d26494a8f37c9b17f4dc33fcb694d289d2b9c878b35dc6dec19c32af44e",
+            "occupancy": {
+              "lower": [
+                -1,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                -0.80000000000000004,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "separation_margin": 0.050000000000000003,
+            "source_artifact_id": "d2f9d640933daa28027797e9daa0d4af08704a013882657d64fd05d88cebf466"
+          },
+          {
+            "begin_tick": "0",
+            "deployment_id": "arm-b",
+            "end_tick": "10",
+            "id": "707ef12e88bdd2ee76651444156c0dd6c0e4b20624c6dd9b6836fd3a8f79646b",
+            "occupancy": {
+              "lower": [
+                -0.90000000000000002,
+                -0.10000000000000001,
+                -0.10000000000000001
+              ],
+              "upper": [
+                -0.69999999999999996,
+                0.10000000000000001,
+                0.10000000000000001
+              ]
+            },
+            "separation_margin": 0,
+            "source_artifact_id": "8085ba5e888d999cb47f975b216b80f69de96018f0a86d90c489418bb81f568f"
+          }
+        ],
+        "status": 1
+      },
+      "sequence": "1"
+    }
+  ]
+}
