@@ -3,6 +3,37 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.13.0] - 2026-07-27
+
+### Added
+
+- Public `RBFSafe::transparency` target with deterministic reviewed-deployment
+  anchors bound to the exact approved profile, trust root, signed checkpoint,
+  current bundle, sequence, and replayed history head.
+- Independently signed runtime observations bound to one outstanding
+  ledger-authorized command, its closed monotonic window, exact runtime
+  snapshot, configuration digest, and canonical Ed25519 source quorum.
+- Deterministic append-only Merkle log with caller-pinned log identity,
+  Ed25519-signed checkpoints, inclusion proofs, explicit prefix-consistency
+  witnesses, expected-head publication, and cross-process writer exclusion.
+- Bounded schema-1 directory persistence with atomic complete record files,
+  strict replay/corruption checks, C++/Python APIs, native/Python inspection,
+  deterministic quickstart, and a fixed cross-platform two-record fixture.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.13.0. All prior 3.x storage schemas remain readable and
+  unchanged.
+- The release benchmark now publishes one deployment anchor and one
+  two-source runtime observation per named case, then verifies inclusion,
+  consistency, expected-head reopen, and audit. Only discrete counts enter the
+  cross-platform logical digest.
+- Anchors, observations, log records, proofs, checkpoints, and audits remain
+  `Unknown` and never authorize execution. Network publication, checkpoint
+  gossip, trustworthy clocks, physical sensing, hardware roots, and controller
+  tracking remain external.
+
 ## [3.12.0] - 2026-07-27
 
 ### Added

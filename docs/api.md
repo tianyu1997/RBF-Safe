@@ -40,10 +40,10 @@ robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
 convergence remains `PointChecked`. An exact command returned by a fully
-verified `BoundedExecutionSession::authorize_command`, or by the ordered 3.12
+verified `BoundedExecutionSession::authorize_command`, or by the ordered
 `ExecutionLedger::authorize_command`, can carry `RuntimeExecutable`; the
-session, ledger, summary, audit report, and every upstream artifact remain
-lower evidence.
+session, ledger, transparency values, summaries, audit reports, and every
+upstream artifact remain lower evidence.
 
 ## Revocation-aware execution ledger
 
@@ -56,6 +56,36 @@ profile/Atlas/scene/endpoint/reviewer/checkpoint revocations are immutable
 records. `audit` replays the session, checkpoints, signatures, record chain,
 and derived terminal state offline. See
 [the schema-1 format and safety contract](execution-ledger-format.md).
+
+## Deployment and runtime transparency
+
+Include `<rbfsafe/transparency.h>` and link `RBFSafe::transparency`.
+`DeploymentTransparencyAnchor::create` binds one exact reviewed profile and
+approval set to the caller-pinned trust root, signed checkpoint, current bundle
+sequence, and replayed history head.
+
+`IndependentRuntimeObservation::create` accepts only the authorization that is
+currently outstanding in an `ExecutionLedger`. It binds the exact session,
+ledger head, command index/digest, caller-supplied runtime snapshot,
+configuration digest, monitor state, and a caller-supplied monotonic time
+inside the command's closed authorization window.
+`sign_runtime_observation`, `assemble_runtime_observation_attestations`, and
+`verify_runtime_observation_attestations` provide canonical Ed25519 source
+quorums under the current caller-supplied trust bundle. Duplicate keys,
+insufficient or non-distinct services, inactive/non-publication keys, and the
+controller service are rejected by default.
+
+`TransparencyLog` stores deployment anchors and observation sets as
+deterministic Merkle leaves. `publish_deployment_anchor` and
+`publish_runtime_observation` require the expected current checkpoint and the
+log signing secret. `inclusion_proof`, `consistency_witness`, and `audit`
+verify retained history; `open` additionally requires the exact caller-pinned
+log identity and expected checkpoint. The schema-1 consistency witness is an
+explicit bounded ordered leaf list, not a compact RFC 6962 proof.
+
+Every anchor, observation, attestation set, log, proof, checkpoint, and audit
+is `Unknown` and non-authorizing. See
+[the transparency format and trust boundary](transparency-log-format.md).
 
 ## Reviewed deployment profiles
 

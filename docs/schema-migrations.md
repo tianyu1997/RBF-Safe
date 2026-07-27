@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.12 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.13 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.12 |
+| Format | Read | Write | Migration in 3.13 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -27,6 +27,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Reviewed deployment profile | 1 | 1 | New signed governance artifact; no deployment ID or review text is upgraded implicitly |
 | Bounded execution session | 1 | 1 | New exact-session artifact; no profile, trajectory, acknowledgement, clock, or execution authority is inferred |
 | Execution ledger | 1 | 1 | New append-only exact-session history; no command progress, revocation, completion, or current checkpoint is inferred |
+| Transparency log | 1 | 1 | New append-only deployment/observation history; no global freshness, physical observation, prior publication, or execution evidence is inferred |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -63,7 +64,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.12 remain available throughout 3.x.
+- Readers for schemas supported by 3.13 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -187,3 +188,12 @@ checkpoint record. Create a new ledger for that exact validated session and
 append only caller-observed events. No migration invents historical dispatch,
 completion, cancellation, expiration, revocation, checkpoint freshness, or
 physical execution evidence.
+
+Transparency-log schema 1 is specified in
+[Deployment and runtime transparency](transparency-log-format.md). Neither a
+reviewed profile nor an execution ledger contains a public log identity,
+publication history, independent observation-source quorum, Merkle checkpoint,
+or externally retained newest-head anchor. Create a new log with an explicitly
+pinned identity and publish only newly verified anchors/observations. No
+migration invents historical publication, observation authenticity,
+checkpoint freshness, network consensus, or physical execution.

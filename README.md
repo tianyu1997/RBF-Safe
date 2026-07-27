@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.12
+geometric safety certificates in robot configuration space. Version 3.13
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -74,6 +74,11 @@ requires a controller-signed completion before advancing, revalidates a
 caller-pinned current trust checkpoint and reviewer keys, and records
 cancellation, expiration, or exact dependency revocation without claiming
 hardware execution.
+The transparency layer publishes exact reviewed-deployment anchors and
+independently signed observations of an outstanding command to a deterministic
+Merkle log. Signed checkpoints, inclusion proofs, prefix-consistency witnesses,
+expected-head publication, and caller-pinned replay make the retained software
+history auditable without turning observations into actuation authority.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -149,6 +154,10 @@ certificate.
   schema-1 expected-head ledger with current-checkpoint revalidation, signed
   controller completion, terminal revocation/cancellation/expiry, and offline
   audit.
+- Public `RBFSafe::transparency` reviewed-deployment anchors, independent
+  Ed25519 observation quorums, deterministic Merkle leaves, signed checkpoints,
+  inclusion proofs, prefix-consistency witnesses, expected-head schema-1
+  persistence, bounded audit, fixed fixtures, and C++/Python/inspection tools.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
@@ -157,10 +166,10 @@ Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated policy inference and metadata,
 continuous-time fleet occupancy proofs, concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v3.12. TLS, endpoint/credential policy, trustworthy clocks,
-tracking enforcement, trust-root/head/checkpoint
-distribution, private-key storage, and network I/O remain application
-responsibilities.
+remain outside v3.13. TLS, endpoint/credential policy, trustworthy clocks,
+tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
+gossip/witness services, private-key storage, and network I/O remain
+application responsibilities.
 
 ## Quick start
 
@@ -346,6 +355,7 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Versioning and compatibility](docs/versioning.md)
 - [Bounded execution sessions](docs/bounded-execution-session-format.md)
 - [Revocation-aware execution ledger](docs/execution-ledger-format.md)
+- [Deployment and runtime transparency log](docs/transparency-log-format.md)
 - [Schema support and migrations](docs/schema-migrations.md)
 - [Release fixtures and benchmark](docs/release-fixtures.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)

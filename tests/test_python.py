@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.12.0"
+    assert rbfsafe.__version__ == "3.13.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -2037,6 +2037,172 @@ def test_bounded_execution_session(
     assert "status=completed records=7 authorizations=3 completions=3" in ledger_output
     assert "audit_evidence=unknown" in ledger_output
     assert "runtime_executable=false" in ledger_output
+
+    anchor = rbfsafe.DeploymentTransparencyAnchor.create(
+        reviewed, history, checkpoint, checkpoint.id
+    )
+    assert anchor.valid()
+    assert anchor.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not anchor.authorizes_execution
+
+    observation_ledger = rbfsafe.ExecutionLedger.create(
+        tmp_path / "observation-ledger", session
+    )
+    observation_decision = observation_ledger.authorize_command(
+        session,
+        reviewed,
+        history,
+        checkpoint,
+        checkpoint.id,
+        atlas,
+        0,
+        configurations[0],
+        1_000_000,
+        observation_ledger.current_record_id,
+    )
+    assert observation_decision.authorization is not None
+    independent_input = rbfsafe.IndependentRuntimeObservationInput()
+    independent_input.runtime = runtime
+    independent_input.observation_sequence = 8
+    independent_input.observed_monotonic_ns = 1_000_001
+    independent_input.monitor_state = (
+        rbfsafe.ExecutionMonitorState.ARMED_CERTIFIED_SEQUENCE
+    )
+    independent_input.configuration_digest = "4" * 64
+    independent = rbfsafe.IndependentRuntimeObservation.create(
+        session,
+        observation_ledger,
+        observation_decision.authorization,
+        independent_input,
+    )
+    assert independent.valid()
+    assert independent.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not independent.authorizes_execution
+    safety_observation = rbfsafe.sign_runtime_observation(
+        independent,
+        profile_safety.signer_service_id,
+        profile_safety.signer_key_id,
+        safety_pair.secret_key,
+    )
+    controls_observation = rbfsafe.sign_runtime_observation(
+        independent,
+        profile_controls.signer_service_id,
+        profile_controls.signer_key_id,
+        controls_pair.secret_key,
+    )
+    observation_policy = rbfsafe.RuntimeObservationPolicy()
+    observation_policy.minimum_attestations = 2
+    attestation_set = rbfsafe.assemble_runtime_observation_attestations(
+        session,
+        independent,
+        observation_policy,
+        [controls_observation, safety_observation],
+        bundle,
+    )
+    rbfsafe.verify_runtime_observation_attestations(
+        session, attestation_set, bundle
+    )
+    assert attestation_set.valid()
+    assert attestation_set.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not attestation_set.authorizes_execution
+
+    transparency_pair = rbfsafe.ed25519_key_pair_from_seed(
+        bytes((index + 225) & 0xFF for index in range(32))
+    )
+    transparency_identity = rbfsafe.TransparencyLogIdentity.create(
+        "python-deployments-v1",
+        "python-transparency-log",
+        "7" * 64,
+        transparency_pair.public_key,
+    )
+    transparency_path = tmp_path / "transparency-log"
+    transparency = rbfsafe.TransparencyLog.create(
+        transparency_path, transparency_identity
+    )
+    anchor_record = transparency.publish_deployment_anchor(
+        anchor, transparency_pair.secret_key, ""
+    )
+    observation_record = transparency.publish_runtime_observation(
+        attestation_set,
+        transparency_pair.secret_key,
+        anchor_record.checkpoint.id,
+    )
+    anchor_proof = transparency.inclusion_proof(0)
+    rbfsafe.verify_transparency_inclusion(
+        transparency_identity,
+        observation_record.checkpoint,
+        anchor_record.leaf,
+        anchor_proof,
+    )
+    consistency = transparency.consistency_witness(1)
+    rbfsafe.verify_transparency_consistency(
+        transparency_identity,
+        anchor_record.checkpoint,
+        observation_record.checkpoint,
+        consistency,
+    )
+    transparency_audit = transparency.audit()
+    assert transparency_audit.verified_records == 2
+    assert transparency_audit.deployment_anchor_count == 1
+    assert transparency_audit.runtime_observation_count == 1
+    assert transparency_audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not transparency_audit.authorizes_execution
+    reopened_transparency = rbfsafe.TransparencyLog.open(
+        transparency_path,
+        transparency_identity,
+        transparency.current_checkpoint_id,
+    )
+    assert reopened_transparency.current_root_hash == transparency.current_root_hash
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.TransparencyLog.open(
+            transparency_path,
+            transparency_identity,
+            anchor_record.checkpoint.id,
+        )
+    assert (
+        main(
+            [
+                str(transparency_path),
+                "--transparency-namespace",
+                transparency_identity.log_namespace,
+                "--transparency-service-id",
+                transparency_identity.signer_service_id,
+                "--transparency-key-id",
+                transparency_identity.signer_key_id,
+                "--transparency-public-key",
+                transparency_identity.signer_public_key.hex(),
+                "--expected-transparency-checkpoint",
+                transparency.current_checkpoint_id,
+            ]
+        )
+        == 0
+    )
+    transparency_output = capsys.readouterr().out
+    assert "transparency-log schema=1" in transparency_output
+    assert "records=2 deployment_anchors=1 runtime_observations=1" in transparency_output
+    assert "audit_evidence=unknown" in transparency_output
+    assert "runtime_executable=false" in transparency_output
+
+    fixed_transparency_identity = rbfsafe.TransparencyLogIdentity.create(
+        "rbfsafe-public-deployments-v1",
+        "transparency-log",
+        "02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8",
+        transparency_pair.public_key,
+    )
+    fixed_transparency = rbfsafe.TransparencyLog.open(
+        Path(__file__).resolve().parents[1] / "data" / "transparency_log_schema1",
+        fixed_transparency_identity,
+        "86d47335bee5850b9c3a404e123d50bdb751cabee03a76de6361b8e25f03772f",
+    )
+    assert (
+        fixed_transparency.identity.id
+        == "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4"
+    )
+    assert (
+        fixed_transparency.current_root_hash
+        == "fe8e39f32feae84fae08a914375b1e3fec1afff94f57f97ff7955b3945c14eb1"
+    )
+    assert len(fixed_transparency.records) == 2
 
     fixture_root = (
         Path(__file__).resolve().parents[1]

@@ -24,6 +24,7 @@
 #include <rbfsafe/scene_delta.h>
 #include <rbfsafe/shield.h>
 #include <rbfsafe/trajectory.h>
+#include <rbfsafe/transparency.h>
 #include <rbfsafe/trust.h>
 #include <rbfsafe/types.h>
 #include <rbfsafe/version.h>

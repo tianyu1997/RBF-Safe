@@ -40,6 +40,8 @@ from . import (
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
+    TransparencyLog,
+    TransparencyLogIdentity,
     artifact_authentication_algorithm_name,
     artifact_transfer_authentication_name,
     artifact_transfer_operation_name,
@@ -57,6 +59,7 @@ from . import (
     execution_ledger_status_name,
     service_key_state_name,
     service_trust_rotation_event_type_name,
+    transparency_leaf_kind_name,
     verify_artifact_file,
 )
 
@@ -198,6 +201,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--execution-session",
         type=Path,
         help="bounded execution-session JSON required to audit an execution ledger",
+    )
+    parser.add_argument(
+        "--transparency-namespace",
+        help="caller-pinned namespace required to inspect a transparency log",
+    )
+    parser.add_argument(
+        "--transparency-service-id",
+        help="caller-pinned transparency signer service ID",
+    )
+    parser.add_argument(
+        "--transparency-key-id",
+        help="caller-pinned transparency signer key ID",
+    )
+    parser.add_argument(
+        "--transparency-public-key",
+        help="caller-pinned Ed25519 transparency public key as 64 lowercase hex characters",
+    )
+    parser.add_argument(
+        "--expected-transparency-checkpoint",
+        help="caller-retained current transparency checkpoint ID",
     )
     parser.add_argument(
         "--execution-command-index",
@@ -890,6 +913,70 @@ def main(argv: list[str] | None = None) -> int:
         and manifest.get("format") != "rbfsafe-execution-ledger"
     ):
         parser.error("--execution-session applies only to an execution-ledger directory")
+    transparency_arguments = (
+        args.transparency_namespace,
+        args.transparency_service_id,
+        args.transparency_key_id,
+        args.transparency_public_key,
+        args.expected_transparency_checkpoint,
+    )
+    if (
+        any(value is not None for value in transparency_arguments)
+        and manifest.get("format") != "rbfsafe-transparency-log"
+    ):
+        parser.error(
+            "transparency identity options apply only to a transparency-log directory"
+        )
+    if manifest.get("format") == "rbfsafe-transparency-log":
+        if any(value is None for value in transparency_arguments):
+            parser.error(
+                "transparency-log audit requires --transparency-namespace, "
+                "--transparency-service-id, --transparency-key-id, "
+                "--transparency-public-key, and --expected-transparency-checkpoint"
+            )
+        try:
+            public_key = bytes.fromhex(args.transparency_public_key)
+        except ValueError:
+            parser.error("--transparency-public-key must be lowercase hexadecimal")
+        if (
+            len(public_key) != 32
+            or args.transparency_public_key != args.transparency_public_key.lower()
+        ):
+            parser.error(
+                "--transparency-public-key must contain 64 lowercase hexadecimal characters"
+            )
+        identity = TransparencyLogIdentity.create(
+            args.transparency_namespace,
+            args.transparency_service_id,
+            args.transparency_key_id,
+            public_key,
+        )
+        log = TransparencyLog.open(
+            args.atlas,
+            identity,
+            args.expected_transparency_checkpoint,
+        )
+        audit = log.audit()
+        print("RBF-Safe transparency-log schema=1")
+        print(
+            f"log={identity.id} namespace={identity.log_namespace} "
+            f"checkpoint={audit.current_checkpoint_id or '-'}"
+        )
+        print(
+            f"root={audit.current_root_hash or '-'} "
+            f"records={audit.verified_records} "
+            f"deployment_anchors={audit.deployment_anchor_count} "
+            f"runtime_observations={audit.runtime_observation_count}"
+        )
+        for record in log.records:
+            print(
+                f"record={record.id} sequence={record.sequence} "
+                f"kind={transparency_leaf_kind_name(record.leaf.kind)} "
+                f"leaf={record.leaf.id} checkpoint={record.checkpoint.id}"
+            )
+        print("audit_evidence=unknown")
+        print("runtime_executable=false")
+        return 0
     if manifest.get("format") == "rbfsafe-execution-ledger":
         required = (
             args.execution_session,

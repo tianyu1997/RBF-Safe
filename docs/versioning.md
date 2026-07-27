@@ -26,6 +26,10 @@ sessions, explicit controller/monitor acknowledgements, and exact
 closed-window command authorization. Version 3.12 adds an append-only
 expected-head execution ledger, current-checkpoint reviewer revalidation,
 signed controller completions, terminal event records, and offline audit.
+Version 3.13 adds exact deployment anchors, independently signed runtime
+observations, a deterministic Merkle transparency log, signed checkpoints,
+inclusion proofs, explicit prefix-consistency witnesses, and bounded
+expected-head persistence.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
@@ -231,6 +235,15 @@ events. Expected-head mutation and bounded replay do not modify or reinterpret
 the v3.11 session schema. Loaders reject unknown ledger/record schemas and no
 automatic migration is defined.
 
+The v3.13 transparency-log schema 1 is an independent immutable-record
+directory. Its manifest contains one caller-pinnable namespace and Ed25519 log
+identity. Each atomic record contains one deployment-anchor or runtime-
+observation leaf plus the signed checkpoint for the resulting tree. Record
+sequence/parent/checkpoint chains, Merkle roots, source attestations, resource
+limits, and caller-provided expected checkpoint are revalidated on load. The
+explicit consistency witness carries the ordered new-tree leaf IDs; no compact
+proof or implicit migration is defined.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -259,7 +272,7 @@ are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
 service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
-bounded-execution-session/execution-ledger fixtures,
+bounded-execution-session/execution-ledger/transparency-log fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

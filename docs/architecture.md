@@ -15,6 +15,8 @@ RBFSafe::geometry
                                                                +-> RBFSafe::deployment
                                                                       |
                                                                       +-> RBFSafe::execution
+                                                                             |
+                                                                             +-> RBFSafe::transparency
           |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy (+ calibration)
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
@@ -213,6 +215,22 @@ authority, or turns the session itself into a permit. Only an exact command
 query can produce the narrowly scoped `RuntimeExecutable` value. Ledger state,
 terminal events, and offline audit remain `Unknown`.
 
+### Deployment and runtime transparency boundary
+
+`RBFSafe::transparency` depends on `RBFSafe::execution`. It owns exact
+reviewed-deployment anchors, independent source-signed observations of one
+outstanding ledger authorization, a deterministic binary Merkle tree,
+Ed25519-signed checkpoints, inclusion proofs, explicit prefix-consistency
+witnesses, expected-head append-only persistence, and bounded offline audit.
+Complete leaf plus checkpoint records are atomically published under a
+cross-process writer lock.
+
+The module is network-, wall-clock-, sensor-, and hardware-neutral. It never
+discovers a log identity, distributes checkpoints, gossips heads, establishes
+the newest view, reads a physical sensor, or proves controller tracking.
+Callers must pin log identity/checkpoint values and authenticate observation
+sources. Every transparency output remains `Unknown` and non-authorizing.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -349,6 +367,12 @@ components and bind subject digests.
   serializes exact authorization/completion order and caller-reported terminal
   events while revalidating signed checkpoints. Its state and audit remain
   `Unknown`.
+- Transparency-log schema 1 is v3.13 append-only software audit history. Its
+  immutable manifest pins one log namespace and Ed25519 identity; atomic record
+  files combine a deterministic Merkle leaf and signed checkpoint. Inclusion
+  and prefix-consistency verification detect retained-history tampering but do
+  not prove checkpoint freshness, prevent a fully rolled-back caller anchor,
+  or raise execution evidence.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

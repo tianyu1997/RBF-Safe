@@ -1,0 +1,46 @@
+{
+  "checkpoint": {
+    "algorithm": 1,
+    "authentication_tag": "fbe4ca46ad054337bd7e2425289719cedc92c83c55bf22ad7200329a53dc6adcc127b21b119c32bc1022975eafdd20875740619eccc8d45f66609e54c726cb07",
+    "id": "d1ca9635ae9f02e8a2a7d224c8148cbc3c50b39f6a56effb4f4b64eb33e6cf43",
+    "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+    "previous_checkpoint_id": "",
+    "root_hash": "e62979692129eed798cca84c16be1e25d906681243051ae90205952b45542174",
+    "signer_key_id": "02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8",
+    "signer_service_id": "transparency-log",
+    "storage_schema": 1,
+    "tree_size": "1"
+  },
+  "format": "rbfsafe-transparency-log-record",
+  "id": "988bc018f370b653a31a8a480a01f0f9a21ab6b357a9615cb186952d92761568",
+  "identity": "2c1352bb067535c16790e6ea747a5e8194134dd8fb4117572794184f4a603be1",
+  "leaf": {
+    "deployment_anchor": {
+      "approval_set_id": "350519fb3c6c246268312edd5035142f5e2657cf911b39a40eb9bef94956503f",
+      "controller_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "deployment_id": "execution-cell-a",
+      "id": "823b0aac95558d2ad1d18c343cb9ae4a4e53a736f4ecdfeecf9687c821d62005",
+      "platform_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "reviewed_profile_id": "7981b3bbd373255d5f5bd0bcfac2139ac8c55a8d841dedc15e32bbb53bf310d2",
+      "robot_digest": "db26bacbb1567671d9c5b558f2c31936c5dfaa2021e88b14a4c28808db682c90",
+      "runtime_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "storage_schema": 1,
+      "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+      "trust_bundle_sequence": "1",
+      "trust_checkpoint_id": "3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01",
+      "trust_head_record_id": "591923a4f5de28ff57576864734082cdd015e47c1ee0a42009ce00bc7e036a75",
+      "trust_root_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780"
+    },
+    "id": "008ccec227af2ccb96831e28e478395e952f6f1fde6f340d63d63a7aaae9874a",
+    "index": "0",
+    "kind": 0,
+    "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+    "runtime_observation": null,
+    "storage_schema": 1
+  },
+  "library_version": "3.13.0",
+  "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+  "parent_id": "",
+  "schema": 1,
+  "sequence": "0"
+}

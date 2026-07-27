@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <string>
@@ -75,6 +76,12 @@ struct CaseMetrics {
     std::size_t execution_controller_completions = 0;
     std::size_t execution_checkpoint_revalidations = 0;
     std::size_t runtime_executable_commands = 0;
+    std::size_t transparency_logs = 0;
+    std::size_t transparency_records = 0;
+    std::size_t deployment_transparency_anchors = 0;
+    std::size_t runtime_observation_attestations = 0;
+    std::size_t transparency_inclusion_proofs = 0;
+    std::size_t transparency_consistency_witnesses = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -734,6 +741,16 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
             rbfsafe::StatusCode::InternalError,
             "release fixture reviewed deployment profile was inconsistent", fixture.name);
     }
+    auto deployment_transparency_anchor = rbfsafe::DeploymentTransparencyAnchor::create(
+        reviewed_deployment.value(), replayed_trust_history.value(), checkpoint.value(),
+        checkpoint.value().id);
+    if (!deployment_transparency_anchor ||
+        deployment_transparency_anchor.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        deployment_transparency_anchor.value().authorizes_execution()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture deployment transparency anchor was inconsistent", fixture.name);
+    }
     rbfsafe::DeploymentRuntimeSnapshot deployment_snapshot;
     deployment_snapshot.deployment_id = deployment_profile.value().deployment_id;
     deployment_snapshot.robot_digest = deployment_profile.value().robot_digest;
@@ -866,6 +883,7 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     const std::array<std::uint64_t, 2> dispatch_times{1'000'000'000, 1'001'000'000};
     const std::array<std::uint64_t, 2> completion_times{1'000'000'001, 1'001'000'001};
     const std::array<rbfsafe::Configuration, 2> command_configurations{fixture.start, fixture.goal};
+    std::optional<rbfsafe::RuntimeObservationAttestationSet> independent_observation;
     for (std::size_t index = 0; index < command_configurations.size(); ++index) {
         auto ledger_decision = execution_ledger.value().authorize_command(
             execution_session.value(), reviewed_deployment.value(), replayed_trust_history.value(),
@@ -877,6 +895,44 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
             return rbfsafe::Result<CaseMetrics>::failure(
                 rbfsafe::StatusCode::InternalError,
                 "release fixture execution ledger withheld an exact command", fixture.name);
+        }
+        if (index == 0) {
+            rbfsafe::IndependentRuntimeObservationInput observation_input;
+            observation_input.runtime = deployment_snapshot;
+            observation_input.observation_sequence = 2;
+            observation_input.observed_monotonic_ns = dispatch_times[index] + 1;
+            observation_input.monitor_state = rbfsafe::ExecutionMonitorState::ArmedCertifiedSequence;
+            observation_input.configuration_digest = robot.value().digest();
+            auto observation = rbfsafe::IndependentRuntimeObservation::create(
+                execution_session.value(), execution_ledger.value(), *ledger_decision.value().authorization,
+                std::move(observation_input));
+            if (!observation)
+                return observation.error();
+            auto service_observation = rbfsafe::sign_runtime_observation(
+                observation.value(), successor_key.value().service_id, successor_key.value().id,
+                successor_key_pair.value().secret_key);
+            auto governance_observation = rbfsafe::sign_runtime_observation(
+                observation.value(), governance_key.value().service_id, governance_key.value().id,
+                governance_key_pair.value().secret_key);
+            if (!service_observation || !governance_observation) {
+                return rbfsafe::Result<CaseMetrics>::failure(
+                    rbfsafe::StatusCode::InternalError,
+                    "release fixture independent runtime observation signatures were inconsistent",
+                    fixture.name);
+            }
+            rbfsafe::RuntimeObservationPolicy observation_policy;
+            observation_policy.minimum_attestations = 2;
+            auto assembled_observation = rbfsafe::assemble_runtime_observation_attestations(
+                execution_session.value(), observation.value(), observation_policy,
+                {governance_observation.value(), service_observation.value()}, successor_bundle.value());
+            if (!assembled_observation ||
+                assembled_observation.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+                assembled_observation.value().authorizes_execution()) {
+                return rbfsafe::Result<CaseMetrics>::failure(
+                    rbfsafe::StatusCode::InternalError,
+                    "release fixture independent runtime observation quorum was inconsistent", fixture.name);
+            }
+            independent_observation = std::move(assembled_observation.value());
         }
         rbfsafe::ExecutionControllerCompletionInput completion_input;
         completion_input.outcome = rbfsafe::ExecutionCompletionOutcome::Completed;
@@ -903,6 +959,71 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
             rbfsafe::StatusCode::InternalError, "release fixture execution-ledger audit was inconsistent",
             fixture.name);
     }
+    if (!independent_observation) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture did not produce an independent runtime observation", fixture.name);
+    }
+
+    std::array<std::byte, rbfsafe::kEd25519SeedBytes> transparency_seed{};
+    for (std::size_t index = 0; index < transparency_seed.size(); ++index)
+        transparency_seed[index] = static_cast<std::byte>((index + 225) & 0xffU);
+    auto transparency_key_pair = rbfsafe::ed25519_key_pair_from_seed(transparency_seed);
+    if (!transparency_key_pair)
+        return transparency_key_pair.error();
+    auto transparency_key =
+        rbfsafe::make_service_public_key("release-transparency-log", transparency_key_pair.value().public_key,
+                                         1, 0, rbfsafe::ServiceKeyState::Active, false, true, false);
+    if (!transparency_key)
+        return transparency_key.error();
+    auto transparency_identity = rbfsafe::TransparencyLogIdentity::create(
+        "rbfsafe-release-fixtures-v1", transparency_key.value().service_id, transparency_key.value().id,
+        transparency_key_pair.value().public_key);
+    if (!transparency_identity)
+        return transparency_identity.error();
+    ScopedDirectory transparency_directory(temporary_root /
+                                           ("rbfsafe-release-transparency-" + fixture.name + "-" +
+                                            std::to_string(Clock::now().time_since_epoch().count())));
+    auto transparency_log =
+        rbfsafe::TransparencyLog::create(transparency_directory.path(), transparency_identity.value());
+    if (!transparency_log)
+        return transparency_log.error();
+    auto anchor_record = transparency_log.value().publish_deployment_anchor(
+        deployment_transparency_anchor.value(), transparency_key_pair.value().secret_key,
+        transparency_log.value().current_checkpoint_id());
+    if (!anchor_record)
+        return anchor_record.error();
+    auto observation_record = transparency_log.value().publish_runtime_observation(
+        *independent_observation, transparency_key_pair.value().secret_key,
+        transparency_log.value().current_checkpoint_id());
+    if (!observation_record)
+        return observation_record.error();
+    auto inclusion_proof = transparency_log.value().inclusion_proof(0);
+    auto consistency_witness = transparency_log.value().consistency_witness(1);
+    if (!inclusion_proof || !consistency_witness ||
+        !rbfsafe::verify_transparency_inclusion(transparency_identity.value(),
+                                                observation_record.value().checkpoint,
+                                                anchor_record.value().leaf, inclusion_proof.value()) ||
+        !rbfsafe::verify_transparency_consistency(
+            transparency_identity.value(), anchor_record.value().checkpoint,
+            observation_record.value().checkpoint, consistency_witness.value())) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture transparency proofs were inconsistent",
+                                                     fixture.name);
+    }
+    auto transparency_audit = transparency_log.value().audit();
+    auto reopened_transparency =
+        rbfsafe::TransparencyLog::open(transparency_directory.path(), transparency_identity.value(),
+                                       transparency_log.value().current_checkpoint_id());
+    if (!transparency_audit || !reopened_transparency || transparency_audit.value().verified_records != 2 ||
+        transparency_audit.value().deployment_anchor_count != 1 ||
+        transparency_audit.value().runtime_observation_count != 1 ||
+        transparency_audit.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        transparency_audit.value().authorizes_execution()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture transparency log audit was inconsistent",
+            fixture.name);
+    }
     metrics.execution_sessions = 1;
     metrics.execution_session_approvals = execution_approvals.value().approvals.size();
     metrics.execution_endpoint_acknowledgements = 2;
@@ -911,6 +1032,12 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     metrics.execution_controller_completions = execution_ledger_audit.value().completion_count;
     metrics.execution_checkpoint_revalidations = execution_ledger_audit.value().verified_checkpoints;
     metrics.runtime_executable_commands = 3;
+    metrics.transparency_logs = 1;
+    metrics.transparency_records = transparency_audit.value().verified_records;
+    metrics.deployment_transparency_anchors = transparency_audit.value().deployment_anchor_count;
+    metrics.runtime_observation_attestations = independent_observation->attestations.size();
+    metrics.transparency_inclusion_proofs = 1;
+    metrics.transparency_consistency_witnesses = 1;
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -1025,6 +1152,13 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.execution_ledger_records));
     hash_field(logical_hash, std::to_string(metrics.execution_controller_completions));
     hash_field(logical_hash, std::to_string(metrics.execution_checkpoint_revalidations));
+    hash_field(logical_hash, "signed-transparency-log-deployment-and-independent-runtime-observation");
+    hash_field(logical_hash, std::to_string(metrics.transparency_logs));
+    hash_field(logical_hash, std::to_string(metrics.transparency_records));
+    hash_field(logical_hash, std::to_string(metrics.deployment_transparency_anchors));
+    hash_field(logical_hash, std::to_string(metrics.runtime_observation_attestations));
+    hash_field(logical_hash, std::to_string(metrics.transparency_inclusion_proofs));
+    hash_field(logical_hash, std::to_string(metrics.transparency_consistency_witnesses));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -1072,6 +1206,12 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"execution_controller_completions\":" << item.execution_controller_completions
                   << ",\"execution_checkpoint_revalidations\":" << item.execution_checkpoint_revalidations
                   << ",\"runtime_executable_commands\":" << item.runtime_executable_commands
+                  << ",\"transparency_logs\":" << item.transparency_logs
+                  << ",\"transparency_records\":" << item.transparency_records
+                  << ",\"deployment_transparency_anchors\":" << item.deployment_transparency_anchors
+                  << ",\"runtime_observation_attestations\":" << item.runtime_observation_attestations
+                  << ",\"transparency_inclusion_proofs\":" << item.transparency_inclusion_proofs
+                  << ",\"transparency_consistency_witnesses\":" << item.transparency_consistency_witnesses
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -1111,6 +1251,12 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " execution_controller_completions=" << item.execution_controller_completions
                   << " execution_checkpoint_revalidations=" << item.execution_checkpoint_revalidations
                   << " runtime_executable_commands=" << item.runtime_executable_commands
+                  << " transparency_logs=" << item.transparency_logs
+                  << " transparency_records=" << item.transparency_records
+                  << " deployment_transparency_anchors=" << item.deployment_transparency_anchors
+                  << " runtime_observation_attestations=" << item.runtime_observation_attestations
+                  << " transparency_inclusion_proofs=" << item.transparency_inclusion_proofs
+                  << " transparency_consistency_witnesses=" << item.transparency_consistency_witnesses
                   << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
     }
 }

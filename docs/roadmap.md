@@ -112,13 +112,24 @@
   `RuntimeExecutable` evidence only for one exact command/configuration inside
   one closed monotonic window. The session itself remains `Unknown` and is
   never an open-ended permit.
-- **v3.12 (current) - Revocation-aware execution ledger:** append-only,
+- **v3.12 - Revocation-aware execution ledger:** append-only,
   expected-head session/command-authorization history; current-checkpoint
   revalidation before each authorization; explicit expiration, cancellation,
   and key/profile/scene revocation records; independently attested controller
   completion observations; and offline audit without adding hardware I/O.
-- **v3.13 candidate:** transparency-backed deployment anchors and
-  independently attested runtime observation sources.
+- **v3.13 (current) - Deployment and runtime transparency:** exact
+  reviewed-profile/trust-history deployment anchors; independent
+  source-signed observations bound to one outstanding ledger command;
+  deterministic Merkle leaves; signed checkpoints; inclusion and explicit
+  prefix-consistency witnesses; expected-head, bounded schema-1 persistence;
+  fixed fixtures; and C++/Python/inspection tooling. Every transparency value
+  remains `Unknown` and non-authorizing.
+- **v3.14 candidate - Witnessed checkpoint distribution:** compact
+  append-only consistency proofs, independently cosigned checkpoints,
+  authenticated checkpoint gossip and split-view detection, plus optional
+  hardware-backed observation provenance and trustworthy-time adapters. These
+  adapters must preserve the distinction between observed state and certified
+  physical execution.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 
