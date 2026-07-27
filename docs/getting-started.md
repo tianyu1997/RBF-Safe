@@ -670,3 +670,41 @@ duplicate/out-of-order command, or missing controller completion fails closed.
 The ledger and `ledger.audit(...)` remain `Unknown` and do not prove physical
 execution. See
 [revocation-aware execution ledger](execution-ledger-format.md).
+
+## 18. Publish deployment and runtime transparency
+
+The transparency quickstart consumes the bounded-session fixture, creates a
+fresh ledger with one outstanding command, obtains two independent
+observation signatures, and publishes two records to a new log:
+
+```bash
+python examples/transparency_log_quickstart.py \
+  data/bounded_execution_session_schema1 \
+  new-observation-ledger \
+  new-transparency-log
+```
+
+Retain the printed namespace, signer service/key/public key, and newest
+checkpoint outside the log directory. Reopen only with those exact pins:
+
+```python
+identity = rbfsafe.TransparencyLogIdentity.create(
+    retained_namespace,
+    retained_signer_service_id,
+    retained_signer_key_id,
+    retained_signer_public_key,
+)
+log = rbfsafe.TransparencyLog.open(
+    "new-transparency-log", identity, retained_checkpoint_id
+)
+audit = log.audit()
+assert audit.verified_records == 2
+assert audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+assert not audit.authorizes_execution()
+```
+
+The example seeds and fixture keys are deterministic test material. Production
+systems must use protected keys, authenticated checkpoint distribution,
+independent observers, trustworthy monotonic time, and their own network/gossip
+layer. A valid log proves retained software history, not physical execution.
+See [deployment and runtime transparency](transparency-log-format.md).

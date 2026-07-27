@@ -33,8 +33,19 @@ rbfsafe_add_test(rbfsafe_test_identity test_identity.cpp)
 rbfsafe_add_test(rbfsafe_test_deployment test_deployment.cpp)
 rbfsafe_add_test(rbfsafe_test_execution test_execution.cpp)
 rbfsafe_add_test(rbfsafe_test_execution_ledger test_execution_ledger.cpp)
+rbfsafe_add_test(rbfsafe_test_transparency test_transparency.cpp)
+target_include_directories(rbfsafe_test_transparency PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 
 if(TARGET rbfsafe_inspect)
+    add_test(
+        NAME rbfsafe_transparency_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/transparency_log_schema1
+            rbfsafe-public-deployments-v1
+            transparency-log
+            02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8
+            6c8d14b047593d7117dc445957d8bdd6772c303d064297fdc8e329927d370bda
+            86d47335bee5850b9c3a404e123d50bdb751cabee03a76de6361b8e25f03772f)
     add_test(
         NAME rbfsafe_execution_ledger_fixture_inspect
         COMMAND rbfsafe_inspect

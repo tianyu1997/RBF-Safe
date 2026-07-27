@@ -203,6 +203,31 @@ tracking evidence, or deployment authority. The ledger and audit are
 `Unknown`; only each historical exact authorization was
 `RuntimeExecutable` inside its closed window.
 
+`data/transparency_log_schema1` is the fixed RBF-Safe 3.13 two-record
+transparency log. Its caller-pinned identity is:
+
+- namespace: `rbfsafe-public-deployments-v1`;
+- log ID:
+  `e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4`;
+- signer service: `transparency-log`;
+- signer key ID:
+  `02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8`;
+- signer public key:
+  `6c8d14b047593d7117dc445957d8bdd6772c303d064297fdc8e329927d370bda`;
+- newest checkpoint:
+  `86d47335bee5850b9c3a404e123d50bdb751cabee03a76de6361b8e25f03772f`;
+- newest Merkle root:
+  `fe8e39f32feae84fae08a914375b1e3fec1afff94f57f97ff7955b3945c14eb1`.
+
+Record zero publishes deployment-anchor leaf
+`008ccec227af2ccb96831e28e478395e952f6f1fde6f340d63d63a7aaae9874a`;
+record one publishes two-source runtime-observation leaf
+`00b194c093fb1f84c58a7f220b5a5e3aaafc77199baf094b6319811fb69e0bbb`.
+The fixture contains public signatures but no private key. Tests verify both
+record/checkpoint chains, inclusion proofs, prefix consistency, bounded
+cross-platform replay, C++/Python/native inspection, and exact caller pins.
+All values remain non-authorizing `Unknown`.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -249,3 +274,12 @@ including two ordered exact authorizations, two controller-signed completions,
 and two current-checkpoint revalidations. Only deterministic discrete counts
 enter the digest; ledger/audit state remains non-authorizing `Unknown`
 evidence.
+
+The reviewed RBF-Safe 3.13 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `7447f9684a0c9e4a`. It
+additionally publishes one exact deployment anchor and one two-source
+independent runtime observation to a signed two-leaf transparency log per
+case, verifies one inclusion proof and one prefix-consistency witness, and
+reopens against the retained expected checkpoint. Only deterministic discrete
+counts enter the digest; all transparency evidence remains non-authorizing
+`Unknown`.

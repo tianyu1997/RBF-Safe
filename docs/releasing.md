@@ -103,6 +103,16 @@ offline replay, abandoned temporary tolerance, symlink rejection, unknown
 schema, truncation, tamper, count/byte/signature limits, and cancellation.
 Confirm ledger/summary/audit evidence remains `Unknown`; only the returned
 exact command decision may contain non-open-ended `RuntimeExecutable`.
+Run the transparency C++/Python quickstart and fixed fixture through both
+inspectors. Verify the exact deployment/trust/head anchor, outstanding-command
+and closed-window observation binding, current active publication-capable
+source keys, distinct-service quorum, controller-source exclusion, canonical
+ordering, signed checkpoint chain, both inclusion paths, prefix consistency,
+expected-head rejection, caller-pinned identity/checkpoint reopen, writer
+contention, abandoned temporary tolerance, symlink rejection, unknown schema,
+truncation, tamper, count/byte/attestation limits, and cancellation. Confirm
+all anchors, observations, logs, proofs, checkpoints, and audits remain
+non-authorizing `Unknown`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -137,7 +147,8 @@ Atlas, corridor, region-database, version-store, policy-feedback,
 safety-memory, safety-memory-store, attestation, artifact-transfer-journal,
 service-trust-bundle, service-trust-history, service-trust-checkpoint,
 reviewed-deployment-profile, calibration-profile, or
-calibration-lifecycle schema
+calibration-lifecycle, bounded-execution-session, execution-ledger, or
+transparency-log schema
 changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
 error. A library version change must never silently reinterpret an existing

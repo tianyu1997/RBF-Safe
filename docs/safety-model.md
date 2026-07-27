@@ -331,14 +331,31 @@ fail closed by recording a terminal revocation. Ledger state and offline audit
 remain `Unknown`; only one returned exact command authorization is
 `RuntimeExecutable`.
 
-This does not prove that an endpoint key belongs to physical hardware, that
+The v3.13 transparency layer can prove that an exact reviewed deployment anchor
+and independently source-signed observation set were included in a retained
+Merkle history under a caller-pinned log identity. A valid inclusion proof
+recomputes the signed checkpoint root. A valid prefix-consistency witness
+recomputes both roots from one explicit ordered leaf list and proves that the
+old tree is the exact prefix of the new tree. Expected-head append and
+caller-retained checkpoint IDs detect stale writers and rollback relative to
+the caller's newest retained anchor.
+
+This does not prove that a checkpoint is globally newest, that two clients saw
+the same view, that a source key belongs to independent physical hardware, that
+the observation reflects the physical plant, or that the controller tracked
+the command. A fully rolled-back log plus rolled-back external checkpoint still
+passes local replay. Checkpoint distribution, gossip/witnessing, trustworthy
+time, hardware roots, sensor provenance, and network transport remain external.
+All transparency artifacts are `Unknown` and non-authorizing.
+
+The execution and transparency layers do not prove that an endpoint key belongs to physical hardware, that
 the clock or observation is trustworthy, that a command was transmitted or
 executed, that tracking remained inside the certified geometry, or that the
 scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v3.12
+## Explicit exclusions in v3.13
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -354,8 +371,9 @@ responsibilities.
 - Pose tolerances, MoveIt callback acceptance, and trajectory coverage do not
   certify dynamics, controller tracking, or runtime execution.
 - `contains`, `connected`, Safe IK, MoveIt plugin acceptance, a reviewed
-  profile, a bounded session, ledger state, and ledger audit are not
-  runtime-execution approvals.
+  profile, a bounded session, ledger state/audit, transparency anchor,
+  independent observation, log record/checkpoint/proof/witness, and
+  transparency audit are not runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic
@@ -384,6 +402,12 @@ responsibilities.
   Service-trust history is a signed local audit chain, not a certificate
   authority, trust-on-first-use protocol, threshold signature, transparency
   log, or remote key-discovery client.
+- A schema-1 transparency log is a caller-pinned local publication and replay
+  primitive, not a public network service, certificate authority, global
+  consensus mechanism, trustworthy timestamp, compact consistency-proof
+  protocol, or hardware attestation system. It cannot detect split views or a
+  complete rollback unless independently retained or witnessed checkpoints
+  disagree.
 - Deployment-profile identities, reviewer roles, timing bounds, monitor
   status, transport status, and artifact-authentication status are
   caller-governed declarations. A valid signature proves approval of exact

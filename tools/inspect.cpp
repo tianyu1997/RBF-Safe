@@ -1,5 +1,6 @@
 #include <rbfsafe/rbfsafe.h>
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -7,6 +8,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -45,6 +47,32 @@ bool is_execution_ledger(const std::filesystem::path& path) {
     return bounded_file_contains(path / "manifest.json", "\"rbfsafe-execution-ledger\"");
 }
 
+bool is_transparency_log(const std::filesystem::path& path) {
+    return bounded_file_contains(path / "manifest.json", "\"rbfsafe-transparency-log\"");
+}
+
+int hex_digit(char value) {
+    if (value >= '0' && value <= '9')
+        return value - '0';
+    if (value >= 'a' && value <= 'f')
+        return value - 'a' + 10;
+    return -1;
+}
+
+bool decode_public_key(std::string_view text,
+                       std::array<std::byte, rbfsafe::kEd25519PublicKeyBytes>& result) {
+    if (text.size() != result.size() * 2U)
+        return false;
+    for (std::size_t index = 0; index < result.size(); ++index) {
+        const int high = hex_digit(text[index * 2U]);
+        const int low = hex_digit(text[index * 2U + 1U]);
+        if (high < 0 || low < 0)
+            return false;
+        result[index] = static_cast<std::byte>((high << 4) | low);
+    }
+    return true;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -62,8 +90,57 @@ int main(int argc, char** argv) {
                      "<expected-checkpoint>\n"
                   << "       rbfsafe-inspect <execution-ledger> <bounded-execution-session> "
                      "<reviewed-profile> <atlas> <trust-history> <expected-root> <checkpoint> "
-                     "<expected-checkpoint>\n";
+                     "<expected-checkpoint>\n"
+                  << "       rbfsafe-inspect <transparency-log> <namespace> <signer-service> "
+                     "<signer-key-id> <signer-public-key-hex> <expected-checkpoint>\n";
         return 2;
+    }
+    if (is_transparency_log(std::filesystem::path(argv[1]))) {
+        if (argc != 7) {
+            std::cerr << "transparency-log inspection requires namespace, signer service, "
+                         "signer key ID, signer public-key hex, and expected checkpoint ID\n";
+            return 2;
+        }
+        std::array<std::byte, rbfsafe::kEd25519PublicKeyBytes> public_key{};
+        if (!decode_public_key(argv[5], public_key)) {
+            std::cerr << "transparency signer public key must contain 64 lowercase hex characters\n";
+            return 2;
+        }
+        auto identity = rbfsafe::TransparencyLogIdentity::create(argv[2], argv[3], argv[4], public_key);
+        if (!identity) {
+            std::cerr << identity.error().describe() << '\n';
+            return 1;
+        }
+        auto log = rbfsafe::TransparencyLog::open(std::filesystem::path(argv[1]), identity.value(), argv[6]);
+        if (!log) {
+            std::cerr << log.error().describe() << '\n';
+            return 1;
+        }
+        auto audit = log.value().audit();
+        if (!audit) {
+            std::cerr << audit.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe transparency log\n"
+                  << "schema: 1\n"
+                  << "log: " << identity.value().id << '\n'
+                  << "namespace: " << identity.value().log_namespace << '\n'
+                  << "checkpoint: "
+                  << (audit.value().current_checkpoint_id.empty() ? "-" : audit.value().current_checkpoint_id)
+                  << '\n'
+                  << "root: "
+                  << (audit.value().current_root_hash.empty() ? "-" : audit.value().current_root_hash) << '\n'
+                  << "records: " << audit.value().verified_records << '\n'
+                  << "deployment anchors: " << audit.value().deployment_anchor_count << '\n'
+                  << "runtime observations: " << audit.value().runtime_observation_count << '\n';
+        for (const auto& record : log.value().records()) {
+            std::cout << "record: " << record.id << " sequence=" << record.sequence
+                      << " kind=" << rbfsafe::transparency_leaf_kind_name(record.leaf.kind)
+                      << " leaf=" << record.leaf.id << " checkpoint=" << record.checkpoint.id << '\n';
+        }
+        std::cout << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_execution_ledger(std::filesystem::path(argv[1]))) {
         if (argc != 9) {

@@ -1,0 +1,88 @@
+{
+  "checkpoint": {
+    "algorithm": 1,
+    "authentication_tag": "e46d5e57e22c352d965eab818c80d4a598c386f6bf55f7558df48c93e4bd9321006aeba6e7a452a5fafa442820fbedb7252afa0d4a785efbe00942724ee16c0f",
+    "id": "86d47335bee5850b9c3a404e123d50bdb751cabee03a76de6361b8e25f03772f",
+    "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+    "previous_checkpoint_id": "d1ca9635ae9f02e8a2a7d224c8148cbc3c50b39f6a56effb4f4b64eb33e6cf43",
+    "root_hash": "fe8e39f32feae84fae08a914375b1e3fec1afff94f57f97ff7955b3945c14eb1",
+    "signer_key_id": "02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8",
+    "signer_service_id": "transparency-log",
+    "storage_schema": 1,
+    "tree_size": "2"
+  },
+  "format": "rbfsafe-transparency-log-record",
+  "id": "d95ca7819bd6f1d5c3fbb084d35579c46fa2d620f8ac5c4cba690d77331f380f",
+  "identity": "a3e7086a1401ad220f4052e78e19e84a44b320569d6f9a2ace597c86fd8c4a96",
+  "leaf": {
+    "deployment_anchor": null,
+    "id": "00b194c093fb1f84c58a7f220b5a5e3aaafc77199baf094b6319811fb69e0bbb",
+    "index": "1",
+    "kind": 1,
+    "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+    "runtime_observation": {
+      "attestations": [
+        {
+          "algorithm": 1,
+          "authentication_tag": "402440605e1bf81f964a67121ab9d18aab9783dd7b0e488a666fe0fe9b771a08645a18a31aa4874c93f98692ac8a241f49b7ef41c008daf22a64bea5e470320f",
+          "id": "f32c74a75c1ca1b7c16ab38bee0ac23a504002c81d95357965ec37551703f0c1",
+          "observation_id": "2b540689eb743920d50f10ce7adf605d5110352bad11833e6391b21e1b44de4d",
+          "source_key_id": "9b49e066c347f583fef752cbf29cd06a42f89fb6c6fbd07698fed629f411ce25",
+          "source_service_id": "execution-review-controls",
+          "storage_schema": 1
+        },
+        {
+          "algorithm": 1,
+          "authentication_tag": "48244e65729f0b115cd401d7ea8778a0bcac0ea9784619bd74aab1e9f9be69c17ce10df512c607251d220ac5fa2b28880d4a616de72764db52744a2288fb0f02",
+          "id": "c925365d903fc140c1b9c37b411f903064842fd85e1c1d8727eae3686ea10bf3",
+          "observation_id": "2b540689eb743920d50f10ce7adf605d5110352bad11833e6391b21e1b44de4d",
+          "source_key_id": "cc0afcc3fffcd84ef5695ae89f6cf50278b6ef3b04df2358e80a811720484119",
+          "source_service_id": "execution-review-safety",
+          "storage_schema": 1
+        }
+      ],
+      "id": "2d38349082dfcbb4ff3b1f8f31378ea769cba4afdcd115287fadeaa3f54c4024",
+      "observation": {
+        "authorization_id": "c398e46eaa2e632dbb7bcecce9858a3d4fc528ee2926607d86ce4a35bb8ef14c",
+        "command_digest": "913a185d3519263bb69cf8125e22d49ad8481bf4d91ca980eb69581c8fecf53f",
+        "command_index": "0",
+        "command_sequence_id": "b3a0b42b11eb19031ee6a6ceeffa4c94b896d00f46451452b8b1b6229e346b5c",
+        "configuration_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+        "id": "2b540689eb743920d50f10ce7adf605d5110352bad11833e6391b21e1b44de4d",
+        "ledger_id": "f19c91b8f7788471691ac4d6a09861ee08188c9993e21861ad13e25e9cf99aa5",
+        "ledger_record_id": "254c963d4111cd07bf7d72d329c55238514cffa37163669469d8054e906d9ac0",
+        "monitor_state": 0,
+        "observation_sequence": "8",
+        "observed_monotonic_ns": "1000001",
+        "runtime": {
+          "authenticated_artifacts": true,
+          "command_latency_ns": "20000",
+          "consecutive_missed_cycles": "0",
+          "control_period_ns": "50000",
+          "controller_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "deployment_id": "execution-cell-a",
+          "fail_closed_transport_active": true,
+          "observation_age_ns": "10000",
+          "platform_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "robot_digest": "db26bacbb1567671d9c5b558f2c31936c5dfaa2021e88b14a4c28808db682c90",
+          "runtime_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "runtime_monitor_active": true
+        },
+        "session_id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+        "storage_schema": 1
+      },
+      "policy": {
+        "exclude_controller_service": true,
+        "minimum_attestations": "2",
+        "require_distinct_services": true
+      },
+      "storage_schema": 1
+    },
+    "storage_schema": 1
+  },
+  "library_version": "3.13.0",
+  "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+  "parent_id": "988bc018f370b653a31a8a480a01f0f9a21ab6b357a9615cb186952d92761568",
+  "schema": 1,
+  "sequence": "1"
+}

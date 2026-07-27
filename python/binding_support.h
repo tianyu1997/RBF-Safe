@@ -86,5 +86,6 @@ void bind_remote(py::module_& module);
 void bind_identity(py::module_& module);
 void bind_deployment(py::module_& module);
 void bind_execution(py::module_& module);
+void bind_transparency(py::module_& module);
 
 } // namespace rbfsafe::python_binding
