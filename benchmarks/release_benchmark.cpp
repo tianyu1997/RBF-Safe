@@ -70,6 +70,10 @@ struct CaseMetrics {
     std::size_t execution_sessions = 0;
     std::size_t execution_session_approvals = 0;
     std::size_t execution_endpoint_acknowledgements = 0;
+    std::size_t execution_ledgers = 0;
+    std::size_t execution_ledger_records = 0;
+    std::size_t execution_controller_completions = 0;
+    std::size_t execution_checkpoint_revalidations = 0;
     std::size_t runtime_executable_commands = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
@@ -852,10 +856,61 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
             rbfsafe::StatusCode::InternalError, "release fixture changed execution command was not rejected",
             fixture.name);
     }
+    ScopedDirectory execution_ledger_directory(temporary_root /
+                                               ("rbfsafe-release-execution-ledger-" + fixture.name + "-" +
+                                                std::to_string(Clock::now().time_since_epoch().count())));
+    auto execution_ledger =
+        rbfsafe::ExecutionLedger::create(execution_ledger_directory.path(), execution_session.value());
+    if (!execution_ledger)
+        return execution_ledger.error();
+    const std::array<std::uint64_t, 2> dispatch_times{1'000'000'000, 1'001'000'000};
+    const std::array<std::uint64_t, 2> completion_times{1'000'000'001, 1'001'000'001};
+    const std::array<rbfsafe::Configuration, 2> command_configurations{fixture.start, fixture.goal};
+    for (std::size_t index = 0; index < command_configurations.size(); ++index) {
+        auto ledger_decision = execution_ledger.value().authorize_command(
+            execution_session.value(), reviewed_deployment.value(), replayed_trust_history.value(),
+            checkpoint.value(), checkpoint.value().id, atlas, index, command_configurations[index],
+            dispatch_times[index], execution_ledger.value().current_record_id());
+        if (!ledger_decision || !ledger_decision.value().authorization ||
+            ledger_decision.value().evidence() != rbfsafe::EvidenceLevel::RuntimeExecutable ||
+            ledger_decision.value().open_ended()) {
+            return rbfsafe::Result<CaseMetrics>::failure(
+                rbfsafe::StatusCode::InternalError,
+                "release fixture execution ledger withheld an exact command", fixture.name);
+        }
+        rbfsafe::ExecutionControllerCompletionInput completion_input;
+        completion_input.outcome = rbfsafe::ExecutionCompletionOutcome::Completed;
+        completion_input.completed_monotonic_ns = completion_times[index];
+        completion_input.result_digest = index == 0 ? robot.value().digest() : scene.value().digest();
+        auto completion = rbfsafe::sign_execution_controller_completion(
+            execution_session.value(), *ledger_decision.value().authorization, completion_input,
+            controller_key_pair.value().secret_key);
+        if (!completion)
+            return completion.error();
+        auto recorded = execution_ledger.value().record_completion(
+            execution_session.value(), reviewed_deployment.value(), replayed_trust_history.value(), atlas,
+            completion.value(), execution_ledger.value().current_record_id());
+        if (!recorded)
+            return recorded.error();
+    }
+    auto execution_ledger_audit = execution_ledger.value().audit(
+        execution_session.value(), reviewed_deployment.value(), replayed_trust_history.value(), atlas);
+    if (!execution_ledger_audit ||
+        execution_ledger_audit.value().status != rbfsafe::ExecutionLedgerStatus::Completed ||
+        execution_ledger_audit.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        execution_ledger_audit.value().authorizes_execution()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture execution-ledger audit was inconsistent",
+            fixture.name);
+    }
     metrics.execution_sessions = 1;
     metrics.execution_session_approvals = execution_approvals.value().approvals.size();
     metrics.execution_endpoint_acknowledgements = 2;
-    metrics.runtime_executable_commands = 1;
+    metrics.execution_ledgers = 1;
+    metrics.execution_ledger_records = execution_ledger_audit.value().verified_records;
+    metrics.execution_controller_completions = execution_ledger_audit.value().completion_count;
+    metrics.execution_checkpoint_revalidations = execution_ledger_audit.value().verified_checkpoints;
+    metrics.runtime_executable_commands = 3;
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -965,6 +1020,11 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.execution_endpoint_acknowledgements));
     hash_field(logical_hash, "exact-command-runtime-executable-closed-window");
     hash_field(logical_hash, std::to_string(metrics.runtime_executable_commands));
+    hash_field(logical_hash, "revocation-aware-execution-ledger-completed-offline-audited");
+    hash_field(logical_hash, std::to_string(metrics.execution_ledgers));
+    hash_field(logical_hash, std::to_string(metrics.execution_ledger_records));
+    hash_field(logical_hash, std::to_string(metrics.execution_controller_completions));
+    hash_field(logical_hash, std::to_string(metrics.execution_checkpoint_revalidations));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -1007,6 +1067,10 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"execution_sessions\":" << item.execution_sessions
                   << ",\"execution_session_approvals\":" << item.execution_session_approvals
                   << ",\"execution_endpoint_acknowledgements\":" << item.execution_endpoint_acknowledgements
+                  << ",\"execution_ledgers\":" << item.execution_ledgers
+                  << ",\"execution_ledger_records\":" << item.execution_ledger_records
+                  << ",\"execution_controller_completions\":" << item.execution_controller_completions
+                  << ",\"execution_checkpoint_revalidations\":" << item.execution_checkpoint_revalidations
                   << ",\"runtime_executable_commands\":" << item.runtime_executable_commands
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
@@ -1042,6 +1106,10 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " execution_sessions=" << item.execution_sessions
                   << " execution_session_approvals=" << item.execution_session_approvals
                   << " execution_endpoint_acknowledgements=" << item.execution_endpoint_acknowledgements
+                  << " execution_ledgers=" << item.execution_ledgers
+                  << " execution_ledger_records=" << item.execution_ledger_records
+                  << " execution_controller_completions=" << item.execution_controller_completions
+                  << " execution_checkpoint_revalidations=" << item.execution_checkpoint_revalidations
                   << " runtime_executable_commands=" << item.runtime_executable_commands
                   << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
     }

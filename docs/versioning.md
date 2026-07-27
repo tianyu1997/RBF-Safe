@@ -23,7 +23,10 @@ authorization-set histories, and caller-pinned signed trust checkpoints.
 Version 3.10 adds reviewed deployment profiles and role-aware signed approval
 quorums under exact trust checkpoints. Version 3.11 adds bounded execution
 sessions, explicit controller/monitor acknowledgements, and exact
-closed-window command authorization. Documented public C++
+closed-window command authorization. Version 3.12 adds an append-only
+expected-head execution ledger, current-checkpoint reviewer revalidation,
+signed controller completions, terminal event records, and offline audit.
+Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
 minor releases. Deprecated APIs remain functional through 3.x and may be
@@ -219,6 +222,15 @@ bounds. It does not alter any prior schema. The persisted session remains
 `Unknown`; `RuntimeExecutable` exists only in an ephemeral exact-command
 authorization returned for caller-supplied monotonic time.
 
+The v3.12 execution-ledger schema 1 is an independent immutable-record
+directory bound to one exact bounded execution session. The manifest and each
+record carry deterministic identities; records use strict sequence/parent
+links and store exact authorizations, signed controller completions,
+caller-pinned trust checkpoints, or terminal cancellation/expiry/revocation
+events. Expected-head mutation and bounded replay do not modify or reinterpret
+the v3.11 session schema. Loaders reject unknown ledger/record schemas and no
+automatic migration is defined.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -247,7 +259,7 @@ are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
 service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
-bounded-execution-session fixtures,
+bounded-execution-session/execution-ledger fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

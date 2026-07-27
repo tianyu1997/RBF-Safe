@@ -240,6 +240,47 @@ int main(int argc, char** argv) {
         std::cerr << "exact example command was not authorized\n";
         return 1;
     }
+    auto ledger = ExecutionLedger::create(root / "ledger", session.value());
+    if (!ledger) {
+        std::cerr << ledger.error().describe() << '\n';
+        return 1;
+    }
+    const std::array<std::uint64_t, 3> dispatch_times{1'000'000, 1'050'001, 1'100'000};
+    const std::array<std::uint64_t, 3> completion_times{1'000'005, 1'050'005, 1'100'000};
+    const std::array<char, 3> result_digest_values{'e', 'f', 'a'};
+    for (std::size_t index = 0; index < configurations.size(); ++index) {
+        auto decision = ledger.value().authorize_command(
+            session.value(), reviewed.value(), history.value(), checkpoint.value(), checkpoint.value().id,
+            atlas, index, configurations[index], dispatch_times[index], ledger.value().current_record_id());
+        if (!decision || !decision.value().authorization) {
+            std::cerr << (decision ? "ledger withheld command authorization" : decision.error().describe())
+                      << '\n';
+            return 1;
+        }
+        ExecutionControllerCompletionInput completion_input;
+        completion_input.outcome = ExecutionCompletionOutcome::Completed;
+        completion_input.completed_monotonic_ns = completion_times[index];
+        completion_input.result_digest = digest(result_digest_values[index]);
+        auto completion =
+            sign_execution_controller_completion(session.value(), *decision.value().authorization,
+                                                 completion_input, controller_pair.value().secret_key);
+        if (!completion) {
+            std::cerr << completion.error().describe() << '\n';
+            return 1;
+        }
+        auto recorded =
+            ledger.value().record_completion(session.value(), reviewed.value(), history.value(), atlas,
+                                             completion.value(), ledger.value().current_record_id());
+        if (!recorded) {
+            std::cerr << recorded.error().describe() << '\n';
+            return 1;
+        }
+    }
+    auto ledger_audit = ledger.value().audit(session.value(), reviewed.value(), history.value(), atlas);
+    if (!ledger_audit) {
+        std::cerr << ledger_audit.error().describe() << '\n';
+        return 1;
+    }
 
     std::cout << "atlas=" << atlas.version_info().id << '\n'
               << "trust_root=" << bundle.value().id() << '\n'
@@ -254,6 +295,14 @@ int main(int argc, char** argv) {
               << "session_authorizes_execution=false\n"
               << "command_authorization=" << authorization.value()->id << '\n'
               << "command_evidence=runtime_executable\n"
-              << "command_open_ended=false\n";
+              << "command_open_ended=false\n"
+              << "ledger=" << ledger.value().id() << '\n'
+              << "ledger_head=" << ledger.value().current_record_id() << '\n'
+              << "ledger_status=" << execution_ledger_status_name(ledger_audit.value().status) << '\n'
+              << "ledger_records=" << ledger_audit.value().verified_records << '\n'
+              << "ledger_authorizations=" << ledger_audit.value().authorization_count << '\n'
+              << "ledger_completions=" << ledger_audit.value().completion_count << '\n'
+              << "ledger_evidence=unknown\n"
+              << "ledger_authorizes_execution=false\n";
     return 0;
 }

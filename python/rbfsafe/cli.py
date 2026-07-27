@@ -12,6 +12,7 @@ from . import (
     AtlasUpdater,
     AtlasVersionStore,
     BoundedExecutionSession,
+    ExecutionLedger,
     FleetScheduleArchive,
     HipacCorridor,
     MemoryArtifactState,
@@ -53,6 +54,7 @@ from . import (
     policy_calibration_lifecycle_state_name,
     deployment_review_role_name,
     execution_monitor_state_name,
+    execution_ledger_status_name,
     service_key_state_name,
     service_trust_rotation_event_type_name,
     verify_artifact_file,
@@ -191,6 +193,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--execution-atlas",
         type=Path,
         help="SafeAtlas directory required to replay an execution session",
+    )
+    parser.add_argument(
+        "--execution-session",
+        type=Path,
+        help="bounded execution-session JSON required to audit an execution ledger",
     )
     parser.add_argument(
         "--execution-command-index",
@@ -878,6 +885,75 @@ def main(argv: list[str] | None = None) -> int:
         store_manifest = {}
     feedback_filters = (args.policy_id, args.task_id, args.episode_id, args.feedback_label)
     memory_filters = (args.deployment_id, args.memory_state, args.artifact_type, args.memory_revision)
+    if (
+        args.execution_session is not None
+        and manifest.get("format") != "rbfsafe-execution-ledger"
+    ):
+        parser.error("--execution-session applies only to an execution-ledger directory")
+    if manifest.get("format") == "rbfsafe-execution-ledger":
+        required = (
+            args.execution_session,
+            args.reviewed_profile,
+            args.execution_atlas,
+            args.trust_history,
+            args.trust_checkpoint,
+            args.expected_trust_root,
+            args.expected_trust_checkpoint,
+        )
+        if any(value is None for value in required):
+            parser.error(
+                "execution-ledger audit requires --execution-session, --reviewed-profile, "
+                "--execution-atlas, --trust-history, --trust-checkpoint, "
+                "--expected-trust-root, and --expected-trust-checkpoint"
+            )
+        checkpoint = ServiceTrustCheckpoint.load(args.trust_checkpoint)
+        history = ServiceTrustHistory.open(
+            args.trust_history,
+            args.expected_trust_root,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        reviewed = ReviewedDeploymentProfile.load(
+            args.reviewed_profile,
+            history,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        atlas = SafeAtlas.load(args.execution_atlas)
+        session = BoundedExecutionSession.load(
+            args.execution_session,
+            reviewed,
+            history,
+            checkpoint,
+            args.expected_trust_checkpoint,
+            atlas,
+        )
+        ledger = ExecutionLedger.open(
+            args.atlas,
+            session,
+            reviewed,
+            history,
+            atlas,
+        )
+        audit = ledger.audit(session, reviewed, history, atlas)
+        print("RBF-Safe execution-ledger schema=1")
+        print(
+            f"ledger={ledger.id} session={ledger.session_id} "
+            f"head={ledger.current_record_id}"
+        )
+        print(
+            f"status={execution_ledger_status_name(audit.status)} "
+            f"records={audit.verified_records} "
+            f"authorizations={audit.authorization_count} "
+            f"completions={audit.completion_count}"
+        )
+        print(
+            f"verified_checkpoints={audit.verified_checkpoints} "
+            f"latest_checkpoint={audit.latest_checkpoint_id or '-'}"
+        )
+        print("audit_evidence=unknown")
+        print("runtime_executable=false")
+        return 0
     if manifest.get("format") == "rbfsafe-service-trust-history":
         unsupported = (
             args.plot,

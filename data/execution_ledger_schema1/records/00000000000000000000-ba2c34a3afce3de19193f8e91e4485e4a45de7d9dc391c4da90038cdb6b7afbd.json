@@ -1,0 +1,18 @@
+{
+  "authorization": null,
+  "completion": null,
+  "detail": "",
+  "format": "rbfsafe-execution-ledger-record",
+  "id": "ba2c34a3afce3de19193f8e91e4485e4a45de7d9dc391c4da90038cdb6b7afbd",
+  "identity": "43062d3c304182c7892e89d13707a18187dd5f0975c83fdbdeae059055c8bf0b",
+  "ledger_id": "f19c91b8f7788471691ac4d6a09861ee08188c9993e21861ad13e25e9cf99aa5",
+  "library_version": "3.12.0",
+  "observed_monotonic_ns": "1000000",
+  "parent_id": "",
+  "revocation": null,
+  "schema": 1,
+  "sequence": "0",
+  "session_id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+  "trust_checkpoint": null,
+  "type": 0
+}

@@ -31,7 +31,10 @@ functions, `ReviewedDeploymentProfile`, schema-1 load options and
 persistence, and conformance assessment APIs. Existing evidence meanings and
 all prior targets remain unchanged. RBF-Safe 3.11 additively introduces
 `RBFSafe::execution`, certified command/session/endpoint/acknowledgement
-values, exact-command authorization, and bounded schema-1 persistence. Public
+values, exact-command authorization, and bounded schema-1 persistence.
+RBF-Safe 3.12 additively introduces `ExecutionLedger`, ordered
+authorization/completion and terminal-event values, expected-head mutations,
+current-checkpoint revalidation, and schema-1 ledger persistence. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
@@ -88,9 +91,10 @@ machine-readable contract.
 ## Evidence compatibility
 
 Numeric values and ordering of `EvidenceLevel` are stable throughout 3.x.
-Consumers must compare enum values rather than parsing display names. In 3.11,
+Consumers must compare enum values rather than parsing display names. In 3.12,
 only an exact closed-window `ExecutionCommandAuthorization` may issue
-`RuntimeExecutable`; reviewed profiles and bounded sessions remain `Unknown`.
+`RuntimeExecutable`; reviewed profiles, bounded sessions, ledgers, summaries,
+and audit reports remain `Unknown`.
 The application must still enforce its separately reviewed tracking,
 uncertainty, clock, transport, device, and emergency-stop assumptions.
 

@@ -203,12 +203,15 @@ conformance are governance metadata with `Unknown` evidence.
 `RBFSafe::execution` depends on `RBFSafe::deployment` and `RBFSafe::atlas`.
 It owns deterministic certified command sequences, controller/runtime-monitor
 endpoint identities, reviewer/controller/monitor Ed25519 acknowledgements,
-bounded session persistence, and exact per-command time-window authorization.
+bounded session persistence, exact per-command time-window authorization, and
+an append-only expected-head ledger with signed completion and current
+checkpoint/reviewer revalidation.
 
 The module is transport and clock neutral. It never reads system time, sends a
 command, opens a device, interprets a service publication key as controller
 authority, or turns the session itself into a permit. Only an exact command
-query can produce the narrowly scoped `RuntimeExecutable` value.
+query can produce the narrowly scoped `RuntimeExecutable` value. Ledger state,
+terminal events, and offline audit remain `Unknown`.
 
 ### Python and tools
 
@@ -338,6 +341,14 @@ components and bind subject digests.
   signed checkpoint and a role-aware approval quorum. Its assessment trusts
   caller-supplied runtime observations, remains `Unknown`, and never
   authorizes execution.
+- Bounded-execution-session schema 1 is v3.11 exact-command governance and
+  runtime-input metadata. Only one exact command query inside its closed
+  caller-supplied window can return `RuntimeExecutable`; the session remains
+  `Unknown`.
+- Execution-ledger schema 1 is v3.12 append-only authorization history. It
+  serializes exact authorization/completion order and caller-reported terminal
+  events while revalidating signed checkpoints. Its state and audit remain
+  `Unknown`.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

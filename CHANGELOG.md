@@ -3,6 +3,40 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.12.0] - 2026-07-27
+
+### Added
+
+- Public revocation-aware `ExecutionLedger` under `RBFSafe::execution`, with a
+  deterministic append-only record chain, cross-process writer exclusion, and
+  optimistic expected-head mutation for one exact bounded session.
+- Strict authorization/completion ordering: commands cannot be duplicated,
+  skipped, or overlapped, and every next command requires an exact
+  controller-endpoint Ed25519 completion statement for the previous
+  authorization.
+- Current signed-checkpoint revalidation before each command, rollback/fork
+  rejection, and terminal automatic revocation when an original reviewer key
+  is missing, inactive, out of sequence, or no longer publication-capable.
+- Explicit terminal cancellation, closed-session expiration, and exact
+  profile/Atlas/scene/controller/monitor/reviewer/checkpoint revocation
+  records, plus failed/rejected controller outcomes.
+- Bounded schema-1 directory persistence, complete offline audit, C++/Python
+  APIs, native/Python inspection, deterministic quickstarts, corruption and
+  concurrency regressions, and a fixed public cross-platform fixture.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.12.0. Existing session and earlier 3.x storage schemas remain
+  readable and unchanged.
+- The release benchmark now completes an ordered two-command ledger per named
+  case and binds only its discrete record, completion, and checkpoint counts
+  into the cross-platform logical digest.
+- Ledger state and audit remain `Unknown` and never authorize execution. Only
+  one exact returned command authorization is `RuntimeExecutable`; no hardware
+  I/O, clock reads, physical attestation, tracking proof, or execution claim
+  was added.
+
 ## [3.11.0] - 2026-07-27
 
 ### Added

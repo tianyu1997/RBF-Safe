@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 3.11.0
+    VERSION 3.12.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES C CXX)
@@ -287,7 +287,9 @@ rbfsafe_configure_target(rbfsafe_deployment)
 
 add_library(rbfsafe_execution
     src/execution.cpp
-    src/execution_persistence.cpp)
+    src/execution_persistence.cpp
+    src/execution_ledger.cpp
+    src/execution_ledger_persistence.cpp)
 add_library(RBFSafe::execution ALIAS rbfsafe_execution)
 set_target_properties(rbfsafe_execution PROPERTIES EXPORT_NAME execution)
 target_include_directories(rbfsafe_execution
@@ -510,6 +512,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/reviewed_deployment_profile_schema1)
     install(DIRECTORY data/bounded_execution_session_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/bounded_execution_session_schema1)
+    install(DIRECTORY data/execution_ledger_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/execution_ledger_schema1)
     install(DIRECTORY data/policy_calibration_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
     install(DIRECTORY data/policy_calibration_lifecycle_schema1/

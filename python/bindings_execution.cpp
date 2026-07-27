@@ -1,6 +1,6 @@
 #include "binding_support.h"
 
-#include <rbfsafe/execution.h>
+#include <rbfsafe/execution_ledger.h>
 
 #include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
@@ -265,6 +265,226 @@ void bind_execution(py::module_& module) {
             py::arg("trust_checkpoint"), py::arg("expected_checkpoint_id"), py::arg("atlas"),
             py::arg("options") = BoundedExecutionSessionLoadOptions{});
 
+    py::enum_<ExecutionCompletionOutcome>(module, "ExecutionCompletionOutcome")
+        .value("COMPLETED", ExecutionCompletionOutcome::Completed)
+        .value("FAILED", ExecutionCompletionOutcome::Failed)
+        .value("REJECTED", ExecutionCompletionOutcome::Rejected);
+
+    py::class_<ExecutionControllerCompletionInput>(module, "ExecutionControllerCompletionInput")
+        .def(py::init<>())
+        .def_readwrite("outcome", &ExecutionControllerCompletionInput::outcome)
+        .def_readwrite("completed_monotonic_ns", &ExecutionControllerCompletionInput::completed_monotonic_ns)
+        .def_readwrite("result_digest", &ExecutionControllerCompletionInput::result_digest);
+
+    py::class_<ExecutionControllerCompletion>(module, "ExecutionControllerCompletion")
+        .def_readonly("storage_schema", &ExecutionControllerCompletion::storage_schema)
+        .def_readonly("id", &ExecutionControllerCompletion::id)
+        .def_readonly("session_id", &ExecutionControllerCompletion::session_id)
+        .def_readonly("authorization_id", &ExecutionControllerCompletion::authorization_id)
+        .def_readonly("command_sequence_id", &ExecutionControllerCompletion::command_sequence_id)
+        .def_readonly("command_index", &ExecutionControllerCompletion::command_index)
+        .def_readonly("command_digest", &ExecutionControllerCompletion::command_digest)
+        .def_readonly("controller_service_id", &ExecutionControllerCompletion::controller_service_id)
+        .def_readonly("controller_key_id", &ExecutionControllerCompletion::controller_key_id)
+        .def_readonly("outcome", &ExecutionControllerCompletion::outcome)
+        .def_readonly("completed_monotonic_ns", &ExecutionControllerCompletion::completed_monotonic_ns)
+        .def_readonly("result_digest", &ExecutionControllerCompletion::result_digest)
+        .def_readonly("algorithm", &ExecutionControllerCompletion::algorithm)
+        .def_readonly("authentication_tag", &ExecutionControllerCompletion::authentication_tag)
+        .def("valid", &ExecutionControllerCompletion::valid);
+
+    py::enum_<ExecutionDependencyKind>(module, "ExecutionDependencyKind")
+        .value("REVIEWED_PROFILE", ExecutionDependencyKind::ReviewedProfile)
+        .value("ATLAS", ExecutionDependencyKind::Atlas)
+        .value("SCENE", ExecutionDependencyKind::Scene)
+        .value("CONTROLLER_KEY", ExecutionDependencyKind::ControllerKey)
+        .value("RUNTIME_MONITOR_KEY", ExecutionDependencyKind::RuntimeMonitorKey)
+        .value("REVIEWER_KEY", ExecutionDependencyKind::ReviewerKey)
+        .value("TRUST_CHECKPOINT", ExecutionDependencyKind::TrustCheckpoint);
+
+    py::class_<ExecutionDependencyRevocation>(module, "ExecutionDependencyRevocation")
+        .def_readonly("kind", &ExecutionDependencyRevocation::kind)
+        .def_readonly("subject_id", &ExecutionDependencyRevocation::subject_id)
+        .def_readonly("detail", &ExecutionDependencyRevocation::detail);
+
+    py::enum_<ExecutionLedgerRecordType>(module, "ExecutionLedgerRecordType")
+        .value("SESSION_OPENED", ExecutionLedgerRecordType::SessionOpened)
+        .value("COMMAND_AUTHORIZED", ExecutionLedgerRecordType::CommandAuthorized)
+        .value("CONTROLLER_COMPLETION", ExecutionLedgerRecordType::ControllerCompletion)
+        .value("SESSION_CANCELLED", ExecutionLedgerRecordType::SessionCancelled)
+        .value("SESSION_EXPIRED", ExecutionLedgerRecordType::SessionExpired)
+        .value("DEPENDENCY_REVOKED", ExecutionLedgerRecordType::DependencyRevoked);
+
+    py::enum_<ExecutionLedgerStatus>(module, "ExecutionLedgerStatus")
+        .value("OPEN", ExecutionLedgerStatus::Open)
+        .value("AWAITING_COMPLETION", ExecutionLedgerStatus::AwaitingCompletion)
+        .value("COMPLETED", ExecutionLedgerStatus::Completed)
+        .value("CANCELLED", ExecutionLedgerStatus::Cancelled)
+        .value("EXPIRED", ExecutionLedgerStatus::Expired)
+        .value("REVOKED", ExecutionLedgerStatus::Revoked)
+        .value("FAILED", ExecutionLedgerStatus::Failed);
+
+    py::class_<ExecutionLedgerRecord>(module, "ExecutionLedgerRecord")
+        .def_readonly("storage_schema", &ExecutionLedgerRecord::storage_schema)
+        .def_readonly("sequence", &ExecutionLedgerRecord::sequence)
+        .def_readonly("id", &ExecutionLedgerRecord::id)
+        .def_readonly("parent_id", &ExecutionLedgerRecord::parent_id)
+        .def_readonly("ledger_id", &ExecutionLedgerRecord::ledger_id)
+        .def_readonly("session_id", &ExecutionLedgerRecord::session_id)
+        .def_readonly("type", &ExecutionLedgerRecord::type)
+        .def_readonly("observed_monotonic_ns", &ExecutionLedgerRecord::observed_monotonic_ns)
+        .def_readonly("authorization", &ExecutionLedgerRecord::authorization)
+        .def_readonly("completion", &ExecutionLedgerRecord::completion)
+        .def_readonly("trust_checkpoint", &ExecutionLedgerRecord::trust_checkpoint)
+        .def_readonly("revocation", &ExecutionLedgerRecord::revocation)
+        .def_readonly("detail", &ExecutionLedgerRecord::detail)
+        .def("valid", &ExecutionLedgerRecord::valid);
+
+    py::class_<ExecutionLedgerSummary>(module, "ExecutionLedgerSummary")
+        .def_readonly("id", &ExecutionLedgerSummary::id)
+        .def_readonly("ledger_id", &ExecutionLedgerSummary::ledger_id)
+        .def_readonly("session_id", &ExecutionLedgerSummary::session_id)
+        .def_readonly("current_record_id", &ExecutionLedgerSummary::current_record_id)
+        .def_readonly("status", &ExecutionLedgerSummary::status)
+        .def_readonly("record_count", &ExecutionLedgerSummary::record_count)
+        .def_readonly("authorization_count", &ExecutionLedgerSummary::authorization_count)
+        .def_readonly("completion_count", &ExecutionLedgerSummary::completion_count)
+        .def_readonly("next_command_index", &ExecutionLedgerSummary::next_command_index)
+        .def_readonly("outstanding_command_index", &ExecutionLedgerSummary::outstanding_command_index)
+        .def("valid", &ExecutionLedgerSummary::valid)
+        .def_property_readonly("evidence", &ExecutionLedgerSummary::evidence)
+        .def_property_readonly("authorizes_execution", &ExecutionLedgerSummary::authorizes_execution);
+
+    py::class_<ExecutionLedgerCommandDecision>(module, "ExecutionLedgerCommandDecision")
+        .def_readonly("id", &ExecutionLedgerCommandDecision::id)
+        .def_readonly("ledger_id", &ExecutionLedgerCommandDecision::ledger_id)
+        .def_readonly("current_record_id", &ExecutionLedgerCommandDecision::current_record_id)
+        .def_readonly("status", &ExecutionLedgerCommandDecision::status)
+        .def_readonly("authorization", &ExecutionLedgerCommandDecision::authorization)
+        .def("valid", &ExecutionLedgerCommandDecision::valid)
+        .def_property_readonly("evidence", &ExecutionLedgerCommandDecision::evidence)
+        .def_property_readonly("authorizes_execution", &ExecutionLedgerCommandDecision::authorizes_execution)
+        .def_property_readonly("open_ended", &ExecutionLedgerCommandDecision::open_ended);
+
+    py::class_<ExecutionLedgerAuditReport>(module, "ExecutionLedgerAuditReport")
+        .def_readonly("id", &ExecutionLedgerAuditReport::id)
+        .def_readonly("ledger_id", &ExecutionLedgerAuditReport::ledger_id)
+        .def_readonly("session_id", &ExecutionLedgerAuditReport::session_id)
+        .def_readonly("current_record_id", &ExecutionLedgerAuditReport::current_record_id)
+        .def_readonly("status", &ExecutionLedgerAuditReport::status)
+        .def_readonly("verified_records", &ExecutionLedgerAuditReport::verified_records)
+        .def_readonly("verified_checkpoints", &ExecutionLedgerAuditReport::verified_checkpoints)
+        .def_readonly("authorization_count", &ExecutionLedgerAuditReport::authorization_count)
+        .def_readonly("completion_count", &ExecutionLedgerAuditReport::completion_count)
+        .def_readonly("latest_checkpoint_id", &ExecutionLedgerAuditReport::latest_checkpoint_id)
+        .def("valid", &ExecutionLedgerAuditReport::valid)
+        .def_property_readonly("evidence", &ExecutionLedgerAuditReport::evidence)
+        .def_property_readonly("authorizes_execution", &ExecutionLedgerAuditReport::authorizes_execution);
+
+    py::class_<ExecutionLedgerLoadOptions>(module, "ExecutionLedgerLoadOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_records", &ExecutionLedgerLoadOptions::maximum_records)
+        .def_readwrite("maximum_signatures_per_checkpoint",
+                       &ExecutionLedgerLoadOptions::maximum_signatures_per_checkpoint)
+        .def_readwrite("maximum_total_checkpoint_signatures",
+                       &ExecutionLedgerLoadOptions::maximum_total_checkpoint_signatures)
+        .def_readwrite("maximum_manifest_bytes", &ExecutionLedgerLoadOptions::maximum_manifest_bytes)
+        .def_readwrite("maximum_record_bytes", &ExecutionLedgerLoadOptions::maximum_record_bytes);
+
+    py::class_<ExecutionLedger>(module, "ExecutionLedger")
+        .def_static(
+            "create",
+            [](const std::filesystem::path& directory, const BoundedExecutionSession& session) {
+                return unwrap(ExecutionLedger::create(directory, session));
+            },
+            py::arg("directory"), py::arg("session"))
+        .def_static(
+            "open",
+            [](const std::filesystem::path& directory, const BoundedExecutionSession& session,
+               const ReviewedDeploymentProfile& reviewed, const ServiceTrustHistory& history,
+               const SafeAtlas& atlas, const ExecutionLedgerLoadOptions& options) {
+                return unwrap(ExecutionLedger::open(directory, session, reviewed, history, atlas, options));
+            },
+            py::arg("directory"), py::arg("session"), py::arg("reviewed_profile"), py::arg("trust_history"),
+            py::arg("atlas"), py::arg("options") = ExecutionLedgerLoadOptions{})
+        .def_property_readonly("directory", &ExecutionLedger::directory)
+        .def_property_readonly("id", &ExecutionLedger::id)
+        .def_property_readonly("session_id", &ExecutionLedger::session_id)
+        .def_property_readonly("current_record_id", &ExecutionLedger::current_record_id)
+        .def_property_readonly("records", &ExecutionLedger::records)
+        .def("valid", &ExecutionLedger::valid)
+        .def_property_readonly("evidence", &ExecutionLedger::evidence)
+        .def_property_readonly("authorizes_execution", &ExecutionLedger::authorizes_execution)
+        .def_property_readonly("summary", &ExecutionLedger::summary)
+        .def(
+            "audit",
+            [](const ExecutionLedger& ledger, const BoundedExecutionSession& session,
+               const ReviewedDeploymentProfile& reviewed, const ServiceTrustHistory& history,
+               const SafeAtlas& atlas) { return unwrap(ledger.audit(session, reviewed, history, atlas)); },
+            py::arg("session"), py::arg("reviewed_profile"), py::arg("trust_history"), py::arg("atlas"))
+        .def(
+            "authorize_command",
+            [](ExecutionLedger& ledger, const BoundedExecutionSession& session,
+               const ReviewedDeploymentProfile& reviewed, const ServiceTrustHistory& history,
+               const ServiceTrustCheckpoint& checkpoint, const std::string& expected_checkpoint_id,
+               const SafeAtlas& atlas, std::uint64_t command_index, const Configuration& configuration,
+               std::uint64_t dispatch_monotonic_ns, const std::string& expected_record_id) {
+                return unwrap(ledger.authorize_command(
+                    session, reviewed, history, checkpoint, expected_checkpoint_id, atlas, command_index,
+                    view(configuration), dispatch_monotonic_ns, expected_record_id));
+            },
+            py::arg("session"), py::arg("reviewed_profile"), py::arg("current_trust_history"),
+            py::arg("current_trust_checkpoint"), py::arg("expected_current_checkpoint_id"), py::arg("atlas"),
+            py::arg("command_index"), py::arg("configuration"), py::arg("dispatch_monotonic_ns"),
+            py::arg("expected_current_record_id"))
+        .def(
+            "record_completion",
+            [](ExecutionLedger& ledger, const BoundedExecutionSession& session,
+               const ReviewedDeploymentProfile& reviewed, const ServiceTrustHistory& history,
+               const SafeAtlas& atlas, const ExecutionControllerCompletion& completion,
+               const std::string& expected_record_id) {
+                return unwrap(ledger.record_completion(session, reviewed, history, atlas, completion,
+                                                       expected_record_id));
+            },
+            py::arg("session"), py::arg("reviewed_profile"), py::arg("trust_history"), py::arg("atlas"),
+            py::arg("completion"), py::arg("expected_current_record_id"))
+        .def(
+            "cancel",
+            [](ExecutionLedger& ledger, const BoundedExecutionSession& session,
+               const ReviewedDeploymentProfile& reviewed, const ServiceTrustHistory& history,
+               const SafeAtlas& atlas, std::uint64_t observed_monotonic_ns, std::string detail,
+               const std::string& expected_record_id) {
+                return unwrap(ledger.cancel(session, reviewed, history, atlas, observed_monotonic_ns,
+                                            std::move(detail), expected_record_id));
+            },
+            py::arg("session"), py::arg("reviewed_profile"), py::arg("trust_history"), py::arg("atlas"),
+            py::arg("observed_monotonic_ns"), py::arg("detail"), py::arg("expected_current_record_id"))
+        .def(
+            "expire",
+            [](ExecutionLedger& ledger, const BoundedExecutionSession& session,
+               const ReviewedDeploymentProfile& reviewed, const ServiceTrustHistory& history,
+               const SafeAtlas& atlas, std::uint64_t observed_monotonic_ns,
+               const std::string& expected_record_id) {
+                return unwrap(ledger.expire(session, reviewed, history, atlas, observed_monotonic_ns,
+                                            expected_record_id));
+            },
+            py::arg("session"), py::arg("reviewed_profile"), py::arg("trust_history"), py::arg("atlas"),
+            py::arg("observed_monotonic_ns"), py::arg("expected_current_record_id"))
+        .def(
+            "revoke_dependency",
+            [](ExecutionLedger& ledger, const BoundedExecutionSession& session,
+               const ReviewedDeploymentProfile& reviewed, const ServiceTrustHistory& history,
+               const SafeAtlas& atlas, ExecutionDependencyKind kind, std::string subject_id,
+               std::uint64_t observed_monotonic_ns, std::string detail,
+               const std::string& expected_record_id) {
+                return unwrap(ledger.revoke_dependency(session, reviewed, history, atlas, kind,
+                                                       std::move(subject_id), observed_monotonic_ns,
+                                                       std::move(detail), expected_record_id));
+            },
+            py::arg("session"), py::arg("reviewed_profile"), py::arg("trust_history"), py::arg("atlas"),
+            py::arg("kind"), py::arg("subject_id"), py::arg("observed_monotonic_ns"), py::arg("detail"),
+            py::arg("expected_current_record_id"));
+
     module.def("valid_execution_endpoint_key", &valid_execution_endpoint_key);
     module.def(
         "make_execution_endpoint_key",
@@ -329,8 +549,28 @@ void bind_execution(py::module_& module) {
             unwrap_void(rbfsafe::verify_execution_monitor_acknowledgement(request, acknowledgement));
         },
         py::arg("request"), py::arg("acknowledgement"));
+    module.def(
+        "sign_execution_controller_completion",
+        [](const BoundedExecutionSession& session, const ExecutionCommandAuthorization& authorization,
+           ExecutionControllerCompletionInput input, const py::bytes& secret_key) {
+            const SensitiveBytes copy(secret_key);
+            return unwrap(rbfsafe::sign_execution_controller_completion(session, authorization,
+                                                                        std::move(input), copy.view()));
+        },
+        py::arg("session"), py::arg("authorization"), py::arg("input"), py::arg("ed25519_secret_key"));
+    module.def(
+        "verify_execution_controller_completion",
+        [](const BoundedExecutionSession& session, const ExecutionCommandAuthorization& authorization,
+           const ExecutionControllerCompletion& completion) {
+            unwrap_void(rbfsafe::verify_execution_controller_completion(session, authorization, completion));
+        },
+        py::arg("session"), py::arg("authorization"), py::arg("completion"));
     module.def("execution_endpoint_role_name", &execution_endpoint_role_name);
     module.def("execution_monitor_state_name", &execution_monitor_state_name);
+    module.def("execution_completion_outcome_name", &execution_completion_outcome_name);
+    module.def("execution_dependency_kind_name", &execution_dependency_kind_name);
+    module.def("execution_ledger_record_type_name", &execution_ledger_record_type_name);
+    module.def("execution_ledger_status_name", &execution_ledger_status_name);
 }
 
 } // namespace rbfsafe::python_binding

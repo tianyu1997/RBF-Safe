@@ -1,0 +1,12 @@
+{
+  "command_count": "3",
+  "format": "rbfsafe-execution-ledger",
+  "id": "f19c91b8f7788471691ac4d6a09861ee08188c9993e21861ad13e25e9cf99aa5",
+  "identity": "a74b58c6afde94e102a2ed88e02737ba7567cdeb27cec66592755b08af57dc68",
+  "library_version": "3.12.0",
+  "root_record_id": "ba2c34a3afce3de19193f8e91e4485e4a45de7d9dc391c4da90038cdb6b7afbd",
+  "schema": 1,
+  "session_id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+  "valid_from_monotonic_ns": "1000000",
+  "valid_through_monotonic_ns": "1100000"
+}

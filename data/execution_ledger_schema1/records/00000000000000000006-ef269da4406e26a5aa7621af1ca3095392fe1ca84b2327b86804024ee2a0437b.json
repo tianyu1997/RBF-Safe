@@ -1,0 +1,33 @@
+{
+  "authorization": null,
+  "completion": {
+    "algorithm": 1,
+    "authentication_tag": "7d3a80e72cdf2e35137846c811fb1757fa42247fda2b5ba499be2af6056e62b9ef9b2afdb1f676ee3a67c1d5a49c5e38c63f6c6178b4fab89a882b44d1d8320a",
+    "authorization_id": "4b076e2d036b2dc63239361614e63fef4a4e784cc5e0429bf7cde9f89b54d927",
+    "command_digest": "681ce1f989819b728be7eb63e1e5a54e476a361977dbe0e78e834fc3280fe523",
+    "command_index": "2",
+    "command_sequence_id": "b3a0b42b11eb19031ee6a6ceeffa4c94b896d00f46451452b8b1b6229e346b5c",
+    "completed_monotonic_ns": "1100000",
+    "controller_key_id": "a737132096faffe9c761eb6c0e55c3fb705f5bf6ae08dac4048148f0af3b06b6",
+    "controller_service_id": "execution-controller",
+    "id": "b0a9fc5c6cc0522bdfb29ee7df1ddd75fd57e14249c0cad735189ed52087bea6",
+    "outcome": 0,
+    "result_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "session_id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+    "storage_schema": 1
+  },
+  "detail": "",
+  "format": "rbfsafe-execution-ledger-record",
+  "id": "ef269da4406e26a5aa7621af1ca3095392fe1ca84b2327b86804024ee2a0437b",
+  "identity": "9dc9d7ab3493839bf56d5a8794d203c22997d03150f55e71c14545a168eb0034",
+  "ledger_id": "f19c91b8f7788471691ac4d6a09861ee08188c9993e21861ad13e25e9cf99aa5",
+  "library_version": "3.12.0",
+  "observed_monotonic_ns": "1100000",
+  "parent_id": "52b09ce182065893627e2f2b1e6bf4b426cd6ea320bc8146d39b608253591b32",
+  "revocation": null,
+  "schema": 1,
+  "sequence": "6",
+  "session_id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+  "trust_checkpoint": null,
+  "type": 2
+}
