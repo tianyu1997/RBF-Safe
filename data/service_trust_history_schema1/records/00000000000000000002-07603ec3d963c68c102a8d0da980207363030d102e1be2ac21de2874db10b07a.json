@@ -1,0 +1,23 @@
+{
+  "authorization": {
+    "algorithm": 1,
+    "authentication_tag": "8795c698998df800e9d228fab49dba8bc092df79550467fea6338c36081b0ec134fa3b7c4ac5dcdfbc4341a8ab26dcb528335adb014e48097cacab8d04c67802",
+    "format": "rbfsafe-service-trust-bundle-authorization",
+    "id": "68debbfc4156e5c829d641e5b9ed4aeab04174454d655d5558783f81fc8711d3",
+    "predecessor_bundle_id": "9e30c7b54a023db15fdb3751592e4291f6714f1751183860e1013d486c0357bd",
+    "predecessor_sequence": "1",
+    "schema": 1,
+    "signer_key_id": "deeb721ce417eb73af26ccc9a69a2a8c4343dada00e2e6f3864084c1e328e732",
+    "signer_service_id": "artifact-service",
+    "successor_bundle_id": "4c119f290036039ce28f4c8b8d8db572a7950cdf28e907153ef4c02445afad3b",
+    "successor_sequence": "2"
+  },
+  "bundle_id": "4c119f290036039ce28f4c8b8d8db572a7950cdf28e907153ef4c02445afad3b",
+  "format": "rbfsafe-service-trust-rotation-record",
+  "id": "07603ec3d963c68c102a8d0da980207363030d102e1be2ac21de2874db10b07a",
+  "library_version": "3.8.0",
+  "parent_id": "42f9b146a215bf9268a6ba4f2899df24d24a94e9a3ec8ae1b61a254e2ad2f0f5",
+  "schema": 1,
+  "sequence": "2",
+  "type": 1
+}

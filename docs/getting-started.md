@@ -305,6 +305,7 @@ pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
 service_key = rbfsafe.make_service_public_key(
     "artifact-service", pair.public_key, 1, 0,
     rbfsafe.ServiceKeyState.ACTIVE,
+    True, True, True,
 )
 bundle = rbfsafe.ServiceTrustBundle.create(1, "", [service_key])
 
@@ -327,6 +328,29 @@ The application must pin `bundle.id` through an authenticated out-of-band
 process; loading an attacker-supplied bundle and trusting its internally
 consistent ID is not authentication. See
 [public-key service identities](public-service-identities.md).
+
+To authorize and retain a successor, retire or revoke keys monotonically, add
+the new public key, sign the exact transition with an active
+rotation-capable predecessor, and publish against the retained head:
+
+```python
+successor = rbfsafe.rotate_service_trust_bundle(bundle, successor_keys)
+authorization = rbfsafe.authorize_service_trust_bundle_successor(
+    bundle, successor, service_key.service_id, service_key.id, pair.secret_key
+)
+history = rbfsafe.ServiceTrustHistory.create(
+    "service-trust-history", bundle, trusted_root_id
+)
+history.publish(successor, authorization, bundle.id)
+history = rbfsafe.ServiceTrustHistory.open(
+    "service-trust-history", trusted_root_id, successor.id
+)
+```
+
+Persist `trusted_root_id` through an authenticated out-of-band process and
+retain the newest accepted head outside the history rollback domain. The
+directory alone cannot distinguish a valid historical copy from a
+whole-directory rollback.
 
 ## 13. Persist fleet-schedule history
 

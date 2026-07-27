@@ -24,8 +24,9 @@ Include, when available:
   byte counts, service sequence, and authentication mode, but never secret
   keys;
 - for public-key issues, the public key ID, pinned bundle ID, bundle sequence,
-  key state/window, and redacted signed metadata; never include an Ed25519 seed
-  or private key;
+  key state/window/permissions, expected root/head IDs, rotation-record and
+  authorization IDs, and redacted signed metadata; never include an Ed25519
+  seed or private key;
 - a minimal reproducer and whether the result is deterministic;
 - expected impact and any known deployed use.
 

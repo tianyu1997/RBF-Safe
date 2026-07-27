@@ -13,7 +13,12 @@ and guarded calibrated gating without removing the 3.4 entry point. RBF-Safe
 attestations, verified transfers, and transfer journals. RBF-Safe 3.7 adds
 `RBFSafe::identity`, Ed25519 helpers, service public-key/trust-bundle values,
 monotonic rotation, and offline public-key verification; two optional public
-provenance fields are appended to `VerifiedArtifactTransfer`. Public
+provenance fields are appended to `VerifiedArtifactTransfer`. RBF-Safe 3.8
+additively introduces rotation permission,
+`ServiceTrustBundleAuthorization`, `ServiceTrustHistory`, load/rotation
+records, signed successor functions, and bundle storage-schema inspection.
+The existing key factory gains a trailing defaulted `allow_rotate=false`
+argument, preserving prior calls and prior schema-1 behavior. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the

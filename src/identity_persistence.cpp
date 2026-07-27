@@ -18,7 +18,8 @@
 namespace rbfsafe {
 namespace {
 
-constexpr std::size_t kSchema = 1;
+constexpr std::size_t kLegacySchema = 1;
+constexpr std::size_t kCurrentSchema = 2;
 constexpr std::size_t kMaximumIdentifierBytes = 256;
 constexpr std::size_t kMaximumStringBytes = 4096;
 constexpr std::size_t kMaximumExactJsonInteger = sizeof(std::size_t) < sizeof(std::uint64_t)
@@ -31,8 +32,8 @@ std::filesystem::path unique_sibling(const std::filesystem::path& destination, s
            (destination.filename().string() + std::string(suffix) + std::to_string(nonce));
 }
 
-internal::Json key_json(const ServicePublicKey& key) {
-    return internal::Json::Object{
+internal::Json key_json(const ServicePublicKey& key, std::uint32_t schema) {
+    auto object = internal::Json::Object{
         {"algorithm", static_cast<int>(key.algorithm)},
         {"allow_fetch", key.allow_fetch},
         {"allow_publish", key.allow_publish},
@@ -43,20 +44,23 @@ internal::Json key_json(const ServicePublicKey& key) {
         {"valid_from_sequence", std::to_string(key.valid_from_sequence)},
         {"valid_through_sequence", std::to_string(key.valid_through_sequence)},
     };
+    if (schema >= 2)
+        object.emplace("allow_rotate", key.allow_rotate);
+    return object;
 }
 
 internal::Json storage_json(const ServiceTrustBundle& bundle) {
     internal::Json::Array keys;
     keys.reserve(bundle.keys().size());
     for (const auto& key : bundle.keys())
-        keys.emplace_back(key_json(key));
+        keys.emplace_back(key_json(key, bundle.storage_schema()));
     return internal::Json::Object{
         {"format", "rbfsafe-service-trust-bundle"},
         {"id", bundle.id()},
         {"keys", std::move(keys)},
         {"library_version", kVersion},
         {"parent_id", bundle.parent_id()},
-        {"schema", static_cast<double>(kSchema)},
+        {"schema", static_cast<double>(bundle.storage_schema())},
         {"sequence", std::to_string(bundle.sequence())},
     };
 }
@@ -148,7 +152,7 @@ Result<internal::Json> read_bounded_json(const std::filesystem::path& path, std:
     return internal::Json::parse(text);
 }
 
-Result<ServicePublicKey> decode_key(const internal::Json& object) {
+Result<ServicePublicKey> decode_key(const internal::Json& object, std::size_t schema) {
     auto id = string_field(object, "id", 64);
     auto service_id = string_field(object, "service_id", kMaximumIdentifierBytes);
     auto algorithm = integer_field(object, "algorithm",
@@ -159,8 +163,11 @@ Result<ServicePublicKey> decode_key(const internal::Json& object) {
     auto state = integer_field(object, "state", static_cast<std::size_t>(ServiceKeyState::Revoked));
     auto allow_fetch = bool_field(object, "allow_fetch");
     auto allow_publish = bool_field(object, "allow_publish");
+    Result<bool> allow_rotate = false;
+    if (schema >= 2)
+        allow_rotate = bool_field(object, "allow_rotate");
     if (!id || !service_id || !algorithm || !public_key_text || !valid_from || !valid_through || !state ||
-        !allow_fetch || !allow_publish) {
+        !allow_fetch || !allow_publish || !allow_rotate) {
         return Result<ServicePublicKey>::failure(StatusCode::CorruptData,
                                                  "service trust-bundle key is incomplete");
     }
@@ -177,6 +184,7 @@ Result<ServicePublicKey> decode_key(const internal::Json& object) {
     result.state = static_cast<ServiceKeyState>(state.value());
     result.allow_fetch = allow_fetch.value();
     result.allow_publish = allow_publish.value();
+    result.allow_rotate = allow_rotate.value();
     if (!valid_service_public_key(result)) {
         return Result<ServicePublicKey>::failure(StatusCode::CorruptData,
                                                  "service trust-bundle key identity is invalid", result.id);
@@ -213,6 +221,14 @@ Result<void> publish_file(const std::filesystem::path& temporary, const std::fil
 
 } // namespace
 
+namespace internal {
+
+std::string service_trust_bundle_storage_document(const ServiceTrustBundle& bundle) {
+    return storage_json(bundle).dump(true) + "\n";
+}
+
+} // namespace internal
+
 Result<void> save_service_trust_bundle(const ServiceTrustBundle& bundle, const std::filesystem::path& path,
                                        const SaveOptions& options) {
     if (!bundle.valid() || path.empty() || path == path.root_path()) {
@@ -239,7 +255,8 @@ Result<void> save_service_trust_bundle(const ServiceTrustBundle& bundle, const s
         }
     }
     const auto temporary = unique_sibling(path, ".tmp-");
-    auto written = internal::write_text_file(temporary, storage_json(bundle).dump(true) + "\n");
+    auto written =
+        internal::write_text_file(temporary, internal::service_trust_bundle_storage_document(bundle));
     if (!written)
         return written;
     auto published = publish_file(temporary, path, destination_exists);
@@ -271,7 +288,8 @@ Result<ServiceTrustBundle> load_service_trust_bundle(const std::filesystem::path
         return Result<ServiceTrustBundle>::failure(StatusCode::CorruptData,
                                                    "service trust-bundle document is incomplete");
     }
-    if (format.value() != "rbfsafe-service-trust-bundle" || schema.value() != kSchema) {
+    if (format.value() != "rbfsafe-service-trust-bundle" ||
+        (schema.value() != kLegacySchema && schema.value() != kCurrentSchema)) {
         return Result<ServiceTrustBundle>::failure(StatusCode::IncompatibleFormat,
                                                    "unsupported service trust-bundle schema");
     }
@@ -282,7 +300,7 @@ Result<ServiceTrustBundle> load_service_trust_bundle(const std::filesystem::path
     std::vector<ServicePublicKey> keys;
     keys.reserve(keys_json->as_array().size());
     for (const auto& key_json_value : keys_json->as_array()) {
-        auto key = decode_key(key_json_value);
+        auto key = decode_key(key_json_value, schema.value());
         if (!key)
             return key.error();
         keys.push_back(std::move(key).value());
@@ -291,7 +309,9 @@ Result<ServiceTrustBundle> load_service_trust_bundle(const std::filesystem::path
     if (!result)
         return Result<ServiceTrustBundle>::failure(StatusCode::CorruptData,
                                                    "service trust-bundle structure is invalid");
-    if (result.value().id() != id.value()) {
+    result.value().storage_schema_ = static_cast<std::uint32_t>(schema.value());
+    result.value().id_ = internal::service_trust_bundle_identity(result.value());
+    if (!result.value().valid() || result.value().id() != id.value()) {
         return Result<ServiceTrustBundle>::failure(StatusCode::CorruptData,
                                                    "service trust-bundle identity is invalid", id.value());
     }

@@ -416,19 +416,32 @@ fixed 32-byte seed; production callers must supply securely generated,
 externally protected keys.
 
 `make_service_public_key` binds a service, Ed25519 public key, inclusive
-service-sequence window, operation permissions, and lifecycle state.
+service-sequence window, fetch/publish/rotate permissions, and lifecycle state.
 `ServiceTrustBundle::create` produces a deterministic caller-pinnable root;
 `rotate_service_trust_bundle` enforces a parent-linked monotonic successor and
-one-way pending/active/retired/revoked transitions. `save`/`load` use bounded
-schema-1 JSON and never persist a private key.
+one-way pending/active/retired/revoked transitions.
+`authorize_service_trust_bundle_successor` and
+`verify_service_trust_bundle_successor` bind an exact schema-2 transition to
+one active predecessor key with rotation permission. `save`/`load` use
+bounded schema-1/2 JSON and never persist a private key.
+
+`ServiceTrustHistory::create` requires the caller's exact root pin.
+`open` additionally requires the caller-retained expected head and replays
+every immutable bundle, record, policy transition, and Ed25519 authorization.
+`publish` locks, replays against its expected head, and atomically appends a
+verified successor. `ServiceTrustHistoryLoadOptions` bounds bundle count,
+per-bundle/aggregate key count, JSON bytes, and cancellation. `records`,
+`bundle`, and `current_bundle` expose the replayed public audit.
 
 Service adapters call `sign_artifact_fetch_response` or
 `sign_artifact_publish_receipt`. Clients call
 `verify_artifact_fetch_offline` or `verify_artifact_publish_offline` with the
 exact locally authorized bundle. Successful transfers record
 `verification_key_id` and `trust_bundle_id`; bundle integrity alone does not
-authorize an unpinned root. See [public-key service identities](public-service-identities.md)
-and the [trust-bundle format](service-trust-bundle-format.md).
+authorize an unpinned root. See
+[public-key service identities](public-service-identities.md), the
+[trust-bundle format](service-trust-bundle-format.md), and the
+[trust-history format](service-trust-history-format.md).
 
 ## Error model
 

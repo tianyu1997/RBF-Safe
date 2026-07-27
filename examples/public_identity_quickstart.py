@@ -12,6 +12,7 @@ import rbfsafe
 parser = argparse.ArgumentParser()
 parser.add_argument("bundle", type=Path, help="new public trust-bundle file")
 parser.add_argument("journal", type=Path, help="new transfer-journal directory")
+parser.add_argument("history", type=Path, help="new service trust-history directory")
 args = parser.parse_args()
 
 payload = b"immutable atlas payload\n"
@@ -37,6 +38,9 @@ service_key = rbfsafe.make_service_public_key(
     1,
     0,
     rbfsafe.ServiceKeyState.ACTIVE,
+    True,
+    True,
+    True,
 )
 bundle = rbfsafe.ServiceTrustBundle.create(1, "", [service_key])
 
@@ -62,11 +66,48 @@ record = journal.append(verified, "")
 bundle.save(args.bundle)
 journal.save(args.journal)
 
+successor_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(33, 65)))
+retired_key = rbfsafe.make_service_public_key(
+    "artifact-service",
+    key_pair.public_key,
+    1,
+    1,
+    rbfsafe.ServiceKeyState.RETIRED,
+    True,
+    True,
+    True,
+)
+successor_key = rbfsafe.make_service_public_key(
+    "artifact-service",
+    successor_pair.public_key,
+    2,
+    0,
+    rbfsafe.ServiceKeyState.ACTIVE,
+    True,
+    True,
+    True,
+)
+successor = rbfsafe.rotate_service_trust_bundle(
+    bundle, [retired_key, successor_key]
+)
+authorization = rbfsafe.authorize_service_trust_bundle_successor(
+    bundle,
+    successor,
+    service_key.service_id,
+    service_key.id,
+    key_pair.secret_key,
+)
+history = rbfsafe.ServiceTrustHistory.create(args.history, bundle, bundle.id)
+rotation = history.publish(successor, authorization, bundle.id)
+
 print(f"key={service_key.id}")
 print(f"bundle={bundle.id}")
 print(f"request={request.id}")
 print(f"receipt={receipt.id}")
 print(f"transfer={verified.id}")
 print(f"record={record.id}")
+print(f"authorization={authorization.id}")
+print(f"rotation={rotation.id}")
+print(f"trust_head={history.current_bundle_id}")
 print("authentication=ed25519")
 print("runtime_executable=false")

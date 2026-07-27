@@ -15,6 +15,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -57,10 +59,30 @@ struct CaseMetrics {
     std::size_t artifact_transfer_records = 0;
     std::size_t public_key_transfers = 0;
     std::size_t trusted_service_keys = 0;
+    std::size_t trust_bundle_authorizations = 0;
+    std::size_t trust_history_records = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
     double certified_path_ratio = 0.0;
+};
+
+class ScopedDirectory {
+  public:
+    explicit ScopedDirectory(std::filesystem::path path) : path_(std::move(path)) {}
+    ScopedDirectory(const ScopedDirectory&) = delete;
+    ScopedDirectory& operator=(const ScopedDirectory&) = delete;
+    ~ScopedDirectory() {
+        if (path_.empty())
+            return;
+        std::error_code ignored;
+        std::filesystem::remove_all(path_, ignored);
+    }
+
+    const std::filesystem::path& path() const noexcept { return path_; }
+
+  private:
+    std::filesystem::path path_;
 };
 
 template <typename Function> double elapsed_ms(Function&& function) {
@@ -514,7 +536,7 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
         return service_key_pair.error();
     auto service_key =
         rbfsafe::make_service_public_key("release-artifact-service", service_key_pair.value().public_key, 1,
-                                         0, rbfsafe::ServiceKeyState::Active);
+                                         0, rbfsafe::ServiceKeyState::Active, true, true, true);
     if (!service_key)
         return service_key.error();
     auto trust_bundle = rbfsafe::ServiceTrustBundle::create(1, "", {service_key.value()});
@@ -549,6 +571,62 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     metrics.artifact_transfer_records = transfer_journal.records().size();
     metrics.public_key_transfers = 1;
     metrics.trusted_service_keys = trust_bundle.value().keys().size();
+    std::array<std::byte, rbfsafe::kEd25519SeedBytes> successor_seed{};
+    for (std::size_t index = 0; index < successor_seed.size(); ++index)
+        successor_seed[index] = static_cast<std::byte>(index + 33);
+    auto successor_key_pair = rbfsafe::ed25519_key_pair_from_seed(successor_seed);
+    if (!successor_key_pair)
+        return successor_key_pair.error();
+    auto successor_key =
+        rbfsafe::make_service_public_key("release-artifact-service", successor_key_pair.value().public_key, 2,
+                                         0, rbfsafe::ServiceKeyState::Active, true, true, true);
+    if (!successor_key)
+        return successor_key.error();
+    auto retired_service_key = service_key.value();
+    retired_service_key.state = rbfsafe::ServiceKeyState::Retired;
+    retired_service_key.valid_through_sequence = 1;
+    auto successor_bundle = rbfsafe::rotate_service_trust_bundle(
+        trust_bundle.value(), {retired_service_key, successor_key.value()});
+    if (!successor_bundle)
+        return successor_bundle.error();
+    auto successor_authorization = rbfsafe::authorize_service_trust_bundle_successor(
+        trust_bundle.value(), successor_bundle.value(), service_key.value().service_id,
+        service_key.value().id, service_key_pair.value().secret_key);
+    if (!successor_authorization ||
+        !rbfsafe::verify_service_trust_bundle_successor(trust_bundle.value(), successor_bundle.value(),
+                                                        successor_authorization.value())) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture trust-bundle authorization was inconsistent",
+            fixture.name);
+    }
+    std::error_code temporary_error;
+    auto temporary_root = std::filesystem::temp_directory_path(temporary_error);
+    if (temporary_error) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::IoError,
+                                                     "cannot locate release benchmark temporary directory",
+                                                     fixture.name);
+    }
+    ScopedDirectory trust_history_directory(temporary_root /
+                                            ("rbfsafe-release-trust-" + fixture.name + "-" +
+                                             std::to_string(Clock::now().time_since_epoch().count())));
+    auto trust_history = rbfsafe::ServiceTrustHistory::create(
+        trust_history_directory.path(), trust_bundle.value(), trust_bundle.value().id());
+    if (!trust_history)
+        return trust_history.error();
+    auto trust_rotation = trust_history.value().publish(
+        successor_bundle.value(), successor_authorization.value(), trust_bundle.value().id());
+    if (!trust_rotation)
+        return trust_rotation.error();
+    auto replayed_trust_history = rbfsafe::ServiceTrustHistory::open(
+        trust_history_directory.path(), trust_bundle.value().id(), successor_bundle.value().id());
+    if (!replayed_trust_history || !replayed_trust_history.value().valid() ||
+        replayed_trust_history.value().records().size() != 2) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture service trust-history replay was inconsistent", fixture.name);
+    }
+    metrics.trust_bundle_authorizations = 1;
+    metrics.trust_history_records = replayed_trust_history.value().records().size();
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -637,6 +715,10 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, "ed25519-public-transfer-offline-verified");
     hash_field(logical_hash, std::to_string(metrics.public_key_transfers));
     hash_field(logical_hash, std::to_string(metrics.trusted_service_keys));
+    hash_field(logical_hash, "ed25519-trust-successor-authorized");
+    hash_field(logical_hash, std::to_string(metrics.trust_bundle_authorizations));
+    hash_field(logical_hash, "service-trust-history-replayed");
+    hash_field(logical_hash, std::to_string(metrics.trust_history_records));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -668,6 +750,8 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"artifact_transfer_records\":" << item.artifact_transfer_records
                   << ",\"public_key_transfers\":" << item.public_key_transfers
                   << ",\"trusted_service_keys\":" << item.trusted_service_keys
+                  << ",\"trust_bundle_authorizations\":" << item.trust_bundle_authorizations
+                  << ",\"trust_history_records\":" << item.trust_history_records
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -690,7 +774,9 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " artifact_transfers=" << item.artifact_transfers
                   << " artifact_transfer_records=" << item.artifact_transfer_records
                   << " public_key_transfers=" << item.public_key_transfers
-                  << " trusted_service_keys=" << item.trusted_service_keys << " query_ms=" << item.query_ms
+                  << " trusted_service_keys=" << item.trusted_service_keys
+                  << " trust_bundle_authorizations=" << item.trust_bundle_authorizations
+                  << " trust_history_records=" << item.trust_history_records << " query_ms=" << item.query_ms
                   << " update_ms=" << item.update_ms << '\n';
     }
 }

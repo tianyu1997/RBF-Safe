@@ -39,8 +39,8 @@ internal::Json key_material_json(const ServicePublicKey& key) {
     };
 }
 
-internal::Json key_json(const ServicePublicKey& key) {
-    return internal::Json::Object{
+internal::Json key_json(const ServicePublicKey& key, std::uint32_t schema) {
+    auto object = internal::Json::Object{
         {"algorithm", static_cast<int>(key.algorithm)},
         {"allow_fetch", key.allow_fetch},
         {"allow_publish", key.allow_publish},
@@ -51,13 +51,17 @@ internal::Json key_json(const ServicePublicKey& key) {
         {"valid_from_sequence", std::to_string(key.valid_from_sequence)},
         {"valid_through_sequence", std::to_string(key.valid_through_sequence)},
     };
+    if (schema >= 2)
+        object.emplace("allow_rotate", key.allow_rotate);
+    return object;
 }
 
 bool same_immutable_key_policy(const ServicePublicKey& previous, const ServicePublicKey& next) {
     return previous.id == next.id && previous.service_id == next.service_id &&
            previous.algorithm == next.algorithm && previous.public_key == next.public_key &&
            previous.valid_from_sequence == next.valid_from_sequence &&
-           previous.allow_fetch == next.allow_fetch && previous.allow_publish == next.allow_publish;
+           previous.allow_fetch == next.allow_fetch && previous.allow_publish == next.allow_publish &&
+           previous.allow_rotate == next.allow_rotate;
 }
 
 bool valid_state_transition(ServiceKeyState previous, ServiceKeyState next) {
@@ -155,6 +159,12 @@ Result<void> verify_public_attestation(const ArtifactTransferAttestation& attest
                           trusted.value().public_key);
 }
 
+bool rotation_key_is_authorized(const ServicePublicKey& key, std::uint64_t successor_sequence) {
+    return key.state == ServiceKeyState::Active && key.allow_rotate &&
+           successor_sequence >= key.valid_from_sequence &&
+           (key.valid_through_sequence == 0 || successor_sequence <= key.valid_through_sequence);
+}
+
 } // namespace
 
 namespace internal {
@@ -203,15 +213,79 @@ std::string service_trust_bundle_identity(const ServiceTrustBundle& bundle) {
     Json::Array keys;
     keys.reserve(bundle.keys().size());
     for (const auto& key : bundle.keys())
-        keys.emplace_back(key_json(key));
+        keys.emplace_back(key_json(key, bundle.storage_schema()));
     return sha256(Json(Json::Object{
                            {"format", "rbfsafe-service-trust-bundle"},
                            {"keys", std::move(keys)},
                            {"parent_id", bundle.parent_id()},
-                           {"schema", 1},
+                           {"schema", static_cast<int>(bundle.storage_schema())},
                            {"sequence", std::to_string(bundle.sequence())},
                        })
                       .dump(false));
+}
+
+std::string service_trust_bundle_authorization_message(const ServiceTrustBundleAuthorization& authorization) {
+    return std::string("rbfsafe-service-trust-bundle-authorization-v1\n") +
+           Json(Json::Object{
+                    {"algorithm", static_cast<int>(authorization.algorithm)},
+                    {"format", "rbfsafe-service-trust-bundle-authorization"},
+                    {"predecessor_bundle_id", authorization.predecessor_bundle_id},
+                    {"predecessor_sequence", std::to_string(authorization.predecessor_sequence)},
+                    {"schema", 1},
+                    {"signer_key_id", authorization.signer_key_id},
+                    {"signer_service_id", authorization.signer_service_id},
+                    {"successor_bundle_id", authorization.successor_bundle_id},
+                    {"successor_sequence", std::to_string(authorization.successor_sequence)},
+                })
+               .dump(false);
+}
+
+std::string
+service_trust_bundle_authorization_identity(const ServiceTrustBundleAuthorization& authorization) {
+    return sha256(std::string("rbfsafe-service-trust-bundle-authorization-identity-v1\n") +
+                  service_trust_bundle_authorization_message(authorization) + "\n" +
+                  authorization.authentication_tag);
+}
+
+std::string service_trust_rotation_record_identity(const ServiceTrustRotationRecord& record) {
+    return sha256(
+        Json(Json::Object{
+                 {"authorization_id", record.authorization ? record.authorization->id : std::string{}},
+                 {"bundle_id", record.bundle_id},
+                 {"format", "rbfsafe-service-trust-rotation-record"},
+                 {"parent_id", record.parent_id},
+                 {"schema", 1},
+                 {"sequence", std::to_string(record.sequence)},
+                 {"type", static_cast<int>(record.type)},
+             })
+            .dump(false));
+}
+
+Result<void> validate_service_trust_bundle_rotation(const ServiceTrustBundle& predecessor,
+                                                    const ServiceTrustBundle& successor) {
+    if (!predecessor.valid() || !successor.valid()) {
+        return Result<void>::failure(StatusCode::InvalidArgument,
+                                     "service trust-bundle rotation input is invalid");
+    }
+    if (predecessor.sequence() == std::numeric_limits<std::uint64_t>::max() ||
+        successor.sequence() != predecessor.sequence() + 1 || successor.parent_id() != predecessor.id() ||
+        successor.storage_schema() < predecessor.storage_schema()) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "service trust-bundle successor link is invalid", successor.id());
+    }
+    for (const auto& old_key : predecessor.keys()) {
+        auto replacement = successor.key(old_key.service_id, old_key.id);
+        if (!replacement)
+            return replacement.error();
+        if (!replacement.value()) {
+            return Result<void>::failure(StatusCode::IdentityMismatch,
+                                         "service trust-bundle rotation removed an existing key", old_key.id);
+        }
+        auto transition = validate_rotation(old_key, *replacement.value());
+        if (!transition)
+            return transition.error();
+    }
+    return Result<void>::success();
 }
 
 } // namespace internal
@@ -271,7 +345,7 @@ bool valid_service_public_key(const ServicePublicKey& key) {
            key.algorithm == ArtifactAuthenticationAlgorithm::Ed25519 && any_public_key_byte &&
            key.valid_from_sequence > 0 &&
            (key.valid_through_sequence == 0 || key.valid_through_sequence >= key.valid_from_sequence) &&
-           valid_key_state(key.state) && (key.allow_fetch || key.allow_publish) &&
+           valid_key_state(key.state) && (key.allow_fetch || key.allow_publish || key.allow_rotate) &&
            (key.state != ServiceKeyState::Retired || key.valid_through_sequence != 0) &&
            internal::service_public_key_identity(key) == key.id;
 }
@@ -280,11 +354,11 @@ Result<ServicePublicKey> make_service_public_key(std::string service_id,
                                                  std::span<const std::byte> public_key,
                                                  std::uint64_t valid_from_sequence,
                                                  std::uint64_t valid_through_sequence, ServiceKeyState state,
-                                                 bool allow_fetch, bool allow_publish) {
+                                                 bool allow_fetch, bool allow_publish, bool allow_rotate) {
     if (!valid_text(service_id, kMaximumIdentifierBytes) || public_key.size() != kEd25519PublicKeyBytes ||
         valid_from_sequence == 0 ||
         (valid_through_sequence != 0 && valid_through_sequence < valid_from_sequence) ||
-        !valid_key_state(state) || (!allow_fetch && !allow_publish) ||
+        !valid_key_state(state) || (!allow_fetch && !allow_publish && !allow_rotate) ||
         (state == ServiceKeyState::Retired && valid_through_sequence == 0)) {
         return Result<ServicePublicKey>::failure(StatusCode::InvalidArgument,
                                                  "service public-key input is invalid");
@@ -297,6 +371,7 @@ Result<ServicePublicKey> make_service_public_key(std::string service_id,
     result.state = state;
     result.allow_fetch = allow_fetch;
     result.allow_publish = allow_publish;
+    result.allow_rotate = allow_rotate;
     result.id = internal::service_public_key_identity(result);
     if (!valid_service_public_key(result)) {
         return Result<ServicePublicKey>::failure(StatusCode::InvalidArgument,
@@ -330,6 +405,7 @@ Result<ServiceTrustBundle> ServiceTrustBundle::create(std::uint64_t sequence, st
         }
     }
     ServiceTrustBundle result;
+    result.storage_schema_ = 2;
     result.sequence_ = sequence;
     result.parent_id_ = std::move(parent_id);
     result.keys_ = std::move(keys);
@@ -338,12 +414,13 @@ Result<ServiceTrustBundle> ServiceTrustBundle::create(std::uint64_t sequence, st
 }
 
 bool ServiceTrustBundle::valid() const {
-    if (sequence_ == 0 || keys_.empty() || (sequence_ == 1 && !parent_id_.empty()) ||
-        (sequence_ > 1 && !internal::valid_sha256(parent_id_)) || !internal::valid_sha256(id_)) {
+    if ((storage_schema_ != 1 && storage_schema_ != 2) || sequence_ == 0 || keys_.empty() ||
+        (sequence_ == 1 && !parent_id_.empty()) || (sequence_ > 1 && !internal::valid_sha256(parent_id_)) ||
+        !internal::valid_sha256(id_)) {
         return false;
     }
     for (std::size_t index = 0; index < keys_.size(); ++index) {
-        if (!valid_service_public_key(keys_[index]))
+        if (!valid_service_public_key(keys_[index]) || (storage_schema_ == 1 && keys_[index].allow_rotate))
             return false;
         if (index > 0) {
             const auto& previous = keys_[index - 1];
@@ -380,20 +457,107 @@ Result<ServiceTrustBundle> rotate_service_trust_bundle(const ServiceTrustBundle&
     auto next = ServiceTrustBundle::create(previous.sequence() + 1, previous.id(), std::move(keys));
     if (!next)
         return next.error();
-    for (const auto& old_key : previous.keys()) {
-        auto replacement = next.value().key(old_key.service_id, old_key.id);
-        if (!replacement)
-            return replacement.error();
-        if (!replacement.value()) {
-            return Result<ServiceTrustBundle>::failure(
-                StatusCode::IdentityMismatch, "service trust-bundle rotation removed an existing key",
-                old_key.id);
-        }
-        auto transition = validate_rotation(old_key, *replacement.value());
-        if (!transition)
-            return transition.error();
-    }
+    auto validated = internal::validate_service_trust_bundle_rotation(previous, next.value());
+    if (!validated)
+        return validated.error();
     return next;
+}
+
+bool valid_service_trust_bundle_authorization(const ServiceTrustBundleAuthorization& authorization) {
+    auto signature = internal::decode_hex(authorization.authentication_tag, kEd25519SignatureBytes);
+    return authorization.predecessor_sequence != std::numeric_limits<std::uint64_t>::max() &&
+           internal::valid_sha256(authorization.id) &&
+           internal::valid_sha256(authorization.predecessor_bundle_id) &&
+           internal::valid_sha256(authorization.successor_bundle_id) &&
+           authorization.predecessor_sequence > 0 &&
+           authorization.successor_sequence == authorization.predecessor_sequence + 1 &&
+           valid_text(authorization.signer_service_id, kMaximumIdentifierBytes) &&
+           internal::valid_sha256(authorization.signer_key_id) &&
+           authorization.algorithm == ArtifactAuthenticationAlgorithm::Ed25519 && signature &&
+           internal::service_trust_bundle_authorization_identity(authorization) == authorization.id;
+}
+
+Result<ServiceTrustBundleAuthorization> authorize_service_trust_bundle_successor(
+    const ServiceTrustBundle& predecessor, const ServiceTrustBundle& successor, std::string signer_service_id,
+    std::string signer_key_id, std::span<const std::byte> ed25519_secret_key) {
+    auto rotation = internal::validate_service_trust_bundle_rotation(predecessor, successor);
+    if (!rotation)
+        return rotation.error();
+    if (predecessor.storage_schema() < 2) {
+        return Result<ServiceTrustBundleAuthorization>::failure(
+            StatusCode::IncompatibleFormat,
+            "legacy trust bundles cannot implicitly authorize signed successors", predecessor.id());
+    }
+    auto found = predecessor.key(signer_service_id, signer_key_id);
+    if (!found)
+        return found.error();
+    if (!found.value() || !rotation_key_is_authorized(*found.value(), successor.sequence())) {
+        return Result<ServiceTrustBundleAuthorization>::failure(
+            StatusCode::IdentityMismatch, "service key is not authorized for trust-bundle rotation",
+            signer_key_id);
+    }
+    auto signing_key = validate_signing_key(signer_service_id, signer_key_id, ed25519_secret_key);
+    if (!signing_key)
+        return signing_key.error();
+
+    ServiceTrustBundleAuthorization result;
+    result.predecessor_bundle_id = predecessor.id();
+    result.successor_bundle_id = successor.id();
+    result.predecessor_sequence = predecessor.sequence();
+    result.successor_sequence = successor.sequence();
+    result.signer_service_id = std::move(signer_service_id);
+    result.signer_key_id = std::move(signer_key_id);
+    const auto message = internal::service_trust_bundle_authorization_message(result);
+    auto signature =
+        ed25519_sign(std::as_bytes(std::span(message.data(), message.size())), ed25519_secret_key);
+    if (!signature)
+        return signature.error();
+    result.authentication_tag = internal::encode_hex(signature.value());
+    result.id = internal::service_trust_bundle_authorization_identity(result);
+    if (!valid_service_trust_bundle_authorization(result)) {
+        return Result<ServiceTrustBundleAuthorization>::failure(
+            StatusCode::InternalError, "generated trust-bundle authorization is invalid");
+    }
+    return result;
+}
+
+Result<void> verify_service_trust_bundle_successor(const ServiceTrustBundle& predecessor,
+                                                   const ServiceTrustBundle& successor,
+                                                   const ServiceTrustBundleAuthorization& authorization) {
+    auto rotation = internal::validate_service_trust_bundle_rotation(predecessor, successor);
+    if (!rotation)
+        return rotation;
+    if (predecessor.storage_schema() < 2) {
+        return Result<void>::failure(StatusCode::IncompatibleFormat,
+                                     "legacy trust bundles cannot implicitly authorize signed successors",
+                                     predecessor.id());
+    }
+    if (!valid_service_trust_bundle_authorization(authorization)) {
+        return Result<void>::failure(StatusCode::CorruptData,
+                                     "trust-bundle authorization identity is invalid");
+    }
+    if (authorization.predecessor_bundle_id != predecessor.id() ||
+        authorization.successor_bundle_id != successor.id() ||
+        authorization.predecessor_sequence != predecessor.sequence() ||
+        authorization.successor_sequence != successor.sequence()) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "trust-bundle authorization is bound to another successor",
+                                     authorization.id);
+    }
+    auto found = predecessor.key(authorization.signer_service_id, authorization.signer_key_id);
+    if (!found)
+        return found.error();
+    if (!found.value() || !rotation_key_is_authorized(*found.value(), successor.sequence())) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "service key is not authorized for trust-bundle rotation",
+                                     authorization.signer_key_id);
+    }
+    auto signature = internal::decode_hex(authorization.authentication_tag, kEd25519SignatureBytes);
+    if (!signature)
+        return signature.error();
+    const auto message = internal::service_trust_bundle_authorization_message(authorization);
+    return ed25519_verify(std::as_bytes(std::span(message.data(), message.size())), signature.value(),
+                          found.value()->public_key);
 }
 
 Result<ServicePublicKey> trusted_service_public_key(const ServiceTrustBundle& bundle,
@@ -559,6 +723,16 @@ std::string service_key_state_name(ServiceKeyState state) {
         return "retired";
     case ServiceKeyState::Revoked:
         return "revoked";
+    }
+    return "unknown";
+}
+
+std::string service_trust_rotation_event_type_name(ServiceTrustRotationEventType type) {
+    switch (type) {
+    case ServiceTrustRotationEventType::RootPinned:
+        return "root_pinned";
+    case ServiceTrustRotationEventType::SuccessorAuthorized:
+        return "successor_authorized";
     }
     return "unknown";
 }

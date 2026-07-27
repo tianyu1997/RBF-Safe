@@ -286,7 +286,16 @@ deployment authorization. `Retired` permits bounded historical verification;
 `Revoked` rejects all uses. Neither state changes payload semantics or
 evidence level.
 
-## Explicit exclusions in v3.7
+The v3.8 trust-history layer additionally verifies that an active,
+rotation-capable predecessor key signed the exact successor and that every
+bundle/record transition replays to a caller-supplied expected head. This
+prevents unauthorized local successors and detects stale/rolled-back copies
+when the caller retains a newer head outside the history. It does not
+authenticate the original root, detect rollback when the external head is
+rolled back with the directory, provide a quorum or transparency service, or
+authorize payload use or robot execution.
+
+## Explicit exclusions in v3.8
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -322,12 +331,15 @@ evidence level.
   object mutation still requires in-process serialization;
   `SafetyMemoryStore` serializes publication but does not merge concurrent
   edits or automatically remove a lock left by a crashed writer.
-- Artifact HMAC/private keys, trust-root distribution and authorization,
+- Artifact HMAC/private keys, trust-root/head distribution and authorization,
   endpoint/redirect policy, TLS, encryption, concrete network I/O, retry
   semantics, credential access, and secret erasure are deployment
   responsibilities. Public-key verification is not a payload certificate,
   legal non-repudiation conclusion, or execution authorization. An explicitly
   unauthenticated transfer is not safe against malicious substitution.
+  Service-trust history is a signed local audit chain, not a certificate
+  authority, trust-on-first-use protocol, threshold signature, transparency
+  log, or remote key-discovery client.
 - Fleet member envelopes and reservation occupancy are caller-supplied
   conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller

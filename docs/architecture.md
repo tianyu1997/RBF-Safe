@@ -170,9 +170,12 @@ through their own validating reader.
 `RBFSafe::identity` depends on `RBFSafe::remote`. It owns RFC 8032 Ed25519
 signing/verification integration, deterministic service public-key identity,
 caller-pinnable trust bundles, monotonic rotation rules, public-key
-fetch/publish verification, and schema-1 bundle persistence. It never writes
-private keys, discovers trust remotely, opens network connections, or treats
-a self-consistent bundle hash as authorization.
+fetch/publish verification, schema-1/2 bundle persistence, exact-successor
+authorization, and immutable schema-1 trust histories. History publication
+replays under a cross-process lock against a caller-retained expected head.
+The target never writes private keys, discovers trust remotely, opens network
+connections, treats a self-consistent root hash as authorization, or stores
+the external root/head anchors needed to detect whole-directory rollback.
 
 The identity target reuses the exact v3.6 request/response and current-memory
 validation path. A successful Ed25519 transfer adds verification-key and
@@ -288,6 +291,13 @@ components and bind subject digests.
   deterministic root and rotation identities provide integrity only; the
   caller must authorize and pin a root out of band. Pending, retired, and
   revoked state remains policy metadata below execution evidence.
+- Service-trust-bundle schema 2 and service-trust-history schema 1 are v3.8
+  public rotation policy. The bundle adds immutable rotation permission. The
+  history stores complete bundles and exact-successor Ed25519 authorizations,
+  replays a single chain, and serializes publication with an expected head.
+  The caller still owns the root pin and must retain the newest head outside
+  the directory's rollback domain. Neither format raises geometric or runtime
+  evidence.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

@@ -3,6 +3,29 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.8.0] - 2026-07-27
+
+### Added
+
+- Ed25519-signed trust-bundle successor authorizations bound to the exact
+  predecessor, successor, sequences, signer service, and rotation-capable key.
+- `ServiceTrustHistory`, an immutable schema-1 directory with caller-pinned
+  root and expected-head checks, cross-process writer exclusion, signed
+  rotation records, bounded replay, cancellation, and historical bundle
+  lookup.
+- C++/Python APIs, native/Python inspection, quickstarts, corruption and
+  rollback regressions, and fixed schema-2 bundle/schema-1 history fixtures.
+
+### Changed
+
+- New service trust bundles use schema 2 and add an immutable `allow_rotate`
+  key permission. Schema-1 bundles remain readable with rotation permission
+  disabled and cannot silently become signed-history roots.
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.8.0. Existing 3.x APIs and storage readers remain available.
+- The release benchmark now signs, publishes, and replays a trust successor
+  and binds the discrete authorization/history counts into its logical digest.
+
 ## [3.7.0] - 2026-07-27
 
 ### Added

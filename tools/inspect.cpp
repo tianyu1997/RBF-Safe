@@ -2,14 +2,67 @@
 
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
+namespace {
+
+bool is_service_trust_history(const std::filesystem::path& directory) {
+    std::error_code error;
+    const auto manifest = directory / "manifest.json";
+    const auto bytes = std::filesystem::file_size(manifest, error);
+    if (error || bytes > 65'536)
+        return false;
+    std::ifstream input(manifest, std::ios::binary);
+    if (!input)
+        return false;
+    std::string text(static_cast<std::size_t>(bytes), '\0');
+    if (!text.empty())
+        input.read(text.data(), static_cast<std::streamsize>(text.size()));
+    return input && text.find("\"rbfsafe-service-trust-history\"") != std::string::npos;
+}
+
+} // namespace
+
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "usage: rbfsafe-inspect <database-archive-or-profile> [query values or profile]\n";
+        std::cerr << "usage: rbfsafe-inspect <database-archive-or-profile> [query values or profile]\n"
+                  << "       rbfsafe-inspect <trust-history> <expected-root> <expected-head>\n";
         return 2;
+    }
+    if (is_service_trust_history(std::filesystem::path(argv[1]))) {
+        if (argc != 4) {
+            std::cerr << "service trust-history inspection requires expected root and head bundle IDs\n";
+            return 2;
+        }
+        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[1]), argv[2], argv[3]);
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe service trust history\n"
+                  << "schema: 1\n"
+                  << "records: " << history.value().records().size() << '\n'
+                  << "root: " << history.value().root_bundle_id() << '\n'
+                  << "head: " << history.value().current_bundle_id() << '\n';
+        for (const auto& record : history.value().records()) {
+            std::cout << "rotation: " << record.id << '\n'
+                      << "  sequence: " << record.sequence << '\n'
+                      << "  parent: " << (record.parent_id.empty() ? "-" : record.parent_id) << '\n'
+                      << "  type: " << rbfsafe::service_trust_rotation_event_type_name(record.type) << '\n'
+                      << "  bundle: " << record.bundle_id << '\n';
+            if (record.authorization) {
+                std::cout << "  authorization: " << record.authorization->id << '\n'
+                          << "  signer service: " << record.authorization->signer_service_id << '\n'
+                          << "  signer key: " << record.authorization->signer_key_id << '\n';
+            }
+        }
+        std::cout << "caller pinned: true\n"
+                  << "expected head verified: true\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (argc >= 3) {
         auto lifecycle_profile = rbfsafe::PolicyCalibrationProfile::load(std::filesystem::path(argv[2]));
@@ -143,7 +196,7 @@ int main(int argc, char** argv) {
             return 2;
         }
         std::cout << "RBF-Safe service trust bundle\n"
-                  << "schema: 1\n"
+                  << "schema: " << trust_bundle.value().storage_schema() << '\n'
                   << "bundle: " << trust_bundle.value().id() << '\n'
                   << "sequence: " << trust_bundle.value().sequence() << '\n'
                   << "parent: "
@@ -162,7 +215,7 @@ int main(int argc, char** argv) {
             else
                 std::cout << key.valid_through_sequence << '\n';
             std::cout << "  operations:" << (key.allow_fetch ? " fetch" : "")
-                      << (key.allow_publish ? " publish" : "") << '\n';
+                      << (key.allow_publish ? " publish" : "") << (key.allow_rotate ? " rotate" : "") << '\n';
         }
         std::cout << "caller pinned: false\n"
                   << "runtime executable: false\n";

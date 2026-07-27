@@ -75,19 +75,26 @@
   attestations; explicit unauthenticated mode; verified-transfer metadata;
   expected-head audit journals; bounded schema-1 persistence; and
   C++/Python/inspection tooling.
-- **v3.7 (current) - Public-key service identities:** RFC 8032 Ed25519
+- **v3.7 - Public-key service identities:** RFC 8032 Ed25519
   service signing; caller-pinned deterministic public trust bundles;
   pending/active/retired/revoked key policy; operation and service-sequence
   constraints; monotonic parent-linked rotation; offline fetch/publication
   verification; schema-2 transfer journals with public provenance; bounded
   schema-1 bundle persistence; fixed fixtures; and C++/Python/inspection
   tooling. HMAC and unauthenticated 3.6 identities remain compatible.
+- **v3.8 (current) - Authorized trust rotation:** exact-successor Ed25519
+  authorization by explicitly rotation-capable active keys; schema-2 public
+  trust bundles; immutable schema-1 local trust histories; caller-pinned root
+  and caller-retained expected-head checks; cross-process publication;
+  bounded deterministic replay; historical bundle lookup; fixed fixtures; and
+  C++/Python/inspection tooling. A local history alone cannot detect rollback
+  of its complete directory without the external expected-head anchor.
 
 ## Continued product hardening
 
-- **v3.8 candidate:** signed trust-bundle successor authorization,
-  expected-head rollback-resistant local trust history, and replayable
-  rotation audit while retaining an explicitly caller-pinned root.
+- **v3.9 candidate:** externally exportable signed trust checkpoints and
+  explicit multi-signer/quorum rotation policy without adding network trust
+  discovery or silently replacing caller-managed anchors.
 - **later v3.x:** execution evidence only for separately modeled and reviewed
   deployment profiles.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,

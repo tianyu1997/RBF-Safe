@@ -28,9 +28,10 @@ rbfsafe::MemoryArtifactInput artifact_input() {
 
 int main(int argc, char** argv) {
     using namespace rbfsafe;
-    if (argc != 3) {
+    if (argc != 4) {
         std::cerr << "usage: rbfsafe_public_identity_quickstart "
-                     "<new-trust-bundle-file> <new-transfer-journal-directory>\n";
+                     "<new-root-bundle-file> <new-transfer-journal-directory> "
+                     "<new-trust-history-directory>\n";
         return 2;
     }
 
@@ -43,7 +44,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     auto service_key = make_service_public_key("artifact-service", key_pair.value().public_key, 1, 0,
-                                               ServiceKeyState::Active);
+                                               ServiceKeyState::Active, true, true, true);
     if (!service_key) {
         std::cerr << service_key.error().describe() << '\n';
         return 1;
@@ -103,6 +104,48 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    std::array<std::byte, kEd25519SeedBytes> successor_seed{};
+    for (std::size_t index = 0; index < successor_seed.size(); ++index)
+        successor_seed[index] = static_cast<std::byte>(index + 33);
+    auto successor_pair = ed25519_key_pair_from_seed(successor_seed);
+    if (!successor_pair) {
+        std::cerr << successor_pair.error().describe() << '\n';
+        return 1;
+    }
+    auto successor_key = make_service_public_key("artifact-service", successor_pair.value().public_key, 2, 0,
+                                                 ServiceKeyState::Active, true, true, true);
+    if (!successor_key) {
+        std::cerr << successor_key.error().describe() << '\n';
+        return 1;
+    }
+    auto retired_key = service_key.value();
+    retired_key.state = ServiceKeyState::Retired;
+    retired_key.valid_through_sequence = 1;
+    auto successor = rotate_service_trust_bundle(trust_bundle.value(), {retired_key, successor_key.value()});
+    if (!successor) {
+        std::cerr << successor.error().describe() << '\n';
+        return 1;
+    }
+    auto authorization = authorize_service_trust_bundle_successor(
+        trust_bundle.value(), successor.value(), service_key.value().service_id, service_key.value().id,
+        key_pair.value().secret_key);
+    if (!authorization) {
+        std::cerr << authorization.error().describe() << '\n';
+        return 1;
+    }
+    auto history = ServiceTrustHistory::create(std::filesystem::path(argv[3]), trust_bundle.value(),
+                                               trust_bundle.value().id());
+    if (!history) {
+        std::cerr << history.error().describe() << '\n';
+        return 1;
+    }
+    auto rotation =
+        history.value().publish(successor.value(), authorization.value(), trust_bundle.value().id());
+    if (!rotation) {
+        std::cerr << rotation.error().describe() << '\n';
+        return 1;
+    }
+
     std::cout << "key=" << service_key.value().id << '\n'
               << "bundle=" << trust_bundle.value().id() << '\n'
               << "request=" << request.value().id << '\n'
@@ -110,6 +153,9 @@ int main(int argc, char** argv) {
               << "attestation=" << receipt.value().service_attestation->id << '\n'
               << "transfer=" << verified.value().id << '\n'
               << "record=" << record.value().id << '\n'
+              << "authorization=" << authorization.value().id << '\n'
+              << "rotation=" << rotation.value().id << '\n'
+              << "trust_head=" << history.value().current_bundle_id() << '\n'
               << "authentication=ed25519\n"
               << "runtime_executable=false\n";
     return 0;

@@ -15,7 +15,9 @@ parent-linked calibration lifecycle, and expected-head guarded gating. Version
 3.6 adds the transport-neutral `RBFSafe::remote` contract, request-bound
 service authentication, and transfer journals. Version 3.7 adds
 `RBFSafe::identity`, caller-pinned Ed25519 service trust, monotonic key
-rotation, and offline transfer verification.
+rotation, and offline transfer verification. Version 3.8 adds explicit
+rotation authority, exact-successor signatures, schema-2 trust bundles, and
+expected-head guarded replayable trust histories.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
@@ -160,6 +162,22 @@ service-sequence windows, and a deterministic sequence/parent identity.
 Private keys are never stored. Bundle identity verifies integrity but does not
 authorize a root; the caller must pin or otherwise approve it out of band.
 
+The v3.8 service-trust-bundle writer emits schema 2 for new roots and
+successors. Plain save of a loaded schema-1 object preserves schema 1 and its
+historical ID. Schema 2 adds an immutable `allow_rotate` permission to each
+complete key-policy record and bundle identity. The reader accepts schemas 1
+and 2; schema-1 keys load with rotation disabled and cannot silently authorize
+a successor or initialize a signed history.
+
+The v3.8 service-trust-history schema 1 is an independent immutable directory
+of complete schema-2 bundles and signed rotation records. Replay verifies the
+caller-pinned root, strict record/bundle parent chains, every monotonic key
+transition, and every exact-successor Ed25519 signature under bounded resource
+and cancellation limits. Publication uses expected-head optimistic
+concurrency and cross-process exclusion. A caller-retained expected head is
+required to detect restoration of the entire directory to an older
+self-consistent state.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -186,7 +204,8 @@ For identical inputs, options, schema, and library version, region IDs, region
 order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
-calibration-lifecycle/artifact-transfer-journal/service-trust-bundle fixtures,
+calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
+service-trust-history fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

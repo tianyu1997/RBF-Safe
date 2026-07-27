@@ -32,6 +32,7 @@ from . import (
     SceneSnapshot,
     SerialRobotModel,
     ServiceTrustBundle,
+    ServiceTrustHistory,
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
@@ -48,6 +49,7 @@ from . import (
     policy_calibration_drift_status_name,
     policy_calibration_lifecycle_state_name,
     service_key_state_name,
+    service_trust_rotation_event_type_name,
     verify_artifact_file,
 )
 
@@ -143,6 +145,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hmac-key-file", type=Path, help="external HMAC key used to verify an attestation")
     parser.add_argument("--expected-service-id", help="trusted service ID for attestation verification")
     parser.add_argument("--expected-key-id", help="trusted key ID for attestation verification")
+    parser.add_argument(
+        "--expected-trust-root",
+        help="caller-pinned root bundle ID required for a service trust history",
+    )
+    parser.add_argument(
+        "--expected-trust-head",
+        help="caller-retained current bundle ID required for a service trust history",
+    )
     parser.add_argument(
         "--policy-confidence",
         type=float,
@@ -264,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
             args.fleet_schedule_version,
             args.policy_confidence,
             args.calibration_profile,
+            args.expected_trust_root,
+            args.expected_trust_head,
             *attestation_arguments,
         )
         if (
@@ -277,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
                 "apply to service trust bundles"
             )
         bundle = ServiceTrustBundle.load(args.atlas)
-        print("RBF-Safe service-trust-bundle schema=1")
+        print(f"RBF-Safe service-trust-bundle schema={bundle.storage_schema}")
         print(
             f"bundle={bundle.id} sequence={bundle.sequence} "
             f"parent={bundle.parent_id or '-'} keys={len(bundle.keys)}"
@@ -290,7 +302,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"state={service_key_state_name(key.state)} "
                 f"sequences={key.valid_from_sequence}:{upper} "
                 f"fetch={str(key.allow_fetch).lower()} "
-                f"publish={str(key.allow_publish).lower()}"
+                f"publish={str(key.allow_publish).lower()} "
+                f"rotate={str(key.allow_rotate).lower()}"
             )
         print("caller_pinned=false")
         print("runtime_executable=false")
@@ -519,6 +532,80 @@ def main(argv: list[str] | None = None) -> int:
         store_manifest = {}
     feedback_filters = (args.policy_id, args.task_id, args.episode_id, args.feedback_label)
     memory_filters = (args.deployment_id, args.memory_state, args.artifact_type, args.memory_revision)
+    trust_expectations = (args.expected_trust_root, args.expected_trust_head)
+    if manifest.get("format") == "rbfsafe-service-trust-history":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+            args.policy_confidence,
+            args.calibration_profile,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error(
+                "Atlas, memory, fleet, policy, and query options do not apply "
+                "to service trust histories"
+            )
+        if args.expected_trust_root is None or args.expected_trust_head is None:
+            parser.error(
+                "--expected-trust-root and --expected-trust-head are required "
+                "for a service trust history"
+            )
+        history = ServiceTrustHistory.open(
+            args.atlas, args.expected_trust_root, args.expected_trust_head
+        )
+        print("RBF-Safe service-trust-history schema=1")
+        print(
+            f"records={len(history.records)} root={history.root_bundle_id} "
+            f"head={history.current_bundle_id}"
+        )
+        for record in history.records:
+            line = (
+                f"rotation={record.id} sequence={record.sequence} "
+                f"parent={record.parent_id or '-'} "
+                f"type={service_trust_rotation_event_type_name(record.type)} "
+                f"bundle={record.bundle_id}"
+            )
+            if record.authorization is not None:
+                line += (
+                    f" authorization={record.authorization.id} "
+                    f"signer_service={record.authorization.signer_service_id} "
+                    f"signer_key={record.authorization.signer_key_id}"
+                )
+            print(line)
+        print("caller_pinned=true")
+        print("expected_head_verified=true")
+        print("runtime_executable=false")
+        return 0
+    if any(value is not None for value in trust_expectations):
+        parser.error(
+            "--expected-trust-root and --expected-trust-head require a service trust history"
+        )
     if manifest.get("format") == "rbfsafe-artifact-transfer-journal":
         unsupported = (
             args.plot,

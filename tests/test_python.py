@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.7.0"
+    assert rbfsafe.__version__ == "3.8.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -1124,9 +1124,14 @@ def test_public_service_identity_and_offline_verification(
         1,
         0,
         rbfsafe.ServiceKeyState.ACTIVE,
+        True,
+        True,
+        True,
     )
     assert rbfsafe.valid_service_public_key(service_key)
+    assert service_key.allow_rotate
     bundle = rbfsafe.ServiceTrustBundle.create(1, "", [service_key])
+    assert bundle.storage_schema == 2
 
     request = rbfsafe.prepare_artifact_publish(
         memory,
@@ -1179,6 +1184,56 @@ def test_public_service_identity_and_offline_verification(
     assert loaded_bundle.id == bundle.id
     assert loaded_bundle.key("artifact-service", service_key.id).id == service_key.id
 
+    successor_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(33, 65)))
+    retired_key = rbfsafe.make_service_public_key(
+        "artifact-service",
+        key_pair.public_key,
+        1,
+        1,
+        rbfsafe.ServiceKeyState.RETIRED,
+        True,
+        True,
+        True,
+    )
+    successor_key = rbfsafe.make_service_public_key(
+        "artifact-service",
+        successor_pair.public_key,
+        2,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        True,
+        True,
+        True,
+    )
+    successor = rbfsafe.rotate_service_trust_bundle(
+        bundle, [retired_key, successor_key]
+    )
+    authorization = rbfsafe.authorize_service_trust_bundle_successor(
+        bundle,
+        successor,
+        service_key.service_id,
+        service_key.id,
+        key_pair.secret_key,
+    )
+    assert rbfsafe.valid_service_trust_bundle_authorization(authorization)
+    rbfsafe.verify_service_trust_bundle_successor(bundle, successor, authorization)
+    history_path = tmp_path / "service-trust-history"
+    history = rbfsafe.ServiceTrustHistory.create(history_path, bundle, bundle.id)
+    record = history.publish(successor, authorization, bundle.id)
+    assert (
+        record.type
+        == rbfsafe.ServiceTrustRotationEventType.SUCCESSOR_AUTHORIZED
+    )
+    assert history.current_bundle_id == successor.id
+    loaded_history = rbfsafe.ServiceTrustHistory.open(
+        history_path, bundle.id, successor.id
+    )
+    assert loaded_history.valid()
+    assert len(loaded_history.records) == 2
+    assert loaded_history.current_bundle().id == successor.id
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.ServiceTrustHistory.open(history_path, bundle.id, bundle.id)
+
     journal = rbfsafe.ArtifactTransferJournal()
     journal.append(verified, "")
     journal_path = tmp_path / "public-transfer-journal"
@@ -1194,6 +1249,25 @@ def test_public_service_identity_and_offline_verification(
         fixed_bundle.id
         == "b6f6e30bc2245e64a519c8a02e61063bdf2fe1d8dc5ee35d980f46e1e4aa584d"
     )
+    assert fixed_bundle.storage_schema == 1
+    assert not fixed_bundle.keys[0].allow_rotate
+    fixed_schema2_bundle = rbfsafe.ServiceTrustBundle.load(
+        data_root / "service_trust_bundle_schema2" / "bundle.json"
+    )
+    assert (
+        fixed_schema2_bundle.id
+        == "9e30c7b54a023db15fdb3751592e4291f6714f1751183860e1013d486c0357bd"
+    )
+    fixed_history = rbfsafe.ServiceTrustHistory.open(
+        data_root / "service_trust_history_schema1",
+        "9e30c7b54a023db15fdb3751592e4291f6714f1751183860e1013d486c0357bd",
+        "4c119f290036039ce28f4c8b8d8db572a7950cdf28e907153ef4c02445afad3b",
+    )
+    assert len(fixed_history.records) == 2
+    assert (
+        fixed_history.records[1].authorization.id
+        == "68debbfc4156e5c829d641e5b9ed4aeab04174454d655d5558783f81fc8711d3"
+    )
     fixed_journal = rbfsafe.ArtifactTransferJournal.load(
         data_root / "artifact_transfer_journal_schema2"
     )
@@ -1203,10 +1277,54 @@ def test_public_service_identity_and_offline_verification(
 
     assert main([str(bundle_path)]) == 0
     bundle_output = capsys.readouterr().out
-    assert "RBF-Safe service-trust-bundle schema=1" in bundle_output
+    assert "RBF-Safe service-trust-bundle schema=2" in bundle_output
     assert "state=active" in bundle_output
     assert "algorithm=ed25519" in bundle_output
     assert "caller_pinned=false" in bundle_output
+    assert "rotate=true" in bundle_output
+    assert (
+        main(
+            [
+                str(history_path),
+                "--expected-trust-root",
+                bundle.id,
+                "--expected-trust-head",
+                successor.id,
+            ]
+        )
+        == 0
+    )
+    history_output = capsys.readouterr().out
+    assert "RBF-Safe service-trust-history schema=1" in history_output
+    assert "records=2" in history_output
+    assert f"root={bundle.id}" in history_output
+    assert f"head={successor.id}" in history_output
+    assert "type=successor_authorized" in history_output
+    with pytest.raises(SystemExit):
+        main([str(history_path)])
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        main(
+            [
+                str(history_path),
+                "--expected-trust-root",
+                bundle.id,
+                "--expected-trust-head",
+                bundle.id,
+            ]
+        )
+    assert (
+        main(
+            [
+                str(data_root / "service_trust_history_schema1"),
+                "--expected-trust-root",
+                fixed_history.root_bundle_id,
+                "--expected-trust-head",
+                fixed_history.current_bundle_id,
+            ]
+        )
+        == 0
+    )
+    assert "records=2" in capsys.readouterr().out
     assert main([str(journal_path)]) == 0
     journal_output = capsys.readouterr().out
     assert "RBF-Safe artifact-transfer-journal schema=2" in journal_output

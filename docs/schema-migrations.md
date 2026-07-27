@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.7 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.8 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.7 |
+| Format | Read | Write | Migration in 3.8 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -21,7 +21,8 @@ RapidBoxForest cache as RBF-Safe data.
 | Policy calibration profile | 1 | 1 | Independent empirical record; no uncalibrated metadata is upgraded implicitly |
 | Policy calibration lifecycle | 1 | 1 | Independent monitoring history; no profile or feedback is treated as operational review |
 | Artifact transfer journal | 1, 2 | 2 | Schema 1 loads unchanged; public-key provenance cannot be inferred |
-| Service trust bundle | 1 | 1 | Independent public trust policy; HMAC key IDs are not converted |
+| Service trust bundle | 1, 2 | 2 for new/rotation; preserve loaded 1 on plain save | Schema 1 loads with `allow_rotate=false`; no root authority is inferred |
+| Service trust history | 1 | 1 | New signed history; schema-1 bundles cannot become roots implicitly |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -58,7 +59,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.7 remain available throughout 3.x.
+- Readers for schemas supported by 3.8 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -123,9 +124,24 @@ those fields remain empty. To obtain public-key provenance, repeat the
 exchange through an Ed25519 request and offline verification against an
 explicitly authorized trust bundle, then append the new verified transfer.
 
-Service-trust-bundle schema 1 is specified in
+Service-trust-bundle schemas 1 and 2 are specified in
 [Service trust bundles](service-trust-bundle-format.md). There is no implicit
 migration from an HMAC key ID: symmetric key possession does not identify an
 Ed25519 public key or authorize a trust root. Generate and govern a new
 public/private key pair, create a caller-pinned root bundle through an
 authenticated out-of-band process, and activate it deliberately.
+
+The 3.8 reader preserves schema-1 bundle IDs and assigns every loaded legacy
+key `allow_rotate=false`. New bundles and successors write schema 2, whose
+identity binds the new rotation permission. No operation/state heuristic may
+upgrade a schema-1 key into a rotation authority. Deployments adopting signed
+rotation must create and authenticate a distinct schema-2 root and pin it
+deliberately.
+
+Service-trust-history schema 1 is specified in
+[Service trust histories](service-trust-history-format.md). It is a new
+directory format containing complete schema-2 bundles and signed rotation
+records. There is no implicit import of standalone bundles or parent-linked
+but unsigned schema-1 rotations. A caller creates a history only from an exact
+out-of-band-pinned schema-2 root and retains each accepted head outside the
+history rollback domain.

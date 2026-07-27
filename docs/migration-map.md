@@ -16,4 +16,5 @@ no source, build, runtime, or data-format dependency on it.
 | Scene versions, invalidation, and repair concepts | Re-derived in v0.6 | New obstacle-ID deltas, subject-bound lineage, link-envelope dependencies, local LECT repair, and immutable version store |
 | Remote artifact service and transfer audit | New in v3.6 | Transport-neutral exact-byte/lifecycle contract and request-bound authentication; no RapidBoxForest network, cache, or journal code migrated |
 | Public-key service identities and trust bundles | New in v3.7 | Repository-local identity/rotation/offline-verification design plus unmodified, attributed Monocypher 4.0.2 Ed25519 primitive; no RapidBoxForest identity or crypto code migrated |
+| Signed trust successors and local trust histories | New in v3.8 | Repository-local authorization, expected-head publication, bounded replay, and persistence design; no RapidBoxForest trust-history code migrated |
 | Experiments, manuscript and generated outputs | Excluded | Remain in RapidBoxForest |

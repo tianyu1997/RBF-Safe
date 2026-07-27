@@ -102,6 +102,10 @@ verify it with `verify_artifact_fetch_offline` or
 caller-pinned `ServiceTrustBundle`. The public-key path preserves the 3.6
 exchange checks and records the selected verification-key and trust-bundle
 IDs. See [public-key service identities](public-service-identities.md).
+RBF-Safe 3.8 additionally permits a caller-pinned schema-2 predecessor to
+authorize an exact successor and records those transitions in an
+expected-head guarded local history. The transport adapter still owns
+root/head distribution and retention.
 
 ## Transport adapter responsibilities
 
@@ -139,6 +143,8 @@ RBF-Safe does not claim TUF, SLSA, or NIST conformance.
 
 Threshold trust, certificate chains, remote key discovery, TLS, endpoints,
 credentials, and concrete network clients remain outside the library. Public
-keys are authorized only through caller-pinned trust bundles; accepting a
-bundle solely because its self-declared hash is internally consistent is not
-authentication.
+roots are authorized only through caller pins; later schema-2 bundles may be
+authorized by replaying signed successors from that root. Accepting any root
+solely because its self-declared hash is internally consistent is not
+authentication, and local replay cannot detect whole-directory rollback
+without a separately retained expected head.
