@@ -32,6 +32,7 @@ from . import (
     SceneSnapshot,
     SerialRobotModel,
     ServiceTrustBundle,
+    ServiceTrustCheckpoint,
     ServiceTrustHistory,
     TrajectoryAuditor,
     TrajectoryAuditOptions,
@@ -154,6 +155,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="caller-retained current bundle ID required for a service trust history",
     )
     parser.add_argument(
+        "--trust-checkpoint",
+        type=Path,
+        help="signed checkpoint used to verify a service trust history",
+    )
+    parser.add_argument(
+        "--trust-history",
+        type=Path,
+        help="service trust-history directory used to verify a checkpoint file",
+    )
+    parser.add_argument(
+        "--expected-trust-checkpoint",
+        help="caller-retained checkpoint ID required for checkpoint verification",
+    )
+    parser.add_argument(
         "--policy-confidence",
         type=float,
         help="raw confidence to map through a policy-calibration profile",
@@ -247,6 +262,89 @@ def main(argv: list[str] | None = None) -> int:
         args.expected_service_id,
         args.expected_key_id,
     )
+    trust_arguments = (
+        args.expected_trust_root,
+        args.expected_trust_head,
+        args.trust_checkpoint,
+        args.trust_history,
+        args.expected_trust_checkpoint,
+    )
+    if file_document.get("format") == "rbfsafe-service-trust-checkpoint":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+            args.policy_confidence,
+            args.calibration_profile,
+            args.expected_trust_head,
+            args.trust_checkpoint,
+            *attestation_arguments,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error(
+                "Atlas, memory, policy, attestation, and query options do not "
+                "apply to service trust checkpoints"
+            )
+        if (
+            args.expected_trust_root is None
+            or args.trust_history is None
+            or args.expected_trust_checkpoint is None
+        ):
+            parser.error(
+                "--expected-trust-root, --trust-history, and "
+                "--expected-trust-checkpoint are required for a trust checkpoint"
+            )
+        checkpoint = ServiceTrustCheckpoint.load(args.atlas)
+        history = ServiceTrustHistory.open(
+            args.trust_history,
+            args.expected_trust_root,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        print(
+            f"RBF-Safe service-trust-checkpoint schema={checkpoint.storage_schema}"
+        )
+        print(
+            f"checkpoint={checkpoint.id} root={checkpoint.root_bundle_id} "
+            f"head={checkpoint.head_bundle_id} sequence={checkpoint.head_sequence} "
+            f"record={checkpoint.head_record_id} signatures={len(checkpoint.signatures)}"
+        )
+        for signature in checkpoint.signatures:
+            print(
+                f"signer_service={signature.signer_service_id} "
+                f"signer_key={signature.signer_key_id} "
+                f"algorithm={artifact_authentication_algorithm_name(signature.algorithm)}"
+            )
+        print(f"history_schema={history.storage_schema}")
+        print("caller_pinned=true")
+        print("checkpoint_verified=true")
+        print("runtime_executable=false")
+        return 0
     if file_document.get("format") == "rbfsafe-service-trust-bundle":
         unsupported = (
             args.plot,
@@ -274,9 +372,8 @@ def main(argv: list[str] | None = None) -> int:
             args.fleet_schedule_version,
             args.policy_confidence,
             args.calibration_profile,
-            args.expected_trust_root,
-            args.expected_trust_head,
             *attestation_arguments,
+            *trust_arguments,
         )
         if (
             any(value is not None for value in unsupported)
@@ -293,6 +390,11 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"bundle={bundle.id} sequence={bundle.sequence} "
             f"parent={bundle.parent_id or '-'} keys={len(bundle.keys)}"
+        )
+        print(
+            f"rotation_minimum_signatures={bundle.rotation_policy.minimum_signatures} "
+            f"rotation_distinct_services="
+            f"{str(bundle.rotation_policy.require_distinct_services).lower()}"
         )
         for key in bundle.keys:
             upper = key.valid_through_sequence or "-"
@@ -532,7 +634,6 @@ def main(argv: list[str] | None = None) -> int:
         store_manifest = {}
     feedback_filters = (args.policy_id, args.task_id, args.episode_id, args.feedback_label)
     memory_filters = (args.deployment_id, args.memory_state, args.artifact_type, args.memory_revision)
-    trust_expectations = (args.expected_trust_root, args.expected_trust_head)
     if manifest.get("format") == "rbfsafe-service-trust-history":
         unsupported = (
             args.plot,
@@ -560,6 +661,7 @@ def main(argv: list[str] | None = None) -> int:
             args.fleet_schedule_version,
             args.policy_confidence,
             args.calibration_profile,
+            args.trust_history,
         )
         if (
             any(value is not None for value in unsupported)
@@ -571,15 +673,43 @@ def main(argv: list[str] | None = None) -> int:
                 "Atlas, memory, fleet, policy, and query options do not apply "
                 "to service trust histories"
             )
-        if args.expected_trust_root is None or args.expected_trust_head is None:
+        if args.expected_trust_root is None:
             parser.error(
-                "--expected-trust-root and --expected-trust-head are required "
-                "for a service trust history"
+                "--expected-trust-root is required for a service trust history"
             )
-        history = ServiceTrustHistory.open(
-            args.atlas, args.expected_trust_root, args.expected_trust_head
+        checkpoint_verified = False
+        if args.trust_checkpoint is not None:
+            if (
+                args.expected_trust_checkpoint is None
+                or args.expected_trust_head is not None
+            ):
+                parser.error(
+                    "--trust-checkpoint requires --expected-trust-checkpoint "
+                    "and cannot be combined with --expected-trust-head"
+                )
+            checkpoint = ServiceTrustCheckpoint.load(args.trust_checkpoint)
+            history = ServiceTrustHistory.open(
+                args.atlas,
+                args.expected_trust_root,
+                checkpoint,
+                args.expected_trust_checkpoint,
+            )
+            checkpoint_verified = True
+        else:
+            if (
+                args.expected_trust_head is None
+                or args.expected_trust_checkpoint is not None
+            ):
+                parser.error(
+                    "--expected-trust-head is required when no trust checkpoint "
+                    "is supplied"
+                )
+            history = ServiceTrustHistory.open(
+                args.atlas, args.expected_trust_root, args.expected_trust_head
+            )
+        print(
+            f"RBF-Safe service-trust-history schema={history.storage_schema}"
         )
-        print("RBF-Safe service-trust-history schema=1")
         print(
             f"records={len(history.records)} root={history.root_bundle_id} "
             f"head={history.current_bundle_id}"
@@ -598,13 +728,25 @@ def main(argv: list[str] | None = None) -> int:
                     f"signer_key={record.authorization.signer_key_id}"
                 )
             print(line)
+            if record.authorization_set is not None:
+                print(
+                    f"  authorization_set={record.authorization_set.id} "
+                    f"signatures={len(record.authorization_set.authorizations)}"
+                )
+                for authorization in record.authorization_set.authorizations:
+                    print(
+                        f"  signer_service={authorization.signer_service_id} "
+                        f"signer_key={authorization.signer_key_id}"
+                    )
         print("caller_pinned=true")
         print("expected_head_verified=true")
+        print(f"checkpoint_verified={str(checkpoint_verified).lower()}")
         print("runtime_executable=false")
         return 0
-    if any(value is not None for value in trust_expectations):
+    if any(value is not None for value in trust_arguments):
         parser.error(
-            "--expected-trust-root and --expected-trust-head require a service trust history"
+            "trust-root, head, history, and checkpoint options require a service "
+            "trust history or checkpoint"
         )
     if manifest.get("format") == "rbfsafe-artifact-transfer-journal":
         unsupported = (

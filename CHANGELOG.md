@@ -3,6 +3,29 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.9.0] - 2026-07-27
+
+### Added
+
+- Explicit schema-3 trust-bundle rotation policy with an immutable signature
+  threshold and optional distinct-service quorum.
+- Canonical multi-signer successor authorization sets and schema-2 trust
+  histories that replay them without changing schema-1 single-signer history.
+- Exportable Ed25519-signed trust checkpoints, bounded standalone persistence,
+  caller-pinned checkpoint verification, and C++/Python/native inspection.
+- Cross-language quickstarts, fixed schema-3 bundle/schema-2 history/schema-1
+  checkpoint fixtures, and quorum, tamper, rollback, duplicate-signer, wrong-key,
+  and resource-limit regressions.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.9.0. Bundle schemas 1/2 and history schema 1 remain readable and
+  are never implicitly upgraded to quorum policy.
+- The release benchmark now exercises a 2-of-2 rotation and signed checkpoint
+  and binds authorization, checkpoint-signature, and checkpoint counts into its
+  logical digest.
+
 ## [3.8.0] - 2026-07-27
 
 ### Added

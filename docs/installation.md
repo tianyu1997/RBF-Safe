@@ -94,12 +94,13 @@ cloud SDK dependency. Network adapters, endpoints, credentials, and keys
 remain application-owned.
 
 `RBFSafe::identity` adds portable RFC 8032 Ed25519 service signatures,
-caller-pinned public trust bundles, signed monotonic key rotation,
-expected-head guarded local trust histories, and offline transfer
-verification. It vendors the Monocypher source listed in
+caller-pinned public trust bundles, signed single/quorum monotonic key
+rotation, expected-head or signed-checkpoint guarded local trust histories,
+and offline transfer verification. It vendors the Monocypher source listed in
 `THIRD_PARTY_NOTICES.md`; no OpenSSL or platform crypto SDK is added to the
-public package contract. Private-key storage, root/head distribution, and
-retention outside a rollback domain remain application-owned.
+public package contract. Private-key storage, root/head/checkpoint
+distribution, and retention outside a rollback domain remain
+application-owned.
 
 `RBFSafe::policy` also provides policy-calibration profiles and calibrated
 gating. In 3.5 it additionally provides aggregate operational drift

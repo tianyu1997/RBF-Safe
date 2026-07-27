@@ -4,7 +4,9 @@ RBF-Safe 3.7 added `RBFSafe::identity`, caller-pinned Ed25519 service
 identities, monotonic trust-bundle structure, and offline verification for the
 transport-neutral artifact exchanges introduced in 3.6. RBF-Safe 3.8 adds
 explicit rotation permission, exact-successor signatures, and replayable local
-trust history. It preserves every memory, lifecycle, request, response, byte,
+trust history. RBF-Safe 3.9 adds explicit multi-signer rotation policy,
+canonical authorization sets, schema-2 quorum histories, and portable signed
+head checkpoints. It preserves every memory, lifecycle, request, response, byte,
 media-type, sequence, resource, and cancellation check from the HMAC path.
 
 The implementation follows [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032.html)
@@ -34,9 +36,15 @@ both sequences, and the signer service/key IDs. This proves that the pinned
 predecessor key authorized that exact successor; it does not make the original
 root self-authenticating.
 
+Schema-3 bundles additionally bind an immutable minimum-signature count and an
+optional distinct-service requirement. Every authorization remains an
+ordinary independently verified Ed25519 signature; RBF-Safe does not
+implement a threshold-signature cryptosystem or distributed consensus.
+
 RBF-Safe does not implement a certificate authority, Web PKI, transparency
-log, remote key discovery, threshold signatures, or trust-on-first-use. It
-does not fetch successor bundles or publish a caller's head anchor.
+log, remote key discovery, network checkpoint distribution, or
+trust-on-first-use. It does not fetch successor bundles or select a caller's
+newest head/checkpoint anchor.
 Distribution, root approval, expected-head retention, and organizational
 authorization policy stay with the deployment.
 
@@ -72,6 +80,12 @@ This is a linear local rotation contract, not distributed consensus.
 Schema-1 bundles load with `allow_rotate=false`; RBF-Safe refuses to infer
 rotation authority or initialize a signed history from them.
 
+`ServiceTrustBundle::create_with_rotation_policy` creates a schema-3 root.
+`assemble_service_trust_bundle_authorizations` canonicalizes independent
+signatures, rejects duplicate keys, and enforces both signature and service
+quorums. Rotation preserves the predecessor schema and policy exactly; old
+schemas are never auto-upgraded.
+
 ## Trust-history workflow
 
 ```cpp
@@ -98,6 +112,52 @@ to an older self-consistent copy, RBF-Safe detects it only when the caller has
 retained and supplies the newer expected head. Keeping root and head beside
 the history and rolling all three back together provides no rollback
 resistance.
+
+For a schema-3 root, sign the exact successor independently and publish its
+canonical authorization set:
+
+```cpp
+auto first = authorize_service_trust_bundle_successor(
+    root, successor, service_key.service_id, service_key.id, service_secret);
+auto second = authorize_service_trust_bundle_successor(
+    root, successor, governance_key.service_id, governance_key.id,
+    governance_secret);
+auto authorizations = assemble_service_trust_bundle_authorizations(
+    root, successor, {second.value(), first.value()});
+history.value().publish(
+    successor, authorizations.value(), root.id());
+```
+
+The resulting history uses schema 2. It replays the full authorization set and
+applies per-rotation signature limits in addition to the existing bundle,
+aggregate-key, byte, and cancellation limits.
+
+## Signed checkpoint workflow
+
+After replaying the current history, authorized head keys can sign a portable
+checkpoint:
+
+```cpp
+auto first = sign_service_trust_checkpoint(
+    history.value(), service_key.service_id, service_key.id, service_secret);
+auto second = sign_service_trust_checkpoint(
+    history.value(), governance_key.service_id, governance_key.id,
+    governance_secret);
+auto checkpoint = assemble_service_trust_checkpoint(
+    history.value(), {second.value(), first.value()});
+checkpoint.value().save("trust-checkpoint.json");
+
+auto retained = ServiceTrustCheckpoint::load("trust-checkpoint.json");
+auto replayed = ServiceTrustHistory::open(
+    "service-trust-history", caller_pinned_root_id, retained.value(),
+    caller_pinned_checkpoint_id);
+```
+
+The signature message binds the exact root, head bundle, head sequence, and
+head record. Verification requires the caller's separately retained root and
+checkpoint ID. A signed checkpoint is not self-freshening: an older signed
+checkpoint remains valid unless a newer expected checkpoint ID is retained
+outside the rollback domain.
 
 ## Offline publication verification
 
@@ -145,17 +205,25 @@ operator authorization.
 
 Successful offline verification proves that the pinned public key signed the
 declared exchange and that the exact current catalog/lifecycle/byte checks
-passed. A verified successor additionally proves authorization by one
-declared rotation-capable key in the pinned predecessor. It does not:
+passed. A verified successor additionally proves the predecessor's configured
+rotation quorum authorized that exact transition. A verified checkpoint proves
+that the configured current-head quorum signed its exact history position. It
+does not:
 
 - interpret or semantically validate the payload;
 - show that the original root was authorized unless it was pinned correctly;
-- prove freshness beyond caller-managed request/service sequences;
-- prove whole-directory freshness without a caller-retained expected head;
-- provide quorum, transparency-log, certificate-authority, or remote-discovery
-  semantics;
+- prove freshness beyond caller-managed request/service sequences and retained
+  head/checkpoint IDs;
+- prove whole-directory freshness when all anchors are rolled back together;
+- provide transparency-log, certificate-authority, remote-discovery, or
+  threshold-cryptography semantics;
 - provide non-repudiation as a legal or organizational conclusion; or
 - upgrade certificate evidence or authorize robot execution.
 
 Load transferred bytes with their artifact-specific validating reader and
 repeat ordinary robot/scene compatibility checks before reuse.
+
+See the [trust-bundle format](service-trust-bundle-format.md),
+[trust-history format](service-trust-history-format.md), and
+[trust-checkpoint format](service-trust-checkpoint-format.md) for canonical
+fields, fixed IDs, limits, and migration boundaries.

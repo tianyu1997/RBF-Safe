@@ -28,10 +28,10 @@ rbfsafe::MemoryArtifactInput artifact_input() {
 
 int main(int argc, char** argv) {
     using namespace rbfsafe;
-    if (argc != 4) {
+    if (argc != 5) {
         std::cerr << "usage: rbfsafe_public_identity_quickstart "
                      "<new-root-bundle-file> <new-transfer-journal-directory> "
-                     "<new-trust-history-directory>\n";
+                     "<new-trust-history-directory> <new-checkpoint-file>\n";
         return 2;
     }
 
@@ -49,7 +49,25 @@ int main(int argc, char** argv) {
         std::cerr << service_key.error().describe() << '\n';
         return 1;
     }
-    auto trust_bundle = ServiceTrustBundle::create(1, "", {service_key.value()});
+    std::array<std::byte, kEd25519SeedBytes> governance_seed{};
+    for (std::size_t index = 0; index < governance_seed.size(); ++index)
+        governance_seed[index] = static_cast<std::byte>(index + 33);
+    auto governance_pair = ed25519_key_pair_from_seed(governance_seed);
+    if (!governance_pair) {
+        std::cerr << governance_pair.error().describe() << '\n';
+        return 1;
+    }
+    auto governance_key = make_service_public_key("rotation-governance", governance_pair.value().public_key,
+                                                  1, 0, ServiceKeyState::Active, false, false, true);
+    if (!governance_key) {
+        std::cerr << governance_key.error().describe() << '\n';
+        return 1;
+    }
+    ServiceTrustRotationPolicy rotation_policy;
+    rotation_policy.minimum_signatures = 2;
+    rotation_policy.require_distinct_services = true;
+    auto trust_bundle = ServiceTrustBundle::create_with_rotation_policy(
+        1, "", {service_key.value(), governance_key.value()}, rotation_policy);
     if (!trust_bundle) {
         std::cerr << trust_bundle.error().describe() << '\n';
         return 1;
@@ -106,7 +124,7 @@ int main(int argc, char** argv) {
 
     std::array<std::byte, kEd25519SeedBytes> successor_seed{};
     for (std::size_t index = 0; index < successor_seed.size(); ++index)
-        successor_seed[index] = static_cast<std::byte>(index + 33);
+        successor_seed[index] = static_cast<std::byte>(index + 65);
     auto successor_pair = ed25519_key_pair_from_seed(successor_seed);
     if (!successor_pair) {
         std::cerr << successor_pair.error().describe() << '\n';
@@ -121,16 +139,31 @@ int main(int argc, char** argv) {
     auto retired_key = service_key.value();
     retired_key.state = ServiceKeyState::Retired;
     retired_key.valid_through_sequence = 1;
-    auto successor = rotate_service_trust_bundle(trust_bundle.value(), {retired_key, successor_key.value()});
+    auto successor = rotate_service_trust_bundle(
+        trust_bundle.value(), {retired_key, successor_key.value(), governance_key.value()});
     if (!successor) {
         std::cerr << successor.error().describe() << '\n';
         return 1;
     }
-    auto authorization = authorize_service_trust_bundle_successor(
+    auto service_authorization = authorize_service_trust_bundle_successor(
         trust_bundle.value(), successor.value(), service_key.value().service_id, service_key.value().id,
         key_pair.value().secret_key);
-    if (!authorization) {
-        std::cerr << authorization.error().describe() << '\n';
+    if (!service_authorization) {
+        std::cerr << service_authorization.error().describe() << '\n';
+        return 1;
+    }
+    auto governance_authorization = authorize_service_trust_bundle_successor(
+        trust_bundle.value(), successor.value(), governance_key.value().service_id, governance_key.value().id,
+        governance_pair.value().secret_key);
+    if (!governance_authorization) {
+        std::cerr << governance_authorization.error().describe() << '\n';
+        return 1;
+    }
+    auto authorizations = assemble_service_trust_bundle_authorizations(
+        trust_bundle.value(), successor.value(),
+        {governance_authorization.value(), service_authorization.value()});
+    if (!authorizations) {
+        std::cerr << authorizations.error().describe() << '\n';
         return 1;
     }
     auto history = ServiceTrustHistory::create(std::filesystem::path(argv[3]), trust_bundle.value(),
@@ -140,9 +173,30 @@ int main(int argc, char** argv) {
         return 1;
     }
     auto rotation =
-        history.value().publish(successor.value(), authorization.value(), trust_bundle.value().id());
+        history.value().publish(successor.value(), authorizations.value(), trust_bundle.value().id());
     if (!rotation) {
         std::cerr << rotation.error().describe() << '\n';
+        return 1;
+    }
+    auto service_checkpoint_signature =
+        sign_service_trust_checkpoint(history.value(), successor_key.value().service_id,
+                                      successor_key.value().id, successor_pair.value().secret_key);
+    auto governance_checkpoint_signature =
+        sign_service_trust_checkpoint(history.value(), governance_key.value().service_id,
+                                      governance_key.value().id, governance_pair.value().secret_key);
+    if (!service_checkpoint_signature || !governance_checkpoint_signature) {
+        std::cerr << "failed to sign the trust checkpoint\n";
+        return 1;
+    }
+    auto checkpoint = assemble_service_trust_checkpoint(
+        history.value(), {governance_checkpoint_signature.value(), service_checkpoint_signature.value()});
+    if (!checkpoint) {
+        std::cerr << checkpoint.error().describe() << '\n';
+        return 1;
+    }
+    auto checkpoint_saved = checkpoint.value().save(std::filesystem::path(argv[4]));
+    if (!checkpoint_saved) {
+        std::cerr << checkpoint_saved.error().describe() << '\n';
         return 1;
     }
 
@@ -153,9 +207,11 @@ int main(int argc, char** argv) {
               << "attestation=" << receipt.value().service_attestation->id << '\n'
               << "transfer=" << verified.value().id << '\n'
               << "record=" << record.value().id << '\n'
-              << "authorization=" << authorization.value().id << '\n'
+              << "authorization_set=" << authorizations.value().id << '\n'
               << "rotation=" << rotation.value().id << '\n'
               << "trust_head=" << history.value().current_bundle_id() << '\n'
+              << "checkpoint=" << checkpoint.value().id << '\n'
+              << "rotation_quorum=2\n"
               << "authentication=ed25519\n"
               << "runtime_executable=false\n";
     return 0;

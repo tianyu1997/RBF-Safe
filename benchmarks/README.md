@@ -8,8 +8,9 @@ and measures wall time, and independently point-checks every certified query.
 Any false-safe sample, identity mismatch, lost coverage, failed inheritance,
 invalid public-key/HMAC transfer, or inconsistent shield/policy outcome fails
 the process. The public-key gate also signs an exact trust-bundle successor,
-publishes it against an expected head, and replays the resulting local
-history.
+assembles a two-signature distinct-service authorization set, publishes it
+against an expected head, replays the resulting schema-2 local history, and
+verifies a quorum-signed checkpoint.
 
 Timing values are reported but deliberately have no hard CI threshold: shared
 runner timing is not reproducible. The release gate instead bounds iteration
@@ -17,8 +18,8 @@ counts and requires deterministic shield, policy-gate, and feedback outcomes.
 `logical_digest` excludes timings, approximate memory, and
 floating-point-derived certificate IDs. It
 encodes canonical fixture identities, discrete counts, certification outcomes,
-shield acceptance, policy selection/labels, memory/trust/transfer and signed
-trust-history outcomes,
+shield acceptance, policy selection/labels, memory/trust/transfer, signed
+trust-history, quorum, and checkpoint outcomes,
 and update compatibility, then must match the committed
 `logical_digest.txt` on every platform.
 

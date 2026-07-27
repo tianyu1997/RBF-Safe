@@ -298,6 +298,13 @@ components and bind subject digests.
   The caller still owns the root pin and must retain the newest head outside
   the directory's rollback domain. Neither format raises geometric or runtime
   evidence.
+- Service-trust-bundle schema 3, service-trust-history schema 2, and
+  service-trust-checkpoint schema 1 are v3.9 public quorum/freshness-anchor
+  policy. Bundle policy fixes the minimum unique signers and optional
+  distinct-service quorum. Histories retain canonical authorization sets.
+  Portable checkpoints bind an exact root/head/record and are verified only
+  with caller-pinned root and checkpoint IDs. They do not discover trust,
+  establish wall-clock freshness, or raise geometric/runtime evidence.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

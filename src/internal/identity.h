@@ -13,7 +13,12 @@ std::string service_trust_bundle_identity(const ServiceTrustBundle& bundle);
 std::string service_trust_bundle_storage_document(const ServiceTrustBundle& bundle);
 std::string service_trust_bundle_authorization_message(const ServiceTrustBundleAuthorization& authorization);
 std::string service_trust_bundle_authorization_identity(const ServiceTrustBundleAuthorization& authorization);
+std::string
+service_trust_bundle_authorization_set_identity(const ServiceTrustBundleAuthorizationSet& authorization_set);
 std::string service_trust_rotation_record_identity(const ServiceTrustRotationRecord& record);
+std::string service_trust_checkpoint_signature_message(const ServiceTrustCheckpoint& checkpoint,
+                                                       const ServiceTrustCheckpointSignature& signature);
+std::string service_trust_checkpoint_identity(const ServiceTrustCheckpoint& checkpoint);
 
 Result<void> validate_service_trust_bundle_rotation(const ServiceTrustBundle& predecessor,
                                                     const ServiceTrustBundle& successor);

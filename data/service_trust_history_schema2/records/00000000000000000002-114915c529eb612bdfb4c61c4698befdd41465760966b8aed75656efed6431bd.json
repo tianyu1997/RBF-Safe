@@ -1,0 +1,47 @@
+{
+  "authorization_set": {
+    "authorizations": [
+      {
+        "algorithm": 1,
+        "authentication_tag": "9c7124937d8d9e6321ea5b5f7e763316a132a8bf5545f609d71a52a2fc1daf893b6a2ca7d7030771543559a51faab9ac8f8accdb1403e1d0a2374205feed000f",
+        "format": "rbfsafe-service-trust-bundle-authorization",
+        "id": "ce2e71b031816fd416357e338ca6f978182276a2e7f0dfa4d698d4116e939a1e",
+        "predecessor_bundle_id": "e9126145264ac126845b17db5db782a43a4816d5d4ca3a9d4f9462d874e7b89b",
+        "predecessor_sequence": "1",
+        "schema": 1,
+        "signer_key_id": "deeb721ce417eb73af26ccc9a69a2a8c4343dada00e2e6f3864084c1e328e732",
+        "signer_service_id": "artifact-service",
+        "successor_bundle_id": "d31c074a89a038167c34b1a65934186c0696aff196165dbdac67d0839cd34fb6",
+        "successor_sequence": "2"
+      },
+      {
+        "algorithm": 1,
+        "authentication_tag": "3fff9a9dacf19800e20a2ff56d942a9d808ef253569e0fc946927aeaf73dc782204dfbf74e0afc7bd0d706b5a1bf1747c8f5cd9c060611fda222478ade4f6704",
+        "format": "rbfsafe-service-trust-bundle-authorization",
+        "id": "efe286ed84add5f50a1ed96ca2d05d62f8260950bb7624f35cf29e53122c152d",
+        "predecessor_bundle_id": "e9126145264ac126845b17db5db782a43a4816d5d4ca3a9d4f9462d874e7b89b",
+        "predecessor_sequence": "1",
+        "schema": 1,
+        "signer_key_id": "fe0db57ffc802258d9099ca93158e77584ccfed68272562348b795c88f660b4d",
+        "signer_service_id": "rotation-governance",
+        "successor_bundle_id": "d31c074a89a038167c34b1a65934186c0696aff196165dbdac67d0839cd34fb6",
+        "successor_sequence": "2"
+      }
+    ],
+    "format": "rbfsafe-service-trust-bundle-authorization-set",
+    "id": "ee8d89a646c7b3acb4d94c7f321ad6dcdfc96a2347a62ff1d0c17e8b4df61870",
+    "predecessor_bundle_id": "e9126145264ac126845b17db5db782a43a4816d5d4ca3a9d4f9462d874e7b89b",
+    "predecessor_sequence": "1",
+    "schema": 1,
+    "successor_bundle_id": "d31c074a89a038167c34b1a65934186c0696aff196165dbdac67d0839cd34fb6",
+    "successor_sequence": "2"
+  },
+  "bundle_id": "d31c074a89a038167c34b1a65934186c0696aff196165dbdac67d0839cd34fb6",
+  "format": "rbfsafe-service-trust-rotation-record",
+  "id": "114915c529eb612bdfb4c61c4698befdd41465760966b8aed75656efed6431bd",
+  "library_version": "3.9.0",
+  "parent_id": "ece75c76f1c4493a14506ae7302aeb0672ff5f4ef439d34dc16300f49d9b550b",
+  "schema": 2,
+  "sequence": "2",
+  "type": 1
+}

@@ -1,0 +1,24 @@
+{
+  "format": "rbfsafe-service-trust-checkpoint",
+  "head_bundle_id": "d31c074a89a038167c34b1a65934186c0696aff196165dbdac67d0839cd34fb6",
+  "head_record_id": "114915c529eb612bdfb4c61c4698befdd41465760966b8aed75656efed6431bd",
+  "head_sequence": "2",
+  "id": "9cbf2bfad11354201ec0eb79dd1f11cf78925e4ea917cc3a7e5d15f6307a2e24",
+  "library_version": "3.9.0",
+  "root_bundle_id": "e9126145264ac126845b17db5db782a43a4816d5d4ca3a9d4f9462d874e7b89b",
+  "schema": 1,
+  "signatures": [
+    {
+      "algorithm": 1,
+      "authentication_tag": "b669944c3b94c6c397cc68d0e76cb6652484d2dd18981324974f54824bef83ae045b753364be8dd2072f1903f00a8e9ba3ada2f14e324c65846320e7e7f0600e",
+      "signer_key_id": "2c8a5a118eea0e1460aa21dfec34092e6253adb58225f9d1b1c5973f6968c583",
+      "signer_service_id": "artifact-service"
+    },
+    {
+      "algorithm": 1,
+      "authentication_tag": "504b6464be47d753d0243136cf75b5a4bf44bf3ba32f686c7f88e54e3c9d5ecbeca9ef1b0aa39c2968045a7e3b1b12e21c2ac0d69cd842541262dfe944dbe20c",
+      "signer_key_id": "fe0db57ffc802258d9099ca93158e77584ccfed68272562348b795c88f660b4d",
+      "signer_service_id": "rotation-governance"
+    }
+  ]
+}

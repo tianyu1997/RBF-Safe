@@ -19,7 +19,8 @@ namespace rbfsafe {
 namespace {
 
 constexpr std::size_t kLegacySchema = 1;
-constexpr std::size_t kCurrentSchema = 2;
+constexpr std::size_t kSingleSignerSchema = 2;
+constexpr std::size_t kCurrentSchema = 3;
 constexpr std::size_t kMaximumIdentifierBytes = 256;
 constexpr std::size_t kMaximumStringBytes = 4096;
 constexpr std::size_t kMaximumExactJsonInteger = sizeof(std::size_t) < sizeof(std::uint64_t)
@@ -54,7 +55,7 @@ internal::Json storage_json(const ServiceTrustBundle& bundle) {
     keys.reserve(bundle.keys().size());
     for (const auto& key : bundle.keys())
         keys.emplace_back(key_json(key, bundle.storage_schema()));
-    return internal::Json::Object{
+    auto object = internal::Json::Object{
         {"format", "rbfsafe-service-trust-bundle"},
         {"id", bundle.id()},
         {"keys", std::move(keys)},
@@ -63,6 +64,15 @@ internal::Json storage_json(const ServiceTrustBundle& bundle) {
         {"schema", static_cast<double>(bundle.storage_schema())},
         {"sequence", std::to_string(bundle.sequence())},
     };
+    if (bundle.storage_schema() >= 3) {
+        object.emplace(
+            "rotation_policy",
+            internal::Json::Object{
+                {"minimum_signatures", static_cast<double>(bundle.rotation_policy().minimum_signatures)},
+                {"require_distinct_services", bundle.rotation_policy().require_distinct_services},
+            });
+    }
+    return object;
 }
 
 Result<std::string> string_field(const internal::Json& object, std::string_view key,
@@ -289,9 +299,29 @@ Result<ServiceTrustBundle> load_service_trust_bundle(const std::filesystem::path
                                                    "service trust-bundle document is incomplete");
     }
     if (format.value() != "rbfsafe-service-trust-bundle" ||
-        (schema.value() != kLegacySchema && schema.value() != kCurrentSchema)) {
+        (schema.value() != kLegacySchema && schema.value() != kSingleSignerSchema &&
+         schema.value() != kCurrentSchema)) {
         return Result<ServiceTrustBundle>::failure(StatusCode::IncompatibleFormat,
                                                    "unsupported service trust-bundle schema");
+    }
+    ServiceTrustRotationPolicy rotation_policy;
+    if (schema.value() >= 3) {
+        const auto* policy_json =
+            document.value().is_object() ? document.value().find("rotation_policy") : nullptr;
+        if (policy_json == nullptr || !policy_json->is_object()) {
+            return Result<ServiceTrustBundle>::failure(StatusCode::CorruptData,
+                                                       "service trust-bundle rotation policy is missing");
+        }
+        auto minimum_signatures = integer_field(*policy_json, "minimum_signatures", 100'000);
+        auto require_distinct_services = bool_field(*policy_json, "require_distinct_services");
+        if (!minimum_signatures || !require_distinct_services ||
+            minimum_signatures.value() >
+                static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
+            return Result<ServiceTrustBundle>::failure(StatusCode::CorruptData,
+                                                       "service trust-bundle rotation policy is invalid");
+        }
+        rotation_policy.minimum_signatures = static_cast<std::uint32_t>(minimum_signatures.value());
+        rotation_policy.require_distinct_services = require_distinct_services.value();
     }
     if (keys_json->as_array().size() > options.maximum_keys) {
         return Result<ServiceTrustBundle>::failure(StatusCode::ResourceLimit,
@@ -305,7 +335,11 @@ Result<ServiceTrustBundle> load_service_trust_bundle(const std::filesystem::path
             return key.error();
         keys.push_back(std::move(key).value());
     }
-    auto result = ServiceTrustBundle::create(sequence.value(), std::move(parent_id).value(), std::move(keys));
+    auto result =
+        schema.value() >= 3
+            ? ServiceTrustBundle::create_with_rotation_policy(sequence.value(), std::move(parent_id).value(),
+                                                              std::move(keys), rotation_policy)
+            : ServiceTrustBundle::create(sequence.value(), std::move(parent_id).value(), std::move(keys));
     if (!result)
         return Result<ServiceTrustBundle>::failure(StatusCode::CorruptData,
                                                    "service trust-bundle structure is invalid");
