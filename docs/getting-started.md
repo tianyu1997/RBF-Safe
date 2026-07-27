@@ -407,7 +407,64 @@ history = rbfsafe.ServiceTrustHistory.open(
 Retain `trusted_checkpoint_id` outside the same rollback domain. A valid old
 checkpoint does not prove that it is the newest one.
 
-## 13. Persist fleet-schedule history
+## 13. Create a reviewed deployment profile
+
+Bind deployment assumptions to that exact checkpoint and require independent
+Safety and Controls approvals:
+
+```python
+constraints = rbfsafe.DeploymentRuntimeConstraints()
+constraints.maximum_observation_age_ns = 50_000
+constraints.maximum_command_latency_ns = 50_000
+constraints.maximum_control_period_ns = 2_000_000
+constraints.maximum_consecutive_missed_cycles = 1
+
+review_policy = rbfsafe.DeploymentReviewPolicy()
+review_policy.minimum_approvals = 2
+review_policy.require_distinct_services = True
+review_policy.required_roles = [
+    rbfsafe.DeploymentReviewRole.SAFETY,
+    rbfsafe.DeploymentReviewRole.CONTROLS,
+]
+
+profile_input = rbfsafe.DeploymentProfileInput()
+profile_input.deployment_id = "factory-cell-a"
+profile_input.robot_digest = trusted_robot_digest
+profile_input.controller_digest = trusted_controller_digest
+profile_input.platform_digest = trusted_platform_digest
+profile_input.runtime_digest = trusted_runtime_digest
+profile_input.trust_root_bundle_id = checkpoint.root_bundle_id
+profile_input.trust_checkpoint_id = checkpoint.id
+profile_input.trust_bundle_id = checkpoint.head_bundle_id
+profile_input.trust_bundle_sequence = checkpoint.head_sequence
+profile_input.runtime_constraints = constraints
+profile_input.review_policy = review_policy
+profile = rbfsafe.DeploymentProfile.create(profile_input)
+
+safety = rbfsafe.sign_deployment_profile_approval(
+    profile, safety_key.service_id, safety_key.id,
+    rbfsafe.DeploymentReviewRole.SAFETY, safety_secret,
+)
+controls = rbfsafe.sign_deployment_profile_approval(
+    profile, controls_key.service_id, controls_key.id,
+    rbfsafe.DeploymentReviewRole.CONTROLS, controls_secret,
+)
+approvals = rbfsafe.assemble_deployment_profile_approvals(
+    profile, [controls, safety]
+)
+reviewed = rbfsafe.ReviewedDeploymentProfile.create(
+    profile, approvals, history, checkpoint, trusted_checkpoint_id
+)
+reviewed.save("reviewed-deployment-profile.json")
+```
+
+Each reviewer key must be active, valid at the checkpoint head, and
+publication-capable. Loading requires the same caller-pinned trust history and
+checkpoint. A conformant runtime assessment remains `Unknown` evidence and
+does not authorize execution. See
+[reviewed deployment profiles](deployment-profile-format.md).
+
+## 14. Persist fleet-schedule history
 
 Publish canonical reservation reports against the exact memory revision used
 to validate their source artifacts:
@@ -426,7 +483,7 @@ Preserve that memory revision if the live catalog is later changed. The
 archive status remains a declared-envelope coordination result, not an
 execution certificate. See [versioned fleet schedules](fleet-schedule-archive.md).
 
-## 14. Apply calibrated policy confidence
+## 15. Apply calibrated policy confidence
 
 Create a profile from reviewed held-out aggregate counts, persist it, then
 require the independently configured model and scope identity at use time:

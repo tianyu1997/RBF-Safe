@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.9
+geometric safety certificates in robot configuration space. Version 3.10
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -61,6 +61,9 @@ The public-identity layer verifies Ed25519 service responses, requires
 explicit single/quorum rotation permission for signed trust-bundle successors,
 and replays immutable local trust histories against caller-pinned root plus
 expected-head or signed-checkpoint anchors.
+The deployment layer binds reviewed robot, controller, platform, runtime,
+timing, monitor, transport, and artifact-authentication assumptions to an
+exact signed trust checkpoint and verifies multi-role Ed25519 approvals.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -127,6 +130,9 @@ certificate.
   single/quorum key rotation, expected-head or signed-checkpoint guarded trust
   histories, offline transfer verification, and public key/bundle provenance
   without persisted secrets.
+- Public `RBFSafe::deployment` deterministic reviewed profiles, signed
+  approval quorums and reviewer roles, exact trust-checkpoint binding,
+  bounded schema-1 persistence, and fail-closed runtime conformance reports.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
@@ -135,7 +141,7 @@ Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated policy inference and metadata,
 continuous-time fleet occupancy proofs, concrete network artifact clients,
 execution guarantees, and legacy RapidBoxForest cache compatibility remain
-outside v3.9. TLS, endpoint/credential policy, trust-root/head/checkpoint
+outside v3.10. TLS, endpoint/credential policy, trust-root/head/checkpoint
 distribution, private-key storage, and network I/O remain application
 responsibilities.
 

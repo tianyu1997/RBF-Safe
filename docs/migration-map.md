@@ -18,4 +18,5 @@ no source, build, runtime, or data-format dependency on it.
 | Public-key service identities and trust bundles | New in v3.7 | Repository-local identity/rotation/offline-verification design plus unmodified, attributed Monocypher 4.0.2 Ed25519 primitive; no RapidBoxForest identity or crypto code migrated |
 | Signed trust successors and local trust histories | New in v3.8 | Repository-local authorization, expected-head publication, bounded replay, and persistence design; no RapidBoxForest trust-history code migrated |
 | Quorum trust rotation and signed head checkpoints | New in v3.9 | Repository-local canonical multi-signature policy, authorization-set/history schema, bounded checkpoint persistence, and caller-anchor design; no RapidBoxForest trust or checkpoint code migrated |
+| Reviewed deployment profiles | New in v3.10 | Repository-local deterministic deployment/runtime constraints, role-aware Ed25519 approval policy, checkpoint binding, bounded persistence, and conformance reports; no RapidBoxForest deployment-governance code migrated |
 | Experiments, manuscript and generated outputs | Excluded | Remain in RapidBoxForest |

@@ -4,6 +4,7 @@
 #include <rbfsafe/calibration.h>
 #include <rbfsafe/certificate.h>
 #include <rbfsafe/corridor.h>
+#include <rbfsafe/deployment.h>
 #include <rbfsafe/dynamic.h>
 #include <rbfsafe/geometry.h>
 #include <rbfsafe/higher_order.h>

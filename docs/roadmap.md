@@ -89,22 +89,29 @@
   bounded deterministic replay; historical bundle lookup; fixed fixtures; and
   C++/Python/inspection tooling. A local history alone cannot detect rollback
   of its complete directory without the external expected-head anchor.
+- **v3.9 - Quorum trust and portable checkpoints:** schema-3 immutable
+  minimum-signature/distinct-service bundle policy; canonical authorization
+  sets; schema-2 replayable histories; signed schema-1 head checkpoints;
+  root/checkpoint caller pins; bounded C++/Python persistence; CLI
+  verification; fixed cross-platform fixtures; and deterministic release
+  gates.
 
 ## Continued product hardening
 
-- **v3.9 (current) - Quorum trust and portable checkpoints:** schema-3
-  immutable minimum-signature/distinct-service bundle policy; canonical
-  authorization sets; schema-2 replayable histories; signed schema-1 head
-  checkpoints; root/checkpoint caller pins; bounded C++/Python persistence;
-  CLI verification; fixed cross-platform fixtures; and deterministic release
-  gates. No network trust discovery, TOFU, wall-clock freshness, or automatic
-  replacement of caller-managed anchors is introduced.
-- **v3.10 candidate - Reviewed deployment profiles:** deterministic manifests
-  binding robot/controller/platform/runtime constraints and reviewer
-  provenance before any future execution-evidence work. Profile validation
-  will remain below `RuntimeExecutable` and will not authorize actuation.
-- **later v3.x:** execution evidence only for separately modeled and reviewed
-  deployment profiles.
+- **v3.10 (current) - Reviewed deployment profiles:** deterministic schema-1
+  manifests binding exact robot/controller/platform/runtime and trust
+  checkpoint identities; timing/monitor/transport/artifact constraints;
+  role-aware Ed25519 approval quorums; bounded C++/Python persistence;
+  conformant/nonconformant assessments; CLI verification; and fixed
+  cross-platform fixtures. All output remains `Unknown` evidence and cannot
+  authorize actuation.
+- **v3.11 candidate - Bounded execution sessions:** bind an exact reviewed
+  deployment profile, caller-authenticated live observation, certified
+  trajectory/route subject, controller command sequence, and independent
+  runtime-monitor acknowledgement before narrowly scoped execution evidence.
+  No general hardware claim or open-ended permit will be inferred.
+- **later v3.x:** revocation-aware execution-session history and independently
+  attested controller/runtime observations.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 

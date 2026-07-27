@@ -63,6 +63,10 @@ struct CaseMetrics {
     std::size_t trust_history_records = 0;
     std::size_t trust_checkpoint_signatures = 0;
     std::size_t trust_checkpoints = 0;
+    std::size_t deployment_profiles = 0;
+    std::size_t deployment_profile_approvals = 0;
+    std::size_t deployment_profile_assessments = 0;
+    std::size_t conformant_deployment_profiles = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -549,7 +553,7 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
         return governance_key_pair.error();
     auto governance_key = rbfsafe::make_service_public_key(
         "release-rotation-governance", governance_key_pair.value().public_key, 1, 0,
-        rbfsafe::ServiceKeyState::Active, false, false, true);
+        rbfsafe::ServiceKeyState::Active, false, true, true);
     if (!governance_key)
         return governance_key.error();
     rbfsafe::ServiceTrustRotationPolicy rotation_policy;
@@ -677,6 +681,76 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     metrics.trust_history_records = replayed_trust_history.value().records().size();
     metrics.trust_checkpoint_signatures = checkpoint.value().signatures.size();
     metrics.trust_checkpoints = 1;
+
+    rbfsafe::DeploymentProfileInput deployment_input;
+    deployment_input.deployment_id = fixture.name + "-reviewed-deployment";
+    deployment_input.robot_digest = robot.value().digest();
+    deployment_input.controller_digest = scene.value().digest();
+    deployment_input.platform_digest = service_key.value().id;
+    deployment_input.runtime_digest = governance_key.value().id;
+    deployment_input.trust_root_bundle_id = trust_bundle.value().id();
+    deployment_input.trust_checkpoint_id = checkpoint.value().id;
+    deployment_input.trust_bundle_id = successor_bundle.value().id();
+    deployment_input.trust_bundle_sequence = successor_bundle.value().sequence();
+    deployment_input.runtime_constraints.maximum_observation_age_ns = 20'000'000;
+    deployment_input.runtime_constraints.maximum_command_latency_ns = 10'000'000;
+    deployment_input.runtime_constraints.maximum_control_period_ns = 5'000'000;
+    deployment_input.runtime_constraints.maximum_consecutive_missed_cycles = 1;
+    deployment_input.review_policy.minimum_approvals = 2;
+    deployment_input.review_policy.require_distinct_services = true;
+    deployment_input.review_policy.required_roles = {rbfsafe::DeploymentReviewRole::Safety,
+                                                     rbfsafe::DeploymentReviewRole::Controls};
+    auto deployment_profile = rbfsafe::DeploymentProfile::create(std::move(deployment_input));
+    if (!deployment_profile)
+        return deployment_profile.error();
+    auto safety_approval = rbfsafe::sign_deployment_profile_approval(
+        deployment_profile.value(), successor_key.value().service_id, successor_key.value().id,
+        rbfsafe::DeploymentReviewRole::Safety, successor_key_pair.value().secret_key);
+    auto controls_approval = rbfsafe::sign_deployment_profile_approval(
+        deployment_profile.value(), governance_key.value().service_id, governance_key.value().id,
+        rbfsafe::DeploymentReviewRole::Controls, governance_key_pair.value().secret_key);
+    if (!safety_approval || !controls_approval) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture deployment-profile signatures were inconsistent", fixture.name);
+    }
+    auto deployment_approvals = rbfsafe::assemble_deployment_profile_approvals(
+        deployment_profile.value(), {controls_approval.value(), safety_approval.value()});
+    if (!deployment_approvals)
+        return deployment_approvals.error();
+    auto reviewed_deployment = rbfsafe::ReviewedDeploymentProfile::create(
+        deployment_profile.value(), deployment_approvals.value(), replayed_trust_history.value(),
+        checkpoint.value(), checkpoint.value().id);
+    if (!reviewed_deployment || reviewed_deployment.value().authorizes_execution()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture reviewed deployment profile was inconsistent", fixture.name);
+    }
+    rbfsafe::DeploymentRuntimeSnapshot deployment_snapshot;
+    deployment_snapshot.deployment_id = deployment_profile.value().deployment_id;
+    deployment_snapshot.robot_digest = deployment_profile.value().robot_digest;
+    deployment_snapshot.controller_digest = deployment_profile.value().controller_digest;
+    deployment_snapshot.platform_digest = deployment_profile.value().platform_digest;
+    deployment_snapshot.runtime_digest = deployment_profile.value().runtime_digest;
+    deployment_snapshot.observation_age_ns = 1'000'000;
+    deployment_snapshot.command_latency_ns = 1'000'000;
+    deployment_snapshot.control_period_ns = 1'000'000;
+    deployment_snapshot.runtime_monitor_active = true;
+    deployment_snapshot.fail_closed_transport_active = true;
+    deployment_snapshot.authenticated_artifacts = true;
+    auto deployment_assessment = reviewed_deployment.value().assess(deployment_snapshot);
+    if (!deployment_assessment ||
+        deployment_assessment.value().status != rbfsafe::DeploymentProfileAssessmentStatus::Conformant ||
+        deployment_assessment.value().evidence != rbfsafe::EvidenceLevel::Unknown ||
+        deployment_assessment.value().authorizes_execution()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture deployment-profile assessment was inconsistent", fixture.name);
+    }
+    metrics.deployment_profiles = 1;
+    metrics.deployment_profile_approvals = deployment_approvals.value().approvals.size();
+    metrics.deployment_profile_assessments = 1;
+    metrics.conformant_deployment_profiles = 1;
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -772,6 +846,14 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, "service-trust-checkpoint-verified");
     hash_field(logical_hash, std::to_string(metrics.trust_checkpoint_signatures));
     hash_field(logical_hash, std::to_string(metrics.trust_checkpoints));
+    hash_field(logical_hash, "reviewed-deployment-profile-conformant-but-non-executable");
+    hash_field(logical_hash, deployment_profile.value().id);
+    hash_field(logical_hash, deployment_approvals.value().id);
+    hash_field(logical_hash, deployment_assessment.value().id);
+    hash_field(logical_hash, std::to_string(metrics.deployment_profiles));
+    hash_field(logical_hash, std::to_string(metrics.deployment_profile_approvals));
+    hash_field(logical_hash, std::to_string(metrics.deployment_profile_assessments));
+    hash_field(logical_hash, std::to_string(metrics.conformant_deployment_profiles));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -807,6 +889,10 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"trust_history_records\":" << item.trust_history_records
                   << ",\"trust_checkpoint_signatures\":" << item.trust_checkpoint_signatures
                   << ",\"trust_checkpoints\":" << item.trust_checkpoints
+                  << ",\"deployment_profiles\":" << item.deployment_profiles
+                  << ",\"deployment_profile_approvals\":" << item.deployment_profile_approvals
+                  << ",\"deployment_profile_assessments\":" << item.deployment_profile_assessments
+                  << ",\"conformant_deployment_profiles\":" << item.conformant_deployment_profiles
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -833,8 +919,12 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " trust_bundle_authorizations=" << item.trust_bundle_authorizations
                   << " trust_history_records=" << item.trust_history_records
                   << " trust_checkpoint_signatures=" << item.trust_checkpoint_signatures
-                  << " trust_checkpoints=" << item.trust_checkpoints << " query_ms=" << item.query_ms
-                  << " update_ms=" << item.update_ms << '\n';
+                  << " trust_checkpoints=" << item.trust_checkpoints
+                  << " deployment_profiles=" << item.deployment_profiles
+                  << " deployment_profile_approvals=" << item.deployment_profile_approvals
+                  << " deployment_profile_assessments=" << item.deployment_profile_assessments
+                  << " conformant_deployment_profiles=" << item.conformant_deployment_profiles
+                  << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
     }
 }
 

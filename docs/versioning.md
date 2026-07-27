@@ -199,6 +199,14 @@ caller-provided root and checkpoint IDs and a full history replay. The format
 does not discover roots, select the newest checkpoint, or prove wall-clock
 freshness.
 
+The v3.10 reviewed-deployment-profile schema 1 is an independent bounded JSON
+document containing one deterministic deployment profile and canonical
+role-aware Ed25519 approval set. It binds exact robot/controller/platform/
+runtime and trust root/checkpoint/head identities plus immutable runtime
+constraints and review policy. Loading replays the caller-pinned history and
+verifies every approval. It does not reinterpret any prior schema, attest
+hardware/runtime observations, or raise evidence above `Unknown`.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -226,7 +234,8 @@ order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
-service-trust-history/service-trust-checkpoint fixtures,
+service-trust-history/service-trust-checkpoint/reviewed-deployment-profile
+fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

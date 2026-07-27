@@ -160,6 +160,18 @@ authorization-set, record, checkpoint, root/head, canonical ordering,
 resource, tamper, replay, and caller-anchor behavior across C++ and Python.
 The files contain no private key and are not deployment trust anchors.
 
+`data/reviewed_deployment_profile_schema1` is the fixed RBF-Safe 3.10
+two-reviewer deployment fixture. It contains one schema-3 public trust root,
+one root record, a governance-signed checkpoint, and a profile approved by
+distinct Safety and Controls services. The exact checkpoint, profile, and
+approval-set IDs are respectively
+`e64197b785ba1ae0c9f349adf5c26ac114c250088504950cc8073e25a6550d32`,
+`c652aa75ca153ef429b6fff372b83c675a0ac3b68f055e9bb607108d543c7be4`,
+and
+`e56a57547437938c39ca903541cf7eb014d921a3254fc06e8a45c96e6d8cd9ae`.
+It contains public keys and signatures only, is synthetic interoperability
+data, and does not authorize any deployment or execution.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -181,7 +193,14 @@ successor authorization and a valid two-record trust-history replay per case,
 using only discrete cross-platform fields.
 
 The reviewed RBF-Safe 3.9 cross-platform logical digest is
-`5b830fba7deebcf8`, recorded in
-`data/release-fixtures/logical_digest.txt`. It additionally covers a
-two-signature distinct-service rotation, schema-2 trust-history replay, and a
-quorum-signed checkpoint per case using only discrete cross-platform fields.
+`5b830fba7deebcf8`. It additionally covered a two-signature distinct-service
+rotation, schema-2 trust-history replay, and a quorum-signed checkpoint per
+case using only discrete cross-platform fields.
+
+The reviewed RBF-Safe 3.10 cross-platform logical digest is
+`39214f84cf8d2d36`, recorded in
+`data/release-fixtures/logical_digest.txt`. It additionally covers one profile
+bound to the exact trust root, checkpoint, and head; two distinct-service
+Safety/Controls approvals; and one conformant but non-executable runtime
+assessment per case. Only deterministic identities and discrete counts enter
+the digest.

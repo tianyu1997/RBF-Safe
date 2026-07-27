@@ -1,0 +1,18 @@
+{
+  "format": "rbfsafe-service-trust-checkpoint",
+  "head_bundle_id": "f2294fc4d8089ecf4feb5a4d579d6f541d54fa4d9973e26958aa6043fc5c4654",
+  "head_record_id": "8bf719b3a1bcc79855e8e3ff34ac000839bb043e96319a784cc86c9b5c56bb32",
+  "head_sequence": "1",
+  "id": "e64197b785ba1ae0c9f349adf5c26ac114c250088504950cc8073e25a6550d32",
+  "library_version": "3.10.0",
+  "root_bundle_id": "f2294fc4d8089ecf4feb5a4d579d6f541d54fa4d9973e26958aa6043fc5c4654",
+  "schema": 1,
+  "signatures": [
+    {
+      "algorithm": 1,
+      "authentication_tag": "71829a96183af0bd8d562264b784f24910be201859f41924330c89d0b6db74d771e5ae5e002e11276145b0b0e982d091a9187d634c232692118576c320e9870b",
+      "signer_key_id": "7a2451fc68ff418f9d7a5de23724dcfef7148e4e5c927b2b4c6d5fdcb13d6bcd",
+      "signer_service_id": "trust-governance"
+    }
+  ]
+}

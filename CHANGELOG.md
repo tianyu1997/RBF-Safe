@@ -3,6 +3,35 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.10.0] - 2026-07-27
+
+### Added
+
+- Public `RBFSafe::deployment` target with deterministic deployment manifests
+  binding exact robot, controller, platform, runtime-build, trust-root,
+  signed-checkpoint, and trust-head identities.
+- Ed25519 deployment-profile approvals by active publication-capable keys,
+  canonical approval sets, minimum/distinct-service quorum, and required
+  Safety/Controls/Operations/Security reviewer roles.
+- Reviewed runtime constraints for observation age, command latency, control
+  period, missed cycles, monitor presence, fail-closed transport, and
+  authenticated artifacts, with deterministic conformant/nonconformant
+  assessments.
+- Bounded atomic schema-1 persistence, C++/Python APIs and quickstarts,
+  native/Python inspection, fixed cross-platform fixtures, and corruption,
+  tamper, wrong-anchor, wrong-key, quorum, role, and resource-limit tests.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.10.0. All deployment-profile review and assessment output is
+  governance metadata with `Unknown` evidence and never authorizes actuation.
+- Existing trust-bundle, trust-history, checkpoint, Atlas, and other storage
+  schemas are unchanged and retain their exact identities.
+- The release logical digest now covers exact-root/checkpoint/head deployment
+  profiles, two-role review quorums, and conformant but non-executable runtime
+  assessments.
+
 ## [3.9.0] - 2026-07-27
 
 ### Added

@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.9 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.10 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.9 |
+| Format | Read | Write | Migration in 3.10 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -24,6 +24,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Service trust bundle | 1, 2, 3 | 2 from `create`; 3 from explicit quorum creation; preserve schema on rotation/save | Schemas 1/2 never gain quorum policy implicitly |
 | Service trust history | 1, 2 | Root schema 2 writes history 1; root schema 3 writes history 2 | Single-signature histories never gain authorization sets implicitly |
 | Service trust checkpoint | 1 | 1 | New signed anchor; no head or root is inferred from older artifacts |
+| Reviewed deployment profile | 1 | 1 | New signed governance artifact; no deployment ID or review text is upgraded implicitly |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -60,7 +61,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.9 remain available throughout 3.x.
+- Readers for schemas supported by 3.10 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -160,3 +161,11 @@ can infer the latest accepted head or authenticate a root. A deployment must
 replay its exact pinned history, collect the configured current-head quorum,
 persist a new checkpoint, and distribute both its root and checkpoint IDs
 through an authenticated channel. Existing history bytes remain untouched.
+
+Reviewed-deployment-profile schema 1 is specified in
+[Reviewed deployment profiles](deployment-profile-format.md). No earlier
+format contains the exact controller/platform/runtime identities, runtime
+limits, required review roles, checkpoint binding, and Ed25519 approval set.
+Create and approve a new profile against an explicitly pinned checkpoint;
+calibration lifecycle text, safety-memory deployment IDs, and trust bundles
+remain unchanged.

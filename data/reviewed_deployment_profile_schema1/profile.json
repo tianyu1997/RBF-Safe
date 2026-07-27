@@ -1,0 +1,59 @@
+{
+  "approval_set": {
+    "approvals": [
+      {
+        "algorithm": 1,
+        "authentication_tag": "3dc5be8331cba2f41ae3ef191cd6a29a22daac26863792f0211b172fb51ab5bf4f3b72846fb90767e3e0e5fd0d9fa0285850f0984b860a15c17e6d7fb3b12c04",
+        "id": "6308de752f9a17b7b9cf829b1366ccc2427967ac43f6812f16c5591dd27a1118",
+        "profile_id": "c652aa75ca153ef429b6fff372b83c675a0ac3b68f055e9bb607108d543c7be4",
+        "role": 1,
+        "signer_key_id": "ca2c0e4c96e8619104b802ed96beb7db1c8716eeccc00a6bf338bb88272ef251",
+        "signer_service_id": "review-controls"
+      },
+      {
+        "algorithm": 1,
+        "authentication_tag": "17dc74636548148dcae83eaed4fa7dd053c35711db70f522b9d893bbe7c7aa0d63136df83e664b033323ddc2e6b39b9cd548fc369559c603bd4156fab4e33c03",
+        "id": "db17526fb7d7c4bc24d04231989c6a0dcce4c4b5a20670712bfa076b5e752c85",
+        "profile_id": "c652aa75ca153ef429b6fff372b83c675a0ac3b68f055e9bb607108d543c7be4",
+        "role": 0,
+        "signer_key_id": "d95b2101a6f7ad4bf9580c4da20ee7e6783ee5a1cb4d225ccb26084874e765ea",
+        "signer_service_id": "review-safety"
+      }
+    ],
+    "id": "e56a57547437938c39ca903541cf7eb014d921a3254fc06e8a45c96e6d8cd9ae",
+    "profile_id": "c652aa75ca153ef429b6fff372b83c675a0ac3b68f055e9bb607108d543c7be4"
+  },
+  "format": "rbfsafe-reviewed-deployment-profile",
+  "library_version": "3.10.0",
+  "profile": {
+    "controller_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "deployment_id": "cell-a",
+    "id": "c652aa75ca153ef429b6fff372b83c675a0ac3b68f055e9bb607108d543c7be4",
+    "platform_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "review_policy": {
+      "minimum_approvals": 2,
+      "require_distinct_services": true,
+      "required_roles": [
+        0,
+        1
+      ]
+    },
+    "robot_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "runtime_constraints": {
+      "maximum_command_latency_ns": "50000",
+      "maximum_consecutive_missed_cycles": 1,
+      "maximum_control_period_ns": "2000000",
+      "maximum_observation_age_ns": "50000",
+      "require_authenticated_artifacts": true,
+      "require_fail_closed_transport": true,
+      "require_runtime_monitor": true
+    },
+    "runtime_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "storage_schema": 1,
+    "trust_bundle_id": "f2294fc4d8089ecf4feb5a4d579d6f541d54fa4d9973e26958aa6043fc5c4654",
+    "trust_bundle_sequence": "1",
+    "trust_checkpoint_id": "e64197b785ba1ae0c9f349adf5c26ac114c250088504950cc8073e25a6550d32",
+    "trust_root_bundle_id": "f2294fc4d8089ecf4feb5a4d579d6f541d54fa4d9973e26958aa6043fc5c4654"
+  },
+  "schema": 1
+}
