@@ -304,7 +304,16 @@ does not retain a newer ID. Quorum is organizational authorization metadata,
 not a geometric certificate, clock, transparency log, deployment proof, or
 execution authorization.
 
-## Explicit exclusions in v3.9
+The v3.10 deployment layer can prove that a deterministic manifest was
+approved by the required active publication-capable keys under an exact
+caller-pinned checkpoint and report whether caller-supplied runtime values
+match its declared constraints. It cannot prove that the digests identify the
+physical system, that observations are authentic, that a controller follows
+commands, or that the checkpoint is newest unless the caller retains that
+anchor. Review and conformance remain `Unknown` evidence and never authorize
+actuation.
+
+## Explicit exclusions in v3.10
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -349,6 +358,11 @@ execution authorization.
   Service-trust history is a signed local audit chain, not a certificate
   authority, trust-on-first-use protocol, threshold signature, transparency
   log, or remote key-discovery client.
+- Deployment-profile identities, reviewer roles, timing bounds, monitor
+  status, transport status, and artifact-authentication status are
+  caller-governed declarations. A valid signature proves approval of exact
+  bytes, not physical correctness, current freshness, hardware attestation,
+  controller compliance, or permission to actuate.
 - Fleet member envelopes and reservation occupancy are caller-supplied
   conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller

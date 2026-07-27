@@ -11,6 +11,8 @@ RBFSafe::geometry
           |-> RBFSafe::memory -> RBFSafe::trust -> RBFSafe::remote
                                                       |
                                                       +-> RBFSafe::identity
+                                                               |
+                                                               +-> RBFSafe::deployment
           |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy (+ calibration)
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
@@ -182,6 +184,18 @@ validation path. A successful Ed25519 transfer adds verification-key and
 trust-bundle provenance to schema-2 journals without changing HMAC or
 unauthenticated transfer identities.
 
+### Reviewed deployment boundary
+
+`RBFSafe::deployment` depends on `RBFSafe::identity`. It owns deterministic
+deployment manifests, runtime-constraint values, role-aware Ed25519 approval
+sets, caller-pinned checkpoint verification, bounded schema-1 persistence,
+and deterministic runtime conformance reports. Profiles bind exact robot,
+controller, platform, runtime-build, root, checkpoint, and head identities.
+
+The layer does not inspect hardware, read clocks, attest a runtime, collect
+observations, configure a controller, or authorize actuation. Review and
+conformance are governance metadata with `Unknown` evidence.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -305,6 +319,11 @@ components and bind subject digests.
   Portable checkpoints bind an exact root/head/record and are verified only
   with caller-pinned root and checkpoint IDs. They do not discover trust,
   establish wall-clock freshness, or raise geometric/runtime evidence.
+- Reviewed-deployment-profile schema 1 is v3.10 governance metadata. It binds
+  exact deployment identities and runtime assumptions to a caller-pinned
+  signed checkpoint and a role-aware approval quorum. Its assessment trusts
+  caller-supplied runtime observations, remains `Unknown`, and never
+  authorizes execution.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

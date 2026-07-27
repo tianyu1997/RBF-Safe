@@ -1,6 +1,7 @@
 .venv/
 build*/
 dist/
+dist-*/
 wheelhouse/
 _skbuild/
 *.egg-info/

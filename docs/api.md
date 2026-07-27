@@ -39,8 +39,36 @@ custom `RegionValidator` must attach one valid conservative workspace AABB per
 robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
-convergence remains `PointChecked`. No v3.0 component issues
+convergence remains `PointChecked`. No v3.10 component issues
 `RuntimeExecutable`.
+
+## Reviewed deployment profiles
+
+Include `<rbfsafe/deployment.h>` and link `RBFSafe::deployment`.
+
+`DeploymentProfile::create(input)` canonicalizes required review roles and
+binds deployment, robot, controller, platform, runtime-build, trust-root,
+signed-checkpoint, trust-head, runtime constraints, and review policy into one
+deterministic SHA-256 identity.
+
+`sign_deployment_profile_approval` creates a role-bound Ed25519 approval.
+`assemble_deployment_profile_approvals` sorts approvals, rejects duplicate
+signers, and enforces minimum, distinct-service, and required-role policy.
+`ReviewedDeploymentProfile::create` additionally verifies the exact
+caller-pinned checkpoint/history/head and every approval against active,
+publication-capable keys.
+
+`assess(snapshot)` returns a deterministic `Conformant` or `Nonconformant`
+`DeploymentProfileAssessment`. It checks all identities, observation age,
+command latency, control period, missed cycles, monitor presence,
+fail-closed transport, and authenticated-artifact status. Assessments carry
+`Unknown` evidence and `authorizes_execution()` is always false.
+
+`save` and `load` use the independent bounded
+reviewed-deployment-profile schema 1. Loading requires the trust history,
+checkpoint, and caller-retained checkpoint ID; no self-consistent file is
+trusted automatically. See
+[reviewed deployment profiles](deployment-profile-format.md).
 
 ## LECT
 

@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.9.0"
+    assert rbfsafe.__version__ == "3.10.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -1495,6 +1495,200 @@ def test_quorum_rotation_and_signed_checkpoint(
     assert "service-trust-checkpoint schema=1" in checkpoint_output
     assert "signatures=2" in checkpoint_output
     assert "checkpoint_verified=true" in checkpoint_output
+
+
+def test_reviewed_deployment_profile(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pair_a = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+    pair_b = rbfsafe.ed25519_key_pair_from_seed(bytes(range(33, 65)))
+    governance_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(65, 97)))
+    reviewer_a = rbfsafe.make_service_public_key(
+        "review-safety",
+        pair_a.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        False,
+    )
+    reviewer_b = rbfsafe.make_service_public_key(
+        "review-controls",
+        pair_b.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        False,
+    )
+    governance = rbfsafe.make_service_public_key(
+        "trust-governance",
+        governance_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        False,
+        True,
+    )
+    rotation_policy = rbfsafe.ServiceTrustRotationPolicy()
+    rotation_policy.minimum_signatures = 1
+    bundle = rbfsafe.ServiceTrustBundle.create_with_rotation_policy(
+        1, "", [reviewer_b, governance, reviewer_a], rotation_policy
+    )
+    history_path = tmp_path / "deployment-trust-history"
+    history = rbfsafe.ServiceTrustHistory.create(history_path, bundle, bundle.id)
+    checkpoint_signature = rbfsafe.sign_service_trust_checkpoint(
+        history,
+        governance.service_id,
+        governance.id,
+        governance_pair.secret_key,
+    )
+    checkpoint = rbfsafe.assemble_service_trust_checkpoint(
+        history, [checkpoint_signature]
+    )
+    checkpoint_path = tmp_path / "deployment-trust-checkpoint.json"
+    checkpoint.save(checkpoint_path)
+
+    constraints = rbfsafe.DeploymentRuntimeConstraints()
+    constraints.maximum_observation_age_ns = 50_000
+    constraints.maximum_command_latency_ns = 50_000
+    constraints.maximum_control_period_ns = 2_000_000
+    constraints.maximum_consecutive_missed_cycles = 1
+    policy = rbfsafe.DeploymentReviewPolicy()
+    policy.minimum_approvals = 2
+    policy.require_distinct_services = True
+    policy.required_roles = [
+        rbfsafe.DeploymentReviewRole.CONTROLS,
+        rbfsafe.DeploymentReviewRole.SAFETY,
+    ]
+    profile_input = rbfsafe.DeploymentProfileInput()
+    profile_input.deployment_id = "cell-a"
+    profile_input.robot_digest = "a" * 64
+    profile_input.controller_digest = "b" * 64
+    profile_input.platform_digest = "c" * 64
+    profile_input.runtime_digest = "d" * 64
+    profile_input.trust_root_bundle_id = bundle.id
+    profile_input.trust_checkpoint_id = checkpoint.id
+    profile_input.trust_bundle_id = bundle.id
+    profile_input.trust_bundle_sequence = bundle.sequence
+    profile_input.runtime_constraints = constraints
+    profile_input.review_policy = policy
+    profile = rbfsafe.DeploymentProfile.create(profile_input)
+    assert profile.valid()
+    assert profile.review_policy.required_roles[0] == rbfsafe.DeploymentReviewRole.SAFETY
+
+    approval_a = rbfsafe.sign_deployment_profile_approval(
+        profile,
+        reviewer_a.service_id,
+        reviewer_a.id,
+        rbfsafe.DeploymentReviewRole.SAFETY,
+        pair_a.secret_key,
+    )
+    approval_b = rbfsafe.sign_deployment_profile_approval(
+        profile,
+        reviewer_b.service_id,
+        reviewer_b.id,
+        rbfsafe.DeploymentReviewRole.CONTROLS,
+        pair_b.secret_key,
+    )
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.assemble_deployment_profile_approvals(profile, [approval_a])
+    approval_set = rbfsafe.assemble_deployment_profile_approvals(
+        profile, [approval_b, approval_a]
+    )
+    rbfsafe.verify_deployment_profile_approvals(profile, approval_set, bundle)
+    reviewed = rbfsafe.ReviewedDeploymentProfile.create(
+        profile, approval_set, history, checkpoint, checkpoint.id
+    )
+    assert reviewed.valid()
+    assert not reviewed.authorizes_execution
+
+    snapshot = rbfsafe.DeploymentRuntimeSnapshot()
+    snapshot.deployment_id = "cell-a"
+    snapshot.robot_digest = "a" * 64
+    snapshot.controller_digest = "b" * 64
+    snapshot.platform_digest = "c" * 64
+    snapshot.runtime_digest = "d" * 64
+    snapshot.observation_age_ns = 10_000
+    snapshot.command_latency_ns = 20_000
+    snapshot.control_period_ns = 1_000_000
+    snapshot.runtime_monitor_active = True
+    snapshot.fail_closed_transport_active = True
+    snapshot.authenticated_artifacts = True
+    assessment = reviewed.assess(snapshot)
+    assert assessment.status == rbfsafe.DeploymentProfileAssessmentStatus.CONFORMANT
+    assert assessment.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not assessment.authorizes_execution
+    snapshot.runtime_monitor_active = False
+    failed = reviewed.assess(snapshot)
+    assert failed.status == rbfsafe.DeploymentProfileAssessmentStatus.NONCONFORMANT
+    assert failed.violations == [
+        rbfsafe.DeploymentConstraintViolation.RUNTIME_MONITOR_REQUIRED
+    ]
+
+    profile_path = tmp_path / "reviewed-deployment-profile.json"
+    reviewed.save(profile_path)
+    loaded = rbfsafe.ReviewedDeploymentProfile.load(
+        profile_path, history, checkpoint, checkpoint.id
+    )
+    assert loaded.profile.id == profile.id
+    assert loaded.approval_set.id == approval_set.id
+
+    fixture_root = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "reviewed_deployment_profile_schema1"
+    )
+    fixed_checkpoint = rbfsafe.ServiceTrustCheckpoint.load(
+        fixture_root / "checkpoint.json"
+    )
+    fixed_history = rbfsafe.ServiceTrustHistory.open(
+        fixture_root / "trust-history",
+        fixed_checkpoint.root_bundle_id,
+        fixed_checkpoint,
+        fixed_checkpoint.id,
+    )
+    fixed_reviewed = rbfsafe.ReviewedDeploymentProfile.load(
+        fixture_root / "profile.json",
+        fixed_history,
+        fixed_checkpoint,
+        fixed_checkpoint.id,
+    )
+    assert (
+        fixed_reviewed.profile.id
+        == "c652aa75ca153ef429b6fff372b83c675a0ac3b68f055e9bb607108d543c7be4"
+    )
+    assert (
+        fixed_reviewed.approval_set.id
+        == "e56a57547437938c39ca903541cf7eb014d921a3254fc06e8a45c96e6d8cd9ae"
+    )
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(profile_path),
+                "--expected-trust-root",
+                bundle.id,
+                "--trust-history",
+                str(history_path),
+                "--trust-checkpoint",
+                str(checkpoint_path),
+                "--expected-trust-checkpoint",
+                checkpoint.id,
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "reviewed-deployment-profile schema=1" in output
+    assert "approvals=2" in output
+    assert "review_signatures_verified=true" in output
+    assert "runtime_executable=false" in output
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

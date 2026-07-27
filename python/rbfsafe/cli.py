@@ -24,6 +24,7 @@ from . import (
     RegionDatabase,
     RegionQueryOptions,
     RegionType,
+    ReviewedDeploymentProfile,
     SafeAtlas,
     SafeIkSolver,
     SafeIkStatus,
@@ -49,6 +50,7 @@ from . import (
     policy_calibration_drift_reason_name,
     policy_calibration_drift_status_name,
     policy_calibration_lifecycle_state_name,
+    deployment_review_role_name,
     service_key_state_name,
     service_trust_rotation_event_type_name,
     verify_artifact_file,
@@ -269,6 +271,110 @@ def main(argv: list[str] | None = None) -> int:
         args.trust_history,
         args.expected_trust_checkpoint,
     )
+    if file_document.get("format") == "rbfsafe-reviewed-deployment-profile":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+            args.policy_confidence,
+            args.calibration_profile,
+            args.expected_trust_head,
+            args.artifact_payload,
+            args.attestation_memory,
+            args.hmac_key_file,
+            args.expected_service_id,
+            args.expected_key_id,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error(
+                "Atlas, memory, policy, attestation, and query options do not "
+                "apply to reviewed deployment profiles"
+            )
+        if (
+            args.expected_trust_root is None
+            or args.trust_history is None
+            or args.trust_checkpoint is None
+            or args.expected_trust_checkpoint is None
+        ):
+            parser.error(
+                "--expected-trust-root, --trust-history, --trust-checkpoint, and "
+                "--expected-trust-checkpoint are required for a reviewed "
+                "deployment profile"
+            )
+        checkpoint = ServiceTrustCheckpoint.load(args.trust_checkpoint)
+        history = ServiceTrustHistory.open(
+            args.trust_history,
+            args.expected_trust_root,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        reviewed = ReviewedDeploymentProfile.load(
+            args.atlas,
+            history,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        profile = reviewed.profile
+        approval_set = reviewed.approval_set
+        print(
+            f"RBF-Safe reviewed-deployment-profile "
+            f"schema={profile.storage_schema}"
+        )
+        print(
+            f"profile={profile.id} deployment={profile.deployment_id} "
+            f"robot={profile.robot_digest} controller={profile.controller_digest} "
+            f"platform={profile.platform_digest} runtime={profile.runtime_digest}"
+        )
+        print(
+            f"trust_root={profile.trust_root_bundle_id} "
+            f"trust_checkpoint={profile.trust_checkpoint_id} "
+            f"trust_bundle={profile.trust_bundle_id} "
+            f"trust_sequence={profile.trust_bundle_sequence}"
+        )
+        print(
+            f"approval_set={approval_set.id} approvals={len(approval_set.approvals)} "
+            f"minimum_approvals={profile.review_policy.minimum_approvals} "
+            f"distinct_services="
+            f"{str(profile.review_policy.require_distinct_services).lower()}"
+        )
+        for role in profile.review_policy.required_roles:
+            print(f"required_role={deployment_review_role_name(role)}")
+        for approval in approval_set.approvals:
+            print(
+                f"approval={approval.id} signer_service={approval.signer_service_id} "
+                f"signer_key={approval.signer_key_id} "
+                f"role={deployment_review_role_name(approval.role)}"
+            )
+        print("caller_pinned=true")
+        print("checkpoint_verified=true")
+        print("review_signatures_verified=true")
+        print("runtime_executable=false")
+        return 0
     if file_document.get("format") == "rbfsafe-service-trust-checkpoint":
         unsupported = (
             args.plot,

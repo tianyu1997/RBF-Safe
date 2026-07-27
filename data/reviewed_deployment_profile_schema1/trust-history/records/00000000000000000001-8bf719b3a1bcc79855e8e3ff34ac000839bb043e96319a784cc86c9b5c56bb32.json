@@ -1,0 +1,11 @@
+{
+  "authorization_set": null,
+  "bundle_id": "f2294fc4d8089ecf4feb5a4d579d6f541d54fa4d9973e26958aa6043fc5c4654",
+  "format": "rbfsafe-service-trust-rotation-record",
+  "id": "8bf719b3a1bcc79855e8e3ff34ac000839bb043e96319a784cc86c9b5c56bb32",
+  "library_version": "3.10.0",
+  "parent_id": "",
+  "schema": 2,
+  "sequence": "1",
+  "type": 0
+}

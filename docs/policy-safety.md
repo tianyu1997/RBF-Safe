@@ -151,5 +151,6 @@ a shield decision, but it also remains below execution evidence.
 A deployment must independently validate timing, state estimation, actuation,
 emergency stopping, monitoring cadence, review authority, and the mapping
 from the shield's output trajectory to controller commands. Online policy
-updates and deployment-profile `RuntimeExecutable` evidence remain future
-work.
+updates and `RuntimeExecutable` execution-session evidence remain future
+work. The v3.10 reviewed deployment profile records and verifies these
+assumptions but deliberately does not promote policy or shield output.

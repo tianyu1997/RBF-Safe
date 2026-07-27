@@ -25,7 +25,11 @@ records, `ServiceTrustCheckpoint`, bounded checkpoint options, signature/
 assembly/verification functions, and checkpoint-pinned history-open and
 authorization-set publication overloads. Existing schema-2 creation,
 single-authorization publication, and expected-head open behavior remain
-available. Public headers under `include/rbfsafe`,
+available. RBF-Safe 3.10 additively introduces `RBFSafe::deployment`,
+deterministic profile/runtime/review values, role-aware Ed25519 approval
+functions, `ReviewedDeploymentProfile`, schema-1 load options and
+persistence, and conformance assessment APIs. Existing evidence meanings and
+all prior targets remain unchanged. Public headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
 historical contracts; `tools/check_api_surface.py` selects the snapshot for the
@@ -68,7 +72,7 @@ The following installed target names are stable in 3.x:
 - `RBFSafe::update`, `RBFSafe::ik`, `RBFSafe::corridor`;
 - `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`;
 - `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, `RBFSafe::trust`,
-  `RBFSafe::remote`, `RBFSafe::identity`, and aggregate
+  `RBFSafe::remote`, `RBFSafe::identity`, `RBFSafe::deployment`, and aggregate
   `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 

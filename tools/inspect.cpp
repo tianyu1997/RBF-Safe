@@ -31,6 +31,10 @@ bool is_service_trust_checkpoint(const std::filesystem::path& path) {
     return bounded_file_contains(path, "\"rbfsafe-service-trust-checkpoint\"");
 }
 
+bool is_reviewed_deployment_profile(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-reviewed-deployment-profile\"");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -40,8 +44,66 @@ int main(int argc, char** argv) {
                   << "       rbfsafe-inspect <trust-history> <expected-root> <checkpoint> "
                      "<expected-checkpoint>\n"
                   << "       rbfsafe-inspect <checkpoint> <trust-history> <expected-root> "
-                     "<expected-checkpoint>\n";
+                     "<expected-checkpoint>\n"
+                  << "       rbfsafe-inspect <reviewed-deployment-profile> <trust-history> "
+                     "<expected-root> <checkpoint> <expected-checkpoint>\n";
         return 2;
+    }
+    if (is_reviewed_deployment_profile(std::filesystem::path(argv[1]))) {
+        if (argc != 6) {
+            std::cerr << "reviewed deployment-profile inspection requires trust history, "
+                         "expected root, checkpoint, and expected checkpoint ID\n";
+            return 2;
+        }
+        auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[4]));
+        if (!checkpoint) {
+            std::cerr << checkpoint.error().describe() << '\n';
+            return 1;
+        }
+        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[2]), argv[3],
+                                                          checkpoint.value(), argv[5]);
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        auto reviewed = rbfsafe::ReviewedDeploymentProfile::load(
+            std::filesystem::path(argv[1]), history.value(), checkpoint.value(), argv[5]);
+        if (!reviewed) {
+            std::cerr << reviewed.error().describe() << '\n';
+            return 1;
+        }
+        const auto& profile = reviewed.value().profile();
+        const auto& approval_set = reviewed.value().approval_set();
+        std::cout << "RBF-Safe reviewed deployment profile\n"
+                  << "schema: " << profile.storage_schema << '\n'
+                  << "profile: " << profile.id << '\n'
+                  << "deployment: " << profile.deployment_id << '\n'
+                  << "robot: " << profile.robot_digest << '\n'
+                  << "controller: " << profile.controller_digest << '\n'
+                  << "platform: " << profile.platform_digest << '\n'
+                  << "runtime: " << profile.runtime_digest << '\n'
+                  << "trust root: " << profile.trust_root_bundle_id << '\n'
+                  << "trust checkpoint: " << profile.trust_checkpoint_id << '\n'
+                  << "trust bundle: " << profile.trust_bundle_id << '\n'
+                  << "trust sequence: " << profile.trust_bundle_sequence << '\n'
+                  << "minimum approvals: " << profile.review_policy.minimum_approvals << '\n'
+                  << "distinct services: "
+                  << (profile.review_policy.require_distinct_services ? "true" : "false") << '\n'
+                  << "approval set: " << approval_set.id << '\n'
+                  << "approvals: " << approval_set.approvals.size() << '\n';
+        for (const auto role : profile.review_policy.required_roles)
+            std::cout << "required role: " << rbfsafe::deployment_review_role_name(role) << '\n';
+        for (const auto& approval : approval_set.approvals) {
+            std::cout << "approval: " << approval.id << '\n'
+                      << "  signer service: " << approval.signer_service_id << '\n'
+                      << "  signer key: " << approval.signer_key_id << '\n'
+                      << "  role: " << rbfsafe::deployment_review_role_name(approval.role) << '\n';
+        }
+        std::cout << "caller pinned: true\n"
+                  << "checkpoint verified: true\n"
+                  << "review signatures verified: true\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_service_trust_history(std::filesystem::path(argv[1]))) {
         if (argc != 4 && argc != 5) {

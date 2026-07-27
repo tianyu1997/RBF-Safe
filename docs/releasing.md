@@ -76,6 +76,14 @@ and byte-limit failures; fixed fixture identities; cross-language byte
 equality; and both CLI verification directions. Document that rolling back
 the history and every external anchor together remains outside local
 detection.
+Run both reviewed-deployment-profile quickstarts against deterministic
+reviewer/governance keys. Verify exact root/checkpoint/head binding,
+publication permission, minimum/distinct-service quorum, every required
+review role, wrong-secret and duplicate-signer rejection, bounded loading,
+unknown schema, truncation and tamper rejection, fixed fixture identities,
+cross-language byte equality, and native/Python inspection. Exercise every
+runtime identity/timing/monitor/transport/artifact violation and confirm all
+assessments remain `Unknown` with `runtime_executable=false`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -109,7 +117,7 @@ memory only as release diagnostics.
 Atlas, corridor, region-database, version-store, policy-feedback,
 safety-memory, safety-memory-store, attestation, artifact-transfer-journal,
 service-trust-bundle, service-trust-history, service-trust-checkpoint,
-calibration-profile, or
+reviewed-deployment-profile, calibration-profile, or
 calibration-lifecycle schema
 changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
