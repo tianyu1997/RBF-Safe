@@ -1,6 +1,6 @@
 # Remote artifact service contract
 
-RBF-Safe 3.6 adds `RBFSafe::remote`, a transport-neutral contract for moving
+RBF-Safe 3.6 added `RBFSafe::remote`, a transport-neutral contract for moving
 exact safety-artifact bytes across a service boundary. The module prepares
 deterministic fetch and publish requests, validates service responses, binds
 them to the current `SafetyMemory` state, authenticates the complete exchange,
@@ -94,6 +94,15 @@ individual holders of the same key. RBF-Safe does not store keys. Rotation,
 revocation, secret erasure, key distribution, authorization, and audit access
 remain deployment responsibilities.
 
+RBF-Safe 3.7 adds `ArtifactTransferAuthentication::Ed25519` in the separate
+`RBFSafe::identity` target. Service adapters sign a response or receipt with
+`sign_artifact_fetch_response` or `sign_artifact_publish_receipt`; callers
+verify it with `verify_artifact_fetch_offline` or
+`verify_artifact_publish_offline` against an explicitly supplied,
+caller-pinned `ServiceTrustBundle`. The public-key path preserves the 3.6
+exchange checks and records the selected verification-key and trust-bundle
+IDs. See [public-key service identities](public-service-identities.md).
+
 ## Transport adapter responsibilities
 
 An adapter may use HTTPS, a message bus, object storage, an air-gapped copy
@@ -101,11 +110,11 @@ workflow, or another protocol. It is responsible for:
 
 - endpoint allowlists, URI parsing, DNS and redirect policy, and SSRF defense;
 - TLS validation and optional mutual TLS;
-- authentication and authorization outside the transfer HMAC;
+- authentication and authorization outside the transfer HMAC/signature;
 - timeouts, retry and idempotency policy, rate limiting, and backpressure;
 - streaming or buffering without exceeding the RBF-Safe byte cap;
 - mapping remote errors without converting them into verified transfers; and
-- keeping HMAC keys out of command-line arguments and logs.
+- keeping HMAC and signing keys out of command-line arguments and logs.
 
 The library deliberately does not retry. A retry policy can otherwise turn
 one logical publication into multiple service operations or conceal an
@@ -128,6 +137,8 @@ places artifact repositories and signing/verification tools alongside, rather
 than inside, application validation. These references inform the boundary;
 RBF-Safe does not claim TUF, SLSA, or NIST conformance.
 
-Public-key service identities, threshold trust, certificate chains, and remote
-key discovery are planned separately. They will add algorithms without
-weakening the 3.6 request, response, byte, lifecycle, or resource checks.
+Threshold trust, certificate chains, remote key discovery, TLS, endpoints,
+credentials, and concrete network clients remain outside the library. Public
+keys are authorized only through caller-pinned trust bundles; accepting a
+bundle solely because its self-declared hash is internally consistent is not
+authentication.

@@ -136,6 +136,38 @@ int main(int argc, char** argv) {
                   << "verified: false\n";
         return 0;
     }
+    auto trust_bundle = rbfsafe::ServiceTrustBundle::load(std::filesystem::path(argv[1]));
+    if (trust_bundle) {
+        if (argc > 2) {
+            std::cerr << "configuration queries do not apply to service trust bundles\n";
+            return 2;
+        }
+        std::cout << "RBF-Safe service trust bundle\n"
+                  << "schema: 1\n"
+                  << "bundle: " << trust_bundle.value().id() << '\n'
+                  << "sequence: " << trust_bundle.value().sequence() << '\n'
+                  << "parent: "
+                  << (trust_bundle.value().parent_id().empty() ? "-" : trust_bundle.value().parent_id())
+                  << '\n'
+                  << "keys: " << trust_bundle.value().keys().size() << '\n';
+        for (const auto& key : trust_bundle.value().keys()) {
+            std::cout << "key: " << key.id << '\n'
+                      << "  service: " << key.service_id << '\n'
+                      << "  algorithm: " << rbfsafe::artifact_authentication_algorithm_name(key.algorithm)
+                      << '\n'
+                      << "  state: " << rbfsafe::service_key_state_name(key.state) << '\n'
+                      << "  sequence window: " << key.valid_from_sequence << "..";
+            if (key.valid_through_sequence == 0)
+                std::cout << "unbounded\n";
+            else
+                std::cout << key.valid_through_sequence << '\n';
+            std::cout << "  operations:" << (key.allow_fetch ? " fetch" : "")
+                      << (key.allow_publish ? " publish" : "") << '\n';
+        }
+        std::cout << "caller pinned: false\n"
+                  << "runtime executable: false\n";
+        return 0;
+    }
     auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[1]));
     bool loaded_from_store = false;
     std::size_t stored_versions = 0;
@@ -285,8 +317,11 @@ int main(int argc, char** argv) {
                 std::cerr << "configuration queries do not apply to artifact transfer journals\n";
                 return 2;
             }
+            const bool public_key_journal =
+                !transfer_journal.value().records().empty() &&
+                !transfer_journal.value().records().back().transfer.verification_key_id.empty();
             std::cout << "RBF-Safe artifact transfer journal\n"
-                      << "schema: 1\n"
+                      << "schema: " << (public_key_journal ? 2 : 1) << '\n'
                       << "records: " << transfer_journal.value().records().size() << '\n'
                       << "current: " << transfer_journal.value().current_record_id() << '\n'
                       << "identity: " << transfer_journal.value().identity() << '\n';
@@ -305,6 +340,10 @@ int main(int argc, char** argv) {
                           << "authentication: "
                           << rbfsafe::artifact_transfer_authentication_name(record.transfer.authentication)
                           << '\n';
+                if (!record.transfer.verification_key_id.empty()) {
+                    std::cout << "verification key: " << record.transfer.verification_key_id << '\n'
+                              << "trust bundle: " << record.transfer.trust_bundle_id << '\n';
+                }
             }
             std::cout << "runtime executable: false\n";
             return 0;

@@ -31,6 +31,7 @@ from . import (
     SafetyMemoryStore,
     SceneSnapshot,
     SerialRobotModel,
+    ServiceTrustBundle,
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
@@ -46,6 +47,7 @@ from . import (
     policy_calibration_drift_reason_name,
     policy_calibration_drift_status_name,
     policy_calibration_lifecycle_state_name,
+    service_key_state_name,
     verify_artifact_file,
 )
 
@@ -235,6 +237,64 @@ def main(argv: list[str] | None = None) -> int:
         args.expected_service_id,
         args.expected_key_id,
     )
+    if file_document.get("format") == "rbfsafe-service-trust-bundle":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+            args.policy_confidence,
+            args.calibration_profile,
+            *attestation_arguments,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error(
+                "Atlas, memory, policy, attestation, and query options do not "
+                "apply to service trust bundles"
+            )
+        bundle = ServiceTrustBundle.load(args.atlas)
+        print("RBF-Safe service-trust-bundle schema=1")
+        print(
+            f"bundle={bundle.id} sequence={bundle.sequence} "
+            f"parent={bundle.parent_id or '-'} keys={len(bundle.keys)}"
+        )
+        for key in bundle.keys:
+            upper = key.valid_through_sequence or "-"
+            print(
+                f"service={key.service_id} key={key.id} "
+                f"algorithm={artifact_authentication_algorithm_name(key.algorithm)} "
+                f"state={service_key_state_name(key.state)} "
+                f"sequences={key.valid_from_sequence}:{upper} "
+                f"fetch={str(key.allow_fetch).lower()} "
+                f"publish={str(key.allow_publish).lower()}"
+            )
+        print("caller_pinned=false")
+        print("runtime_executable=false")
+        return 0
     if (
         file_document.get("format") == "rbfsafe-policy-calibration-lifecycle"
         or args.calibration_profile is not None
@@ -496,7 +556,10 @@ def main(argv: list[str] | None = None) -> int:
                 "to artifact transfer journals"
             )
         journal = ArtifactTransferJournal.load(args.atlas)
-        print("RBF-Safe artifact-transfer-journal schema=1")
+        print(
+            "RBF-Safe artifact-transfer-journal "
+            f"schema={manifest.get('schema', '?')}"
+        )
         print(
             f"records={len(journal.records)} current={journal.current_record_id or '-'} "
             f"identity={journal.identity}"
@@ -516,6 +579,11 @@ def main(argv: list[str] | None = None) -> int:
                 f"payload={transfer.payload_digest} bytes={transfer.payload_bytes} "
                 f"authentication={artifact_transfer_authentication_name(transfer.authentication)}"
             )
+            if transfer.verification_key_id:
+                print(
+                    f"verification_key={transfer.verification_key_id} "
+                    f"trust_bundle={transfer.trust_bundle_id}"
+                )
         print("runtime_executable=false")
         return 0
     if manifest.get("format") == "rbfsafe-fleet-schedule-archive":

@@ -59,7 +59,7 @@ targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
 `RBFSafe::update`, `RBFSafe::corridor`, `RBFSafe::ik`, and
 `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`,
 `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`,
-`RBFSafe::trust`, and `RBFSafe::remote` are
+`RBFSafe::trust`, `RBFSafe::remote`, and `RBFSafe::identity` are
 available when the aggregate target is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
@@ -93,6 +93,13 @@ exchanges and persists compact transfer journals. It adds no HTTP, TLS, or
 cloud SDK dependency. Network adapters, endpoints, credentials, and keys
 remain application-owned.
 
+`RBFSafe::identity` adds portable RFC 8032 Ed25519 service signatures,
+caller-pinned public trust bundles, monotonic key rotation, and offline
+transfer verification. It vendors the Monocypher source listed in
+`THIRD_PARTY_NOTICES.md`; no OpenSSL or platform crypto SDK is added to the
+public package contract. Private-key storage and trust-root distribution
+remain application-owned.
+
 `RBFSafe::policy` also provides policy-calibration profiles and calibrated
 gating. In 3.5 it additionally provides aggregate operational drift
 assessment, a persistent profile lifecycle, and expected-head guarded gating.
@@ -104,6 +111,9 @@ With examples enabled, run `rbfsafe_calibration_lifecycle_quickstart` to
 exercise assessment, activation, persistence, reload, and guarded gating.
 Run `rbfsafe_remote_artifact_quickstart <new-journal-directory>` to exercise a
 request-bound authenticated publication and journal round trip.
+Run `rbfsafe_public_identity_quickstart <new-bundle-file>
+<new-journal-directory>` to exercise Ed25519 signing, caller-supplied offline
+verification, and public provenance persistence.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

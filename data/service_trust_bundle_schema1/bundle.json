@@ -1,0 +1,21 @@
+{
+  "format": "rbfsafe-service-trust-bundle",
+  "id": "b6f6e30bc2245e64a519c8a02e61063bdf2fe1d8dc5ee35d980f46e1e4aa584d",
+  "keys": [
+    {
+      "algorithm": 1,
+      "allow_fetch": true,
+      "allow_publish": true,
+      "id": "deeb721ce417eb73af26ccc9a69a2a8c4343dada00e2e6f3864084c1e328e732",
+      "public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+      "service_id": "artifact-service",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    }
+  ],
+  "library_version": "3.7.0",
+  "parent_id": "",
+  "schema": 1,
+  "sequence": "1"
+}

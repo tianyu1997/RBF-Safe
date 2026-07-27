@@ -3,6 +3,31 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.7.0] - 2026-07-27
+
+### Added
+
+- Public `RBFSafe::identity` target with RFC 8032 Ed25519 primitives,
+  deterministic service public-key IDs, caller-pinned public trust bundles,
+  operation/sequence constraints, and pending/active/retired/revoked policy.
+- Parent-linked monotonic bundle rotation, bounded atomic schema-1 bundle
+  persistence, fixed public fixture, C++/Python/native inspection, and
+  reproducible quickstarts. Private keys are never persisted.
+- Offline fetch/publication verification that preserves the complete 3.6
+  memory/lifecycle/request/response/byte contract and records the exact
+  verification-key and trust-bundle IDs in schema-2 transfer journals.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.7.0. Existing 3.x APIs and storage readers remain available.
+- Artifact-transfer-journal writers now emit schema 2. Readers retain schema 1
+  support, and legacy HMAC/unauthenticated transfer identities are unchanged.
+- The release benchmark now exercises caller-pinned Ed25519 verification and
+  binds its discrete key/transfer counts into the cross-platform digest.
+- Monocypher 4.0.2 is vendored from its official archive under its BSD
+  2-Clause option; exact upstream hashes and third-party notices are included.
+
 ## [3.6.0] - 2026-07-27
 
 ### Added

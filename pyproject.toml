@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "rbfsafe"
-version = "3.6.0"
+version = "3.7.0"
 description = "Reusable geometric safety certificates for robot configuration spaces"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -55,6 +55,7 @@ sdist.include = [
   "examples/**",
   "benchmarks/**",
   "plugins/**",
+  "third_party/**",
   "data/**",
   "docs/**",
   ".github/**",
@@ -71,6 +72,7 @@ sdist.include = [
   "README.md",
   "SECURITY.md",
   "SUPPORT.md",
+  "THIRD_PARTY_NOTICES.md",
 ]
 sdist.exclude = [
   ".pytest_cache/**",

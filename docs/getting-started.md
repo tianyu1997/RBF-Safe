@@ -294,7 +294,41 @@ RBF-Safe. Read the
 [remote artifact service contract](remote-artifact-service.md) before using
 this boundary.
 
-## 12. Persist fleet-schedule history
+## 12. Verify a public-key service offline
+
+Create or load an explicitly authorized public bundle, request Ed25519
+authentication, and preserve public verification provenance:
+
+```python
+# Reproducible demo seed only; use a CSPRNG plus HSM/secret manager in production.
+pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+service_key = rbfsafe.make_service_public_key(
+    "artifact-service", pair.public_key, 1, 0,
+    rbfsafe.ServiceKeyState.ACTIVE,
+)
+bundle = rbfsafe.ServiceTrustBundle.create(1, "", [service_key])
+
+request = rbfsafe.prepare_artifact_publish(
+    memory, remote_artifact.id, payload, "artifact-service", 2,
+    "application/vnd.rbfsafe.atlas",
+    rbfsafe.ArtifactTransferAuthentication.ED25519,
+)
+receipt = rbfsafe.make_artifact_publish_receipt(request, 102)
+receipt = rbfsafe.sign_artifact_publish_receipt(
+    receipt, service_key.id, pair.secret_key
+)
+verified = rbfsafe.verify_artifact_publish_offline(
+    memory, request, receipt, payload, bundle
+)
+assert verified.trust_bundle_id == bundle.id
+```
+
+The application must pin `bundle.id` through an authenticated out-of-band
+process; loading an attacker-supplied bundle and trusting its internally
+consistent ID is not authentication. See
+[public-key service identities](public-service-identities.md).
+
+## 13. Persist fleet-schedule history
 
 Publish canonical reservation reports against the exact memory revision used
 to validate their source artifacts:
@@ -313,7 +347,7 @@ Preserve that memory revision if the live catalog is later changed. The
 archive status remains a declared-envelope coordination result, not an
 execution certificate. See [versioned fleet schedules](fleet-schedule-archive.md).
 
-## 13. Apply calibrated policy confidence
+## 14. Apply calibrated policy confidence
 
 Create a profile from reviewed held-out aggregate counts, persist it, then
 require the independently configured model and scope identity at use time:

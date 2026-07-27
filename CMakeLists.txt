@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 3.6.0
+    VERSION 3.7.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
-    LANGUAGES CXX)
+    LANGUAGES C CXX)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -217,10 +217,63 @@ target_include_directories(rbfsafe_remote
 target_link_libraries(rbfsafe_remote PUBLIC rbfsafe_trust)
 rbfsafe_configure_target(rbfsafe_remote)
 
+function(rbfsafe_verify_vendored_file path expected_sha256)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${path}" actual_sha256)
+    if(NOT actual_sha256 STREQUAL expected_sha256)
+        message(FATAL_ERROR
+            "Vendored file ${path} does not match its reviewed upstream SHA-256")
+    endif()
+endfunction()
+
+rbfsafe_verify_vendored_file(
+    third_party/monocypher/monocypher.c
+    afe2b098c8569577a84488e0b98d276d1fba6506adea68bb9241a52111734c59)
+rbfsafe_verify_vendored_file(
+    third_party/monocypher/monocypher.h
+    f78bb31255cfb7beba66afd2137f5194c8a025cf40488b6cc1e295234d43f374)
+rbfsafe_verify_vendored_file(
+    third_party/monocypher/optional/monocypher-ed25519.c
+    7c9b16056cbd27521919e8a6f56a228808b9e718afc42e3d33f28c08e5abdee2)
+rbfsafe_verify_vendored_file(
+    third_party/monocypher/optional/monocypher-ed25519.h
+    bd546edcd468d64e28caa3dbf4b1d6bfad7435c0ce994723fd81aae26405121b)
+rbfsafe_verify_vendored_file(
+    third_party/monocypher/LICENCE.md
+    5f8360e4c06ddcc584bdb4b210c6af824c4bb301e6a9a521869b6d90795ca4b3)
+
+add_library(rbfsafe_monocypher OBJECT
+    third_party/monocypher/monocypher.c
+    third_party/monocypher/optional/monocypher-ed25519.c)
+target_include_directories(rbfsafe_monocypher
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/monocypher)
+set_target_properties(rbfsafe_monocypher PROPERTIES
+    POSITION_INDEPENDENT_CODE ON)
+if(MSVC)
+    target_compile_options(rbfsafe_monocypher PRIVATE /w)
+else()
+    target_compile_options(rbfsafe_monocypher PRIVATE -w)
+endif()
+
+add_library(rbfsafe_identity
+    src/identity.cpp
+    src/identity_persistence.cpp
+    $<TARGET_OBJECTS:rbfsafe_monocypher>)
+add_library(RBFSafe::identity ALIAS rbfsafe_identity)
+set_target_properties(rbfsafe_identity PROPERTIES EXPORT_NAME identity)
+target_include_directories(rbfsafe_identity
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/monocypher)
+target_link_libraries(rbfsafe_identity PUBLIC rbfsafe_remote)
+rbfsafe_configure_target(rbfsafe_identity)
+
 add_library(rbfsafe INTERFACE)
 add_library(RBFSafe::rbfsafe ALIAS rbfsafe)
 set_target_properties(rbfsafe PROPERTIES EXPORT_NAME rbfsafe)
-target_link_libraries(rbfsafe INTERFACE rbfsafe_optimization rbfsafe_policy rbfsafe_remote rbfsafe_update rbfsafe_planning)
+target_link_libraries(rbfsafe INTERFACE rbfsafe_optimization rbfsafe_policy rbfsafe_identity rbfsafe_update rbfsafe_planning)
 
 set(RBFSAFE_OMPL_BUILT 0)
 if(RBFSAFE_BUILD_OMPL)
@@ -312,6 +365,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_remote_artifact_quickstart examples/remote_artifact_quickstart.cpp)
     target_link_libraries(rbfsafe_remote_artifact_quickstart PRIVATE RBFSafe::remote)
     rbfsafe_configure_target(rbfsafe_remote_artifact_quickstart)
+    add_executable(rbfsafe_public_identity_quickstart examples/public_identity_quickstart.cpp)
+    target_link_libraries(rbfsafe_public_identity_quickstart PRIVATE RBFSafe::identity)
+    rbfsafe_configure_target(rbfsafe_public_identity_quickstart)
     if(RBFSAFE_BUILD_OMPL)
         add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
         target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
@@ -349,7 +405,7 @@ endif()
 if(RBFSAFE_BUILD_PYTHON)
     find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
-    pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp python/bindings_calibration.cpp python/bindings_memory.cpp python/bindings_trust.cpp python/bindings_remote.cpp)
+    pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp python/bindings_calibration.cpp python/bindings_memory.cpp python/bindings_trust.cpp python/bindings_remote.cpp python/bindings_identity.cpp)
     target_link_libraries(_rbfsafe PRIVATE RBFSafe::rbfsafe)
     target_include_directories(_rbfsafe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     install(TARGETS _rbfsafe LIBRARY DESTINATION rbfsafe RUNTIME DESTINATION rbfsafe)
@@ -357,13 +413,21 @@ if(RBFSAFE_BUILD_PYTHON)
         FILES_MATCHING
         PATTERN "*.py"
         PATTERN "__pycache__" EXCLUDE)
+    install(FILES THIRD_PARTY_NOTICES.md
+        DESTINATION rbfsafe)
+    install(FILES third_party/monocypher/LICENCE.md
+        DESTINATION rbfsafe
+        RENAME MONOCYPHER_LICENSE.md)
 endif()
 
 if(NOT SKBUILD)
-    install(FILES LICENSE README.md CHANGELOG.md
+    install(FILES LICENSE THIRD_PARTY_NOTICES.md README.md CHANGELOG.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe)
+    install(FILES third_party/monocypher/LICENCE.md
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/licenses/Monocypher
+        RENAME LICENSE.md)
 
-    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe_policy rbfsafe_memory rbfsafe_trust rbfsafe_remote rbfsafe
+    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe_policy rbfsafe_memory rbfsafe_trust rbfsafe_remote rbfsafe_identity rbfsafe
         EXPORT RBFSafeTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -394,6 +458,10 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/artifact_attestation_schema1)
     install(DIRECTORY data/artifact_transfer_journal_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/artifact_transfer_journal_schema1)
+    install(DIRECTORY data/artifact_transfer_journal_schema2/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/artifact_transfer_journal_schema2)
+    install(DIRECTORY data/service_trust_bundle_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_bundle_schema1)
     install(DIRECTORY data/policy_calibration_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
     install(DIRECTORY data/policy_calibration_lifecycle_schema1/

@@ -21,6 +21,7 @@ enum class ArtifactTransferOperation : std::uint8_t {
 enum class ArtifactTransferAuthentication : std::uint8_t {
     None = 0,
     HmacSha256 = 1,
+    Ed25519 = 2,
 };
 
 struct ArtifactTransferAttestation {
@@ -116,6 +117,8 @@ struct VerifiedArtifactTransfer {
     std::uint64_t service_sequence = 0;
     ArtifactTransferAuthentication authentication = ArtifactTransferAuthentication::None;
     std::string attestation_id;
+    std::string verification_key_id;
+    std::string trust_bundle_id;
 };
 
 struct RemoteArtifactOptions {

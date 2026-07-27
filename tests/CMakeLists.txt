@@ -29,6 +29,7 @@ rbfsafe_add_test(rbfsafe_test_memory test_memory.cpp)
 target_include_directories(rbfsafe_test_memory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 rbfsafe_add_test(rbfsafe_test_trust test_trust.cpp)
 rbfsafe_add_test(rbfsafe_test_remote test_remote.cpp)
+rbfsafe_add_test(rbfsafe_test_identity test_identity.cpp)
 
 if(RBFSAFE_BUILD_OMPL)
     add_executable(rbfsafe_test_ompl test_ompl.cpp)

@@ -400,11 +400,35 @@ from trusted configuration and call `verify_artifact_fetch` or
 exact bytes before returning `VerifiedArtifactTransfer`.
 
 `ArtifactTransferJournal::append` requires an expected head and stores compact
-verified-transfer metadata. `save`/`load` use a bounded checksummed schema-1
-directory. Neither a verified transfer nor a journal record parses payload
-semantics or raises evidence. See the
+verified-transfer metadata. Current writers use a bounded checksummed
+schema-2 directory; readers retain schema-1 compatibility. Neither a verified
+transfer nor a journal record parses payload semantics or raises evidence.
+See the
 [remote artifact service contract](remote-artifact-service.md) and
 [journal format](artifact-transfer-journal-format.md).
+
+## Public-key service identities
+
+Include `<rbfsafe/identity.h>` and link `RBFSafe::identity`.
+`ed25519_key_pair_from_seed`, `ed25519_sign`, and `ed25519_verify` expose the
+RFC 8032 primitive needed by service adapters. Deterministic examples use a
+fixed 32-byte seed; production callers must supply securely generated,
+externally protected keys.
+
+`make_service_public_key` binds a service, Ed25519 public key, inclusive
+service-sequence window, operation permissions, and lifecycle state.
+`ServiceTrustBundle::create` produces a deterministic caller-pinnable root;
+`rotate_service_trust_bundle` enforces a parent-linked monotonic successor and
+one-way pending/active/retired/revoked transitions. `save`/`load` use bounded
+schema-1 JSON and never persist a private key.
+
+Service adapters call `sign_artifact_fetch_response` or
+`sign_artifact_publish_receipt`. Clients call
+`verify_artifact_fetch_offline` or `verify_artifact_publish_offline` with the
+exact locally authorized bundle. Successful transfers record
+`verification_key_id` and `trust_bundle_id`; bundle integrity alone does not
+authorize an unpinned root. See [public-key service identities](public-service-identities.md)
+and the [trust-bundle format](service-trust-bundle-format.md).
 
 ## Error model
 

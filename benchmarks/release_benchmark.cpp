@@ -55,6 +55,8 @@ struct CaseMetrics {
     std::size_t artifact_attestations = 0;
     std::size_t artifact_transfers = 0;
     std::size_t artifact_transfer_records = 0;
+    std::size_t public_key_transfers = 0;
+    std::size_t trusted_service_keys = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -504,8 +506,49 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
             rbfsafe::StatusCode::InternalError, "release fixture remote artifact transfer was inconsistent",
             fixture.name);
     }
-    metrics.artifact_transfers = 1;
+    std::array<std::byte, rbfsafe::kEd25519SeedBytes> service_seed{};
+    for (std::size_t index = 0; index < service_seed.size(); ++index)
+        service_seed[index] = static_cast<std::byte>(index + 1);
+    auto service_key_pair = rbfsafe::ed25519_key_pair_from_seed(service_seed);
+    if (!service_key_pair)
+        return service_key_pair.error();
+    auto service_key =
+        rbfsafe::make_service_public_key("release-artifact-service", service_key_pair.value().public_key, 1,
+                                         0, rbfsafe::ServiceKeyState::Active);
+    if (!service_key)
+        return service_key.error();
+    auto trust_bundle = rbfsafe::ServiceTrustBundle::create(1, "", {service_key.value()});
+    if (!trust_bundle)
+        return trust_bundle.error();
+    auto public_request = rbfsafe::prepare_artifact_publish(
+        memory, remote_artifact.value().id, remote_bytes, "release-artifact-service", 2,
+        "application/vnd.rbfsafe.atlas", rbfsafe::ArtifactTransferAuthentication::Ed25519);
+    if (!public_request)
+        return public_request.error();
+    auto unsigned_public_receipt = rbfsafe::make_artifact_publish_receipt(public_request.value(), 3);
+    if (!unsigned_public_receipt)
+        return unsigned_public_receipt.error();
+    auto public_receipt = rbfsafe::sign_artifact_publish_receipt(
+        unsigned_public_receipt.value(), service_key.value().id, service_key_pair.value().secret_key);
+    if (!public_receipt)
+        return public_receipt.error();
+    auto public_transfer = rbfsafe::verify_artifact_publish_offline(
+        memory, public_request.value(), public_receipt.value(), remote_bytes, trust_bundle.value());
+    if (!public_transfer || public_transfer.value().verification_key_id != service_key.value().id ||
+        public_transfer.value().trust_bundle_id != trust_bundle.value().id())
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture public-key transfer was inconsistent",
+                                                     fixture.name);
+    auto public_record =
+        transfer_journal.append(public_transfer.value(), transfer_journal.current_record_id());
+    if (!public_record || !transfer_journal.valid())
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture public-key transfer journal was inconsistent", fixture.name);
+    metrics.artifact_transfers = 2;
     metrics.artifact_transfer_records = transfer_journal.records().size();
+    metrics.public_key_transfers = 1;
+    metrics.trusted_service_keys = trust_bundle.value().keys().size();
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -591,6 +634,9 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.artifact_transfers));
     hash_field(logical_hash, "artifact-transfer-journal-valid");
     hash_field(logical_hash, std::to_string(metrics.artifact_transfer_records));
+    hash_field(logical_hash, "ed25519-public-transfer-offline-verified");
+    hash_field(logical_hash, std::to_string(metrics.public_key_transfers));
+    hash_field(logical_hash, std::to_string(metrics.trusted_service_keys));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -620,6 +666,8 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"artifact_attestations\":" << item.artifact_attestations
                   << ",\"artifact_transfers\":" << item.artifact_transfers
                   << ",\"artifact_transfer_records\":" << item.artifact_transfer_records
+                  << ",\"public_key_transfers\":" << item.public_key_transfers
+                  << ",\"trusted_service_keys\":" << item.trusted_service_keys
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -641,7 +689,9 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " artifact_attestations=" << item.artifact_attestations << " build_ms=" << item.build_ms
                   << " artifact_transfers=" << item.artifact_transfers
                   << " artifact_transfer_records=" << item.artifact_transfer_records
-                  << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
+                  << " public_key_transfers=" << item.public_key_transfers
+                  << " trusted_service_keys=" << item.trusted_service_keys << " query_ms=" << item.query_ms
+                  << " update_ms=" << item.update_ms << '\n';
     }
 }
 

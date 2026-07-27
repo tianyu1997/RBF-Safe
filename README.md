@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.6
+geometric safety certificates in robot configuration space. Version 3.7
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -117,7 +117,10 @@ certificate.
   loading, exact service/key/payload/lifecycle binding, and atomic persistence.
 - Public `RBFSafe::remote` transport-neutral fetch/publish requests, complete
   exchange HMAC attestations, exact payload/lifecycle checks, resource and
-  cancellation gates, and checksummed schema-1 transfer journals.
+  cancellation gates, and checksummed schema-1/2 transfer journals.
+- Public `RBFSafe::identity` RFC 8032 Ed25519 signing and verification,
+  caller-pinned public trust bundles, monotonic key rotation, offline transfer
+  verification, and public key/bundle provenance without persisted secrets.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
@@ -126,8 +129,8 @@ Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated policy inference and metadata,
 continuous-time fleet occupancy proofs, concrete network artifact clients,
 execution guarantees, and legacy RapidBoxForest cache compatibility remain
-outside v3.6. Public-key signatures, TLS, endpoint/credential policy, key
-storage, and network I/O also remain application responsibilities.
+outside v3.7. TLS, endpoint/credential policy, trust-root distribution,
+private-key storage, and network I/O remain application responsibilities.
 
 ## Quick start
 
@@ -256,6 +259,7 @@ rbfsafe-inspect safety-memory --deployment-id arm-a --include-memory-events
 rbfsafe-inspect fleet-schedules --fleet-schedule-version <version-id>
 rbfsafe-inspect artifact.attestation.json  # metadata only; verified=false
 rbfsafe-inspect artifact-transfer-journal
+rbfsafe-inspect service-trust-bundle.json  # public metadata; caller-pinned=false
 rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
   --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
 ```
@@ -284,7 +288,9 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Versioned fleet-schedule archives](docs/fleet-schedule-archive.md)
 - [Authenticated artifact attestations](docs/artifact-attestation.md)
 - [Remote artifact service contract](docs/remote-artifact-service.md)
-- [Artifact transfer journal schema v1](docs/artifact-transfer-journal-format.md)
+- [Public-key service identities](docs/public-service-identities.md)
+- [Service trust-bundle schema v1](docs/service-trust-bundle-format.md)
+- [Artifact transfer journal schemas v1/v2](docs/artifact-transfer-journal-format.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)

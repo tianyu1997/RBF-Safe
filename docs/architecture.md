@@ -9,6 +9,8 @@ RBFSafe::geometry
        -> RBFSafe::atlas
           |-> RBFSafe::update
           |-> RBFSafe::memory -> RBFSafe::trust -> RBFSafe::remote
+                                                      |
+                                                      +-> RBFSafe::identity
           |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy (+ calibration)
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
@@ -163,6 +165,20 @@ the core verifies the same identities regardless of transport. A verified
 transfer remains metadata below `RuntimeExecutable` and payloads still pass
 through their own validating reader.
 
+### Public service-identity boundary
+
+`RBFSafe::identity` depends on `RBFSafe::remote`. It owns RFC 8032 Ed25519
+signing/verification integration, deterministic service public-key identity,
+caller-pinnable trust bundles, monotonic rotation rules, public-key
+fetch/publish verification, and schema-1 bundle persistence. It never writes
+private keys, discovers trust remotely, opens network connections, or treats
+a self-consistent bundle hash as authorization.
+
+The identity target reuses the exact v3.6 request/response and current-memory
+validation path. A successful Ed25519 transfer adds verification-key and
+trust-bundle provenance to schema-2 journals without changing HMAC or
+unauthenticated transfer identities.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -261,11 +277,17 @@ components and bind subject digests.
   record. Loading recomputes every drift assessment and replays the complete
   parent chain, but the file is not authenticated and active state is not
   execution evidence.
-- Artifact-transfer-journal schema 1 is a v3.6 compact audit index. Remote
+- Artifact-transfer-journal schema 1 is the v3.6 compact audit index. Schema 2
+  adds public verification-key and trust-bundle provenance while retaining the
+  schema-1 reader. Remote
   verification binds the exact request, response, current memory, artifact
   lifecycle, service sequence, and payload bytes before append; journal
   loading verifies integrity and chain continuity but does not re-authenticate
   a service or retain payloads, tags, or keys.
+- Service-trust-bundle schema 1 is v3.7 public verification policy. Its
+  deterministic root and rotation identities provide integrity only; the
+  caller must authorize and pin a root out of band. Pending, retired, and
+  revoked state remains policy metadata below execution evidence.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

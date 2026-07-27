@@ -9,6 +9,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <limits>
 #include <string_view>
 #include <system_error>
@@ -17,7 +18,9 @@
 namespace rbfsafe {
 namespace {
 
-constexpr std::size_t kSchema = 1;
+constexpr std::size_t kCurrentSchema = 2;
+constexpr std::size_t kMinimumSchema = 1;
+constexpr std::uintmax_t kMaximumManifestBytes = 1'048'576ULL;
 constexpr std::size_t kMaximumStringBytes = 4096;
 constexpr std::size_t kMaximumExactJsonInteger = sizeof(std::size_t) < sizeof(std::uint64_t)
                                                      ? std::numeric_limits<std::size_t>::max()
@@ -29,8 +32,8 @@ std::filesystem::path unique_sibling(const std::filesystem::path& destination, s
            (destination.filename().string() + std::string(suffix) + std::to_string(nonce));
 }
 
-internal::Json transfer_json(const VerifiedArtifactTransfer& transfer) {
-    return internal::Json::Object{
+internal::Json transfer_json(const VerifiedArtifactTransfer& transfer, std::size_t schema) {
+    internal::Json::Object fields{
         {"artifact_content_digest", transfer.artifact_content_digest},
         {"artifact_generation", std::to_string(transfer.artifact_generation)},
         {"artifact_id", transfer.artifact_id},
@@ -48,26 +51,31 @@ internal::Json transfer_json(const VerifiedArtifactTransfer& transfer) {
         {"service_id", transfer.service_id},
         {"service_sequence", std::to_string(transfer.service_sequence)},
     };
+    if (schema >= 2) {
+        fields.emplace("trust_bundle_id", transfer.trust_bundle_id);
+        fields.emplace("verification_key_id", transfer.verification_key_id);
+    }
+    return fields;
 }
 
-internal::Json record_json(const ArtifactTransferRecord& record) {
+internal::Json record_json(const ArtifactTransferRecord& record, std::size_t schema) {
     return internal::Json::Object{
         {"id", record.id},
         {"parent_id", record.parent_id},
         {"sequence", std::to_string(record.sequence)},
-        {"transfer", transfer_json(record.transfer)},
+        {"transfer", transfer_json(record.transfer, schema)},
     };
 }
 
-internal::Json records_json(const ArtifactTransferJournal& journal) {
+internal::Json records_json(const ArtifactTransferJournal& journal, std::size_t schema) {
     internal::Json::Array records;
     records.reserve(journal.records().size());
     for (const auto& record : journal.records())
-        records.emplace_back(record_json(record));
+        records.emplace_back(record_json(record, schema));
     return internal::Json::Object{
         {"format", "rbfsafe-artifact-transfer-records"},
         {"records", std::move(records)},
-        {"schema", static_cast<double>(kSchema)},
+        {"schema", static_cast<double>(schema)},
     };
 }
 
@@ -114,7 +122,42 @@ Result<std::uint64_t> decimal_field(const internal::Json& object, std::string_vi
     return result;
 }
 
-Result<VerifiedArtifactTransfer> decode_transfer(const internal::Json& object) {
+Result<std::string> read_bounded_file(const std::filesystem::path& path, std::uintmax_t maximum_bytes) {
+    std::error_code error;
+    const auto bytes = std::filesystem::file_size(path, error);
+    if (error) {
+        return Result<std::string>::failure(
+            StatusCode::IoError, "failed to inspect artifact transfer journal file", path.string());
+    }
+    if (bytes > maximum_bytes ||
+        bytes > static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
+        bytes > static_cast<std::uintmax_t>(std::numeric_limits<std::streamsize>::max())) {
+        return Result<std::string>::failure(StatusCode::ResourceLimit,
+                                            "artifact transfer journal file exceeds configured limit",
+                                            path.string());
+    }
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        return Result<std::string>::failure(StatusCode::IoError,
+                                            "failed to open artifact transfer journal file", path.string());
+    }
+    std::string text(static_cast<std::size_t>(bytes), '\0');
+    if (!text.empty()) {
+        input.read(text.data(), static_cast<std::streamsize>(text.size()));
+        if (input.gcount() != static_cast<std::streamsize>(text.size())) {
+            return Result<std::string>::failure(StatusCode::CorruptData,
+                                                "artifact transfer journal file changed while reading",
+                                                path.string());
+        }
+    }
+    if (input.peek() != std::char_traits<char>::eof()) {
+        return Result<std::string>::failure(
+            StatusCode::CorruptData, "artifact transfer journal file changed while reading", path.string());
+    }
+    return text;
+}
+
+Result<VerifiedArtifactTransfer> decode_transfer(const internal::Json& object, std::size_t schema) {
     auto id = string_field(object, "id");
     auto operation =
         size_field(object, "operation", static_cast<std::size_t>(ArtifactTransferOperation::Publish));
@@ -132,11 +175,18 @@ Result<VerifiedArtifactTransfer> decode_transfer(const internal::Json& object) {
     auto media_type = string_field(object, "media_type");
     auto service_sequence = decimal_field(object, "service_sequence");
     auto authentication = size_field(object, "authentication",
-                                     static_cast<std::size_t>(ArtifactTransferAuthentication::HmacSha256));
+                                     static_cast<std::size_t>(ArtifactTransferAuthentication::Ed25519));
     auto attestation_id = string_field(object, "attestation_id", true);
+    Result<std::string> verification_key_id = std::string{};
+    Result<std::string> trust_bundle_id = std::string{};
+    if (schema >= 2) {
+        verification_key_id = string_field(object, "verification_key_id", true);
+        trust_bundle_id = string_field(object, "trust_bundle_id", true);
+    }
     if (!id || !operation || !request_id || !response_id || !service_id || !memory_id || !artifact_id ||
         !artifact_generation || !artifact_state || !content_digest || !payload_digest || !payload_bytes ||
-        !media_type || !service_sequence || !authentication || !attestation_id) {
+        !media_type || !service_sequence || !authentication || !attestation_id || !verification_key_id ||
+        !trust_bundle_id) {
         return Result<VerifiedArtifactTransfer>::failure(StatusCode::CorruptData,
                                                          "artifact transfer record is incomplete");
     }
@@ -157,6 +207,8 @@ Result<VerifiedArtifactTransfer> decode_transfer(const internal::Json& object) {
     result.service_sequence = service_sequence.value();
     result.authentication = static_cast<ArtifactTransferAuthentication>(authentication.value());
     result.attestation_id = std::move(attestation_id).value();
+    result.verification_key_id = std::move(verification_key_id).value();
+    result.trust_bundle_id = std::move(trust_bundle_id).value();
     if (!valid_verified_artifact_transfer(result)) {
         return Result<VerifiedArtifactTransfer>::failure(StatusCode::CorruptData,
                                                          "artifact transfer identity is invalid", result.id);
@@ -164,7 +216,7 @@ Result<VerifiedArtifactTransfer> decode_transfer(const internal::Json& object) {
     return result;
 }
 
-Result<ArtifactTransferRecord> decode_record(const internal::Json& object) {
+Result<ArtifactTransferRecord> decode_record(const internal::Json& object, std::size_t schema) {
     auto id = string_field(object, "id");
     auto sequence = decimal_field(object, "sequence");
     auto parent_id = string_field(object, "parent_id", true);
@@ -173,7 +225,7 @@ Result<ArtifactTransferRecord> decode_record(const internal::Json& object) {
         return Result<ArtifactTransferRecord>::failure(StatusCode::CorruptData,
                                                        "artifact transfer journal record is incomplete");
     }
-    auto transfer = decode_transfer(*transfer_json_value);
+    auto transfer = decode_transfer(*transfer_json_value, schema);
     if (!transfer)
         return transfer.error();
     ArtifactTransferRecord result;
@@ -260,7 +312,7 @@ Result<void> save_artifact_transfer_journal(const ArtifactTransferJournal& journ
         std::error_code ignored;
         std::filesystem::remove_all(temporary, ignored);
     };
-    const std::string payload = records_json(journal).dump(true) + "\n";
+    const std::string payload = records_json(journal, kCurrentSchema).dump(true) + "\n";
     auto written = internal::write_text_file(temporary / "records.json", payload);
     if (!written) {
         cleanup();
@@ -273,7 +325,7 @@ Result<void> save_artifact_transfer_journal(const ArtifactTransferJournal& journ
         {"library_version", kVersion},
         {"payload_sha256", internal::sha256(payload)},
         {"records", static_cast<double>(journal.records().size())},
-        {"schema", static_cast<double>(kSchema)},
+        {"schema", static_cast<double>(kCurrentSchema)},
     });
     written = internal::write_text_file(temporary / "manifest.json", manifest.dump(true) + "\n");
     if (!written) {
@@ -293,7 +345,10 @@ load_artifact_transfer_journal(const std::filesystem::path& directory,
         return Result<ArtifactTransferJournal>::failure(StatusCode::InvalidArgument,
                                                         "artifact transfer journal load options are invalid");
     }
-    auto manifest = internal::read_json_file(directory / "manifest.json");
+    auto manifest_text = read_bounded_file(directory / "manifest.json", kMaximumManifestBytes);
+    if (!manifest_text)
+        return manifest_text.error();
+    auto manifest = internal::Json::parse(manifest_text.value());
     if (!manifest)
         return manifest.error();
     auto format = string_field(manifest.value(), "format");
@@ -308,7 +363,8 @@ load_artifact_transfer_journal(const std::filesystem::path& directory,
         return Result<ArtifactTransferJournal>::failure(StatusCode::CorruptData,
                                                         "artifact transfer journal manifest is incomplete");
     }
-    if (format.value() != "rbfsafe-artifact-transfer-journal" || schema.value() != kSchema) {
+    if (format.value() != "rbfsafe-artifact-transfer-journal" || schema.value() < kMinimumSchema ||
+        schema.value() > kCurrentSchema) {
         return Result<ArtifactTransferJournal>::failure(StatusCode::IncompatibleFormat,
                                                         "unsupported artifact transfer journal schema");
     }
@@ -321,31 +377,21 @@ load_artifact_transfer_journal(const std::filesystem::path& directory,
         return Result<ArtifactTransferJournal>::failure(
             StatusCode::ResourceLimit, "artifact transfer journal record count exceeds limit");
     }
-    std::error_code error;
-    const auto payload_size = std::filesystem::file_size(directory / "records.json", error);
-    if (error) {
-        return Result<ArtifactTransferJournal>::failure(
-            StatusCode::IoError, "failed to inspect artifact transfer journal payload");
-    }
-    if (payload_size > options.maximum_payload_bytes) {
-        return Result<ArtifactTransferJournal>::failure(
-            StatusCode::ResourceLimit, "artifact transfer journal payload exceeds size limit");
-    }
-    auto actual_checksum = internal::sha256_file(directory / "records.json");
-    if (!actual_checksum)
-        return actual_checksum.error();
-    if (actual_checksum.value() != checksum.value()) {
+    auto payload_text = read_bounded_file(directory / "records.json", options.maximum_payload_bytes);
+    if (!payload_text)
+        return payload_text.error();
+    if (internal::sha256(payload_text.value()) != checksum.value()) {
         return Result<ArtifactTransferJournal>::failure(
             StatusCode::CorruptData, "artifact transfer journal payload checksum mismatch");
     }
-    auto payload = internal::read_json_file(directory / "records.json");
+    auto payload = internal::Json::parse(payload_text.value());
     if (!payload)
         return payload.error();
     auto payload_format = string_field(payload.value(), "format");
     auto payload_schema = size_field(payload.value(), "schema", 1000);
     const auto* records_json_value = payload.value().is_object() ? payload.value().find("records") : nullptr;
     if (!payload_format || !payload_schema || payload_format.value() != "rbfsafe-artifact-transfer-records" ||
-        payload_schema.value() != kSchema || records_json_value == nullptr ||
+        payload_schema.value() != schema.value() || records_json_value == nullptr ||
         !records_json_value->is_array() || records_json_value->as_array().size() != records_count.value()) {
         return Result<ArtifactTransferJournal>::failure(
             StatusCode::CorruptData, "artifact transfer journal payload metadata is inconsistent");
@@ -353,7 +399,7 @@ load_artifact_transfer_journal(const std::filesystem::path& directory,
     ArtifactTransferJournal result;
     result.records_.reserve(records_count.value());
     for (const auto& item : records_json_value->as_array()) {
-        auto record = decode_record(item);
+        auto record = decode_record(item, schema.value());
         if (!record)
             return record.error();
         result.records_.push_back(std::move(record).value());

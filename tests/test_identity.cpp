@@ -1,0 +1,270 @@
+#include "test_support.h"
+
+#include <array>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <vector>
+
+namespace {
+
+constexpr const char* kPayloadDigest = "4753e499617943c6b3dfa197752908e793797df2a669c7696ab3e53e534df4bd";
+
+std::string digest(char value) { return std::string(64, value); }
+
+rbfsafe::MemoryArtifactInput artifact_input() {
+    rbfsafe::MemoryArtifactInput input;
+    input.type = rbfsafe::MemoryArtifactType::SafeAtlas;
+    input.deployment_id = "arm-a";
+    input.robot_digest = digest('a');
+    input.scene_digest = digest('b');
+    input.task_id = "shelf-pick";
+    input.content_digest = kPayloadDigest;
+    input.locator = "artifacts/shelf-atlas";
+    input.evidence = rbfsafe::EvidenceLevel::CertifiedRegion;
+    return input;
+}
+
+std::vector<std::byte> hex_bytes(const std::string& text) {
+    auto nibble = [](char value) {
+        if (value >= '0' && value <= '9')
+            return value - '0';
+        return value - 'a' + 10;
+    };
+    std::vector<std::byte> result(text.size() / 2);
+    for (std::size_t index = 0; index < result.size(); ++index) {
+        result[index] = static_cast<std::byte>((nibble(text[index * 2]) << 4) | nibble(text[index * 2 + 1]));
+    }
+    return result;
+}
+
+std::string read_text(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
+void write_text(const std::filesystem::path& path, const std::string& text) {
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(text.data(), static_cast<std::streamsize>(text.size()));
+}
+
+} // namespace
+
+int main() {
+    using namespace rbfsafe;
+
+    const auto seed = hex_bytes("9d61b19deffd5a60ba844af492ec2cc4"
+                                "4449c5697b326919703bac031cae7f60");
+    const auto expected_public_key = hex_bytes("d75a980182b10ab7d54bfed3c964073a"
+                                               "0ee172f3daa62325af021a68f707511a");
+    const auto expected_signature = hex_bytes("e5564300c360ac729086e2cc806e828a"
+                                              "84877f1eb8e5d974d873e06522490155"
+                                              "5fb8821590a33bacc61e39701cf9b46b"
+                                              "d25bf5f0595bbe24655141438e7a100b");
+    auto key_pair = ed25519_key_pair_from_seed(seed);
+    CHECK(key_pair);
+    CHECK(!ed25519_key_pair_from_seed(std::span<const std::byte>(seed).first(seed.size() - 1)));
+    CHECK(std::equal(key_pair.value().public_key.begin(), key_pair.value().public_key.end(),
+                     expected_public_key.begin()));
+    auto vector_signature = ed25519_sign({}, key_pair.value().secret_key);
+    CHECK(vector_signature);
+    CHECK(std::equal(vector_signature.value().begin(), vector_signature.value().end(),
+                     expected_signature.begin()));
+    CHECK(ed25519_verify({}, expected_signature, expected_public_key));
+    auto altered_signature = expected_signature;
+    altered_signature[0] ^= std::byte{1};
+    CHECK(!ed25519_verify({}, altered_signature, expected_public_key));
+    CHECK(!ed25519_verify({},
+                          std::span<const std::byte>(expected_signature).first(expected_signature.size() - 1),
+                          expected_public_key));
+
+    auto service_key = make_service_public_key("artifact-service", key_pair.value().public_key, 1, 0,
+                                               ServiceKeyState::Active);
+    CHECK(service_key);
+    CHECK(valid_service_public_key(service_key.value()));
+    CHECK(service_key.value().id.size() == 64);
+    auto root = ServiceTrustBundle::create(1, "", {service_key.value()});
+    CHECK(root);
+    CHECK(root.value().valid());
+
+    SafetyMemory memory;
+    auto artifact = memory.register_artifact(artifact_input());
+    CHECK(artifact);
+    const std::string payload_text = "immutable atlas payload\n";
+    const auto payload = std::as_bytes(std::span(payload_text.data(), payload_text.size()));
+
+    auto publish =
+        prepare_artifact_publish(memory, artifact.value().id, payload, "artifact-service", 21,
+                                 "application/vnd.rbfsafe.atlas", ArtifactTransferAuthentication::Ed25519);
+    CHECK(publish);
+    auto unsigned_receipt = make_artifact_publish_receipt(publish.value(), 7);
+    CHECK(unsigned_receipt);
+    auto receipt = sign_artifact_publish_receipt(unsigned_receipt.value(), service_key.value().id,
+                                                 key_pair.value().secret_key);
+    CHECK(receipt);
+    CHECK(receipt.value().service_attestation);
+    CHECK(receipt.value().service_attestation->algorithm == ArtifactAuthenticationAlgorithm::Ed25519);
+    CHECK(receipt.value().service_attestation->authentication_tag.size() == 128);
+    auto verified_publish =
+        verify_artifact_publish_offline(memory, publish.value(), receipt.value(), payload, root.value());
+    CHECK(verified_publish);
+    CHECK(valid_verified_artifact_transfer(verified_publish.value()));
+    CHECK(verified_publish.value().authentication == ArtifactTransferAuthentication::Ed25519);
+    CHECK(verified_publish.value().verification_key_id == service_key.value().id);
+    CHECK(verified_publish.value().trust_bundle_id == root.value().id());
+    CHECK(!verify_artifact_publish(memory, publish.value(), receipt.value(), payload));
+    RemoteArtifactOptions cancelled_options;
+    cancelled_options.cancellation.cancel();
+    auto cancelled_publish = verify_artifact_publish_offline(memory, publish.value(), receipt.value(),
+                                                             payload, root.value(), cancelled_options);
+    CHECK(!cancelled_publish);
+    CHECK(cancelled_publish.error().code == StatusCode::Cancelled);
+
+    auto fetch_only_key = service_key.value();
+    fetch_only_key.allow_publish = false;
+    auto fetch_only_bundle = ServiceTrustBundle::create(1, "", {fetch_only_key});
+    CHECK(fetch_only_bundle);
+    CHECK(!verify_artifact_publish_offline(memory, publish.value(), receipt.value(), payload,
+                                           fetch_only_bundle.value()));
+    auto expired_key = service_key.value();
+    expired_key.valid_through_sequence = 6;
+    auto expired_bundle = ServiceTrustBundle::create(1, "", {expired_key});
+    CHECK(expired_bundle);
+    CHECK(!verify_artifact_publish_offline(memory, publish.value(), receipt.value(), payload,
+                                           expired_bundle.value()));
+
+    auto fetch =
+        prepare_artifact_fetch(memory, artifact.value().id, "artifact-service", 22,
+                               "application/vnd.rbfsafe.atlas", ArtifactTransferAuthentication::Ed25519);
+    CHECK(fetch);
+    auto unsigned_response = make_artifact_fetch_response(fetch.value(), payload, 7);
+    CHECK(unsigned_response);
+    auto response = sign_artifact_fetch_response(unsigned_response.value(), service_key.value().id,
+                                                 key_pair.value().secret_key);
+    CHECK(response);
+    auto verified_fetch =
+        verify_artifact_fetch_offline(memory, fetch.value(), response.value(), payload, root.value());
+    CHECK(verified_fetch);
+    CHECK(verified_fetch.value().operation == ArtifactTransferOperation::Fetch);
+
+    auto tampered = response.value();
+    tampered.service_attestation->authentication_tag[0] =
+        tampered.service_attestation->authentication_tag[0] == '0' ? '1' : '0';
+    auto tampered_result =
+        verify_artifact_fetch_offline(memory, fetch.value(), tampered, payload, root.value());
+    CHECK(!tampered_result);
+    CHECK(tampered_result.error().code == StatusCode::IdentityMismatch);
+
+    auto pending_key = service_key.value();
+    pending_key.state = ServiceKeyState::Pending;
+    auto pending_bundle = ServiceTrustBundle::create(1, "", {pending_key});
+    CHECK(pending_bundle);
+    CHECK(!verify_artifact_fetch_offline(memory, fetch.value(), response.value(), payload,
+                                         pending_bundle.value()));
+
+    std::array<std::byte, kEd25519SeedBytes> second_seed{};
+    for (std::size_t index = 0; index < second_seed.size(); ++index)
+        second_seed[index] = static_cast<std::byte>(index + 1);
+    auto second_pair = ed25519_key_pair_from_seed(second_seed);
+    CHECK(second_pair);
+    CHECK(!sign_artifact_publish_receipt(unsigned_receipt.value(), service_key.value().id,
+                                         second_pair.value().secret_key));
+    auto inconsistent_secret = key_pair.value().secret_key;
+    inconsistent_secret[0] ^= std::byte{1};
+    CHECK(!sign_artifact_publish_receipt(unsigned_receipt.value(), service_key.value().id,
+                                         inconsistent_secret));
+    auto second_key = make_service_public_key("artifact-service", second_pair.value().public_key, 8, 0,
+                                              ServiceKeyState::Active);
+    CHECK(second_key);
+    auto retired_key = service_key.value();
+    retired_key.state = ServiceKeyState::Retired;
+    retired_key.valid_through_sequence = 7;
+    auto rotated = rotate_service_trust_bundle(root.value(), {retired_key, second_key.value()});
+    CHECK(rotated);
+    CHECK(rotated.value().sequence() == 2);
+    CHECK(rotated.value().parent_id() == root.value().id());
+    CHECK(verify_artifact_fetch_offline(memory, fetch.value(), response.value(), payload, rotated.value()));
+    auto expired_response = make_artifact_fetch_response(fetch.value(), payload, 8);
+    CHECK(expired_response);
+    auto expired_signature = sign_artifact_fetch_response(expired_response.value(), service_key.value().id,
+                                                          key_pair.value().secret_key);
+    CHECK(expired_signature);
+    CHECK(!verify_artifact_fetch_offline(memory, fetch.value(), expired_signature.value(), payload,
+                                         rotated.value()));
+
+    auto revoked_key = retired_key;
+    revoked_key.state = ServiceKeyState::Revoked;
+    auto revoked = rotate_service_trust_bundle(root.value(), {revoked_key, second_key.value()});
+    CHECK(revoked);
+    CHECK(!verify_artifact_fetch_offline(memory, fetch.value(), response.value(), payload, revoked.value()));
+    auto reactivated_key = retired_key;
+    reactivated_key.state = ServiceKeyState::Active;
+    CHECK(!rotate_service_trust_bundle(rotated.value(), {reactivated_key, second_key.value()}));
+    CHECK(!rotate_service_trust_bundle(root.value(), {second_key.value()}));
+
+    ArtifactTransferJournal journal;
+    auto journal_record = journal.append(verified_publish.value(), "");
+    CHECK(journal_record);
+    CHECK(journal.valid());
+
+    const auto temporary = std::filesystem::temp_directory_path() /
+                           ("rbfsafe-identity-test-" +
+                            std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(temporary);
+    const auto bundle_path = temporary / "trust-bundle.json";
+    CHECK(rotated.value().save(bundle_path));
+    CHECK(!rotated.value().save(bundle_path));
+    auto loaded = ServiceTrustBundle::load(bundle_path);
+    CHECK(loaded);
+    CHECK(loaded.value().id() == rotated.value().id());
+    CHECK(loaded.value().keys().size() == 2);
+    ServiceTrustBundleLoadOptions one_key;
+    one_key.maximum_keys = 1;
+    auto key_limited = ServiceTrustBundle::load(bundle_path, one_key);
+    CHECK(!key_limited);
+    CHECK(key_limited.error().code == StatusCode::ResourceLimit);
+    ServiceTrustBundleLoadOptions one_byte;
+    one_byte.maximum_payload_bytes = 1;
+    auto byte_limited = ServiceTrustBundle::load(bundle_path, one_byte);
+    CHECK(!byte_limited);
+    CHECK(byte_limited.error().code == StatusCode::ResourceLimit);
+
+    const auto saved_bundle = read_text(bundle_path);
+    auto unknown_schema = saved_bundle;
+    const auto schema_position = unknown_schema.find("\"schema\": 1");
+    CHECK(schema_position != std::string::npos);
+    unknown_schema.replace(schema_position, std::string("\"schema\": 1").size(), "\"schema\": 99");
+    write_text(bundle_path, unknown_schema);
+    auto incompatible = ServiceTrustBundle::load(bundle_path);
+    CHECK(!incompatible);
+    CHECK(incompatible.error().code == StatusCode::IncompatibleFormat);
+    write_text(bundle_path, saved_bundle);
+
+    auto fixed_bundle = ServiceTrustBundle::load(std::filesystem::path(RBFSAFE_TEST_DATA_DIR) /
+                                                 "service_trust_bundle_schema1" / "bundle.json");
+    CHECK(fixed_bundle);
+    CHECK(fixed_bundle.value().id() == "b6f6e30bc2245e64a519c8a02e61063bdf2fe1d8dc5ee35d980f46e1e4aa584d");
+    CHECK(fixed_bundle.value().keys().size() == 1);
+    CHECK(fixed_bundle.value().keys()[0].id ==
+          "deeb721ce417eb73af26ccc9a69a2a8c4343dada00e2e6f3864084c1e328e732");
+    CHECK(fixed_bundle.value().keys()[0].state == ServiceKeyState::Active);
+
+    auto fixed_journal = ArtifactTransferJournal::load(std::filesystem::path(RBFSAFE_TEST_DATA_DIR) /
+                                                       "artifact_transfer_journal_schema2");
+    CHECK(fixed_journal);
+    CHECK(fixed_journal.value().identity() ==
+          "43197ea62038f190add715bfcb0d60d9d14c118f2713e540e2716fd9daa42800");
+    CHECK(fixed_journal.value().records().size() == 1);
+    CHECK(fixed_journal.value().records()[0].transfer.trust_bundle_id == fixed_bundle.value().id());
+    CHECK(fixed_journal.value().records()[0].transfer.verification_key_id ==
+          fixed_bundle.value().keys()[0].id);
+
+    CHECK(artifact_authentication_algorithm_name(ArtifactAuthenticationAlgorithm::Ed25519) == "ed25519");
+    CHECK(artifact_transfer_authentication_name(ArtifactTransferAuthentication::Ed25519) == "ed25519");
+    CHECK(service_key_state_name(ServiceKeyState::Revoked) == "revoked");
+
+    std::filesystem::remove_all(temporary);
+    return EXIT_SUCCESS;
+}

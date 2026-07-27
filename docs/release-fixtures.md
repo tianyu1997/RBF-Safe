@@ -51,9 +51,11 @@ For each case the benchmark:
 10. publishes a second exact-byte artifact through a request/receipt-bound
     authenticated remote exchange and appends its verified transfer to a
     journal;
-11. validates a source-bound single-robot fleet reservation, publishes its
+11. verifies a second publication offline using a caller-supplied Ed25519
+    trust bundle and appends exact public key/bundle provenance;
+12. validates a source-bound single-robot fleet reservation, publishes its
     schedule archive, and replays the stored report; and
-12. advances the scene version, then checks conservative certificate inheritance
+13. advances the scene version, then checks conservative certificate inheritance
    and retained endpoint coverage.
 
 The executable fails on any false-safe point check, identity mismatch,
@@ -61,7 +63,8 @@ uncertified path/action, lost coverage, update failure, or missing inheritance.
 Its `logical_digest` covers canonical fixture identities, discrete counts,
 runtime-shield, learning-policy feedback, calibration and lifecycle,
 deterministic
-safety-memory identity/reuse, artifact authentication, remote transfer/journal,
+safety-memory identity/reuse, artifact authentication, HMAC and Ed25519 remote
+transfer/journal,
 fleet coordination and archive replay, update, and inheritance outcomes while
 excluding wall-clock time, approximate memory, and
 floating-point-derived identities, including certificate, calibration,
@@ -126,6 +129,18 @@ IDs, checksum, parent chain, load budgets, C++/Python/native inspection, and
 cross-platform schema-1 loading. It contains no key, authentication tag, or
 deployable safety evidence.
 
+`data/service_trust_bundle_schema1` is the fixed RBF-Safe 3.7 public bundle
+fixture. It contains one active Ed25519 service public key and no private
+material. Tests verify exact bundle/key IDs, resource caps, schema rejection,
+and C++/Python/native inspection. The self-consistent fixture is
+interoperability data, not an authorized production trust root.
+
+`data/artifact_transfer_journal_schema2` is the fixed RBF-Safe 3.7 public-key
+transfer fixture. It contains one Ed25519-verified publication and records its
+verification-key and trust-bundle IDs. It contains no payload, signature, or
+private key; standalone journal loading verifies local integrity rather than
+replaying remote authentication.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -133,3 +148,11 @@ The reviewed RBF-Safe 3.6 cross-platform logical digest is
 `88881d57663cfeaa`. It additionally covers an exact-byte, request-bound
 authenticated publication and a valid one-record transfer journal using only
 discrete cross-platform fields.
+
+The reviewed RBF-Safe 3.7 cross-platform logical digest is
+`b1c149647d6e2454`, recorded in
+`data/release-fixtures/logical_digest.txt`. It additionally covers one
+caller-pinned Ed25519 publication verification per case, exact public
+key/bundle provenance, and a valid two-record schema-2 transfer journal. As in
+earlier releases, timings, approximate memory, and transitive floating-point
+identities are excluded.

@@ -13,7 +13,9 @@ identity-bound policy-calibration profiles and conservative calibrated gating
 to `RBFSafe::policy`. Version 3.5 adds operational drift reports, a
 parent-linked calibration lifecycle, and expected-head guarded gating. Version
 3.6 adds the transport-neutral `RBFSafe::remote` contract, request-bound
-service authentication, and transfer journals.
+service authentication, and transfer journals. Version 3.7 adds
+`RBFSafe::identity`, caller-pinned Ed25519 service trust, monotonic key
+rotation, and offline transfer verification.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
@@ -146,6 +148,18 @@ remote verification operation binds exact current memory/lifecycle, request,
 response, service, byte, and HMAC identities before append. Loading the
 journal checks integrity and history, not remote authenticity.
 
+The v3.7 artifact-transfer-journal writer emits schema 2. It retains every
+schema-1 field and adds public `verification_key_id` and `trust_bundle_id`
+provenance for Ed25519-verified transfers. The reader accepts schemas 1 and 2.
+Empty provenance is excluded from existing HMAC and unauthenticated transfer
+identity input, so 3.6 IDs remain stable.
+
+The v3.7 service-trust-bundle schema 1 is a bounded JSON document containing
+only public Ed25519 keys, state, operation permissions, inclusive
+service-sequence windows, and a deterministic sequence/parent identity.
+Private keys are never stored. Bundle identity verifies integrity but does not
+authorize a root; the caller must pin or otherwise approve it out of band.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -172,7 +186,7 @@ For identical inputs, options, schema, and library version, region IDs, region
 order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
-calibration-lifecycle/artifact-transfer-journal fixtures,
+calibration-lifecycle/artifact-transfer-journal/service-trust-bundle fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

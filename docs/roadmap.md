@@ -69,18 +69,25 @@
   parent-linked optimistic-concurrency history; automatic fail-closed
   quarantine/pending-review transitions; reviewed activation; replayable
   schema-1 persistence; and exact-head guarded policy gating.
-- **v3.6 (current) - Remote artifact service contract:** deterministic,
+- **v3.6 - Remote artifact service contract:** deterministic,
   transport-neutral fetch/publication requests; exact whole-memory, lifecycle,
   byte-length and SHA-256 binding; request/response-bound HMAC service
   attestations; explicit unauthenticated mode; verified-transfer metadata;
   expected-head audit journals; bounded schema-1 persistence; and
   C++/Python/inspection tooling.
+- **v3.7 (current) - Public-key service identities:** RFC 8032 Ed25519
+  service signing; caller-pinned deterministic public trust bundles;
+  pending/active/retired/revoked key policy; operation and service-sequence
+  constraints; monotonic parent-linked rotation; offline fetch/publication
+  verification; schema-2 transfer journals with public provenance; bounded
+  schema-1 bundle persistence; fixed fixtures; and C++/Python/inspection
+  tooling. HMAC and unauthenticated 3.6 identities remain compatible.
 
 ## Continued product hardening
 
-- **v3.7 candidate:** public-key service identities, algorithm/key rotation,
-  trust bundles, and offline verification while preserving the v3.6 transfer
-  contract.
+- **v3.8 candidate:** signed trust-bundle successor authorization,
+  expected-head rollback-resistant local trust history, and replayable
+  rotation audit while retaining an explicitly caller-pinned root.
 - **later v3.x:** execution evidence only for separately modeled and reviewed
   deployment profiles.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,

@@ -276,7 +276,17 @@ corruption only; a journal validates its local identity chain but cannot
 independently re-authenticate a service because it intentionally omits
 payloads, tags, and keys.
 
-## Explicit exclusions in v3.6
+The v3.7 public-identity layer can instead verify that the complete exchange
+was signed by an Ed25519 key authorized by the exact caller-supplied trust
+bundle, operation permission, state, and service-sequence window. This
+separates verification from a shared secret, but does not make an unpinned
+bundle trustworthy. Bundle IDs and rotation parents are deterministic
+integrity links rather than a certificate authority, transparency proof, or
+deployment authorization. `Retired` permits bounded historical verification;
+`Revoked` rejects all uses. Neither state changes payload semantics or
+evidence level.
+
+## Explicit exclusions in v3.7
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -312,12 +322,12 @@ payloads, tags, and keys.
   object mutation still requires in-process serialization;
   `SafetyMemoryStore` serializes publication but does not merge concurrent
   edits or automatically remove a lock left by a crashed writer.
-- Artifact HMAC keys, key rotation, access control, endpoint/redirect policy,
-  TLS, encryption, concrete network I/O, retry semantics, and secret erasure
-  are deployment responsibilities. Shared-key verification is not a
-  public-key signature, non-repudiation, payload certificate, or execution
-  authorization. An explicitly unauthenticated transfer is not safe against
-  malicious substitution.
+- Artifact HMAC/private keys, trust-root distribution and authorization,
+  endpoint/redirect policy, TLS, encryption, concrete network I/O, retry
+  semantics, credential access, and secret erasure are deployment
+  responsibilities. Public-key verification is not a payload certificate,
+  legal non-repudiation conclusion, or execution authorization. An explicitly
+  unauthenticated transfer is not safe against malicious substitution.
 - Fleet member envelopes and reservation occupancy are caller-supplied
   conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller

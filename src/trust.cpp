@@ -388,6 +388,8 @@ std::string artifact_authentication_algorithm_name(ArtifactAuthenticationAlgorit
     switch (algorithm) {
     case ArtifactAuthenticationAlgorithm::HmacSha256:
         return "hmac_sha256";
+    case ArtifactAuthenticationAlgorithm::Ed25519:
+        return "ed25519";
     }
     return "unknown";
 }

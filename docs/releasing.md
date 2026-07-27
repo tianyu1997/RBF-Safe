@@ -52,6 +52,13 @@ limits, expected journal head, corruption/schema/load-budget failures, fixed
 fixture identities, and native/Python journal inspection. Confirm that no
 transport path, key, payload, or authentication tag is persisted in the
 compact journal.
+Run both public-identity quickstarts and the RFC 8032 vector; verify malformed
+signature, wrong service/key, pending/retired/revoked state, operation/window,
+rotation-parent, rollback/reactivation, resource, corruption, and unknown-
+schema rejection. Verify the fixed bundle and schema-2 journal IDs, native/
+Python inspection, caller-pinning warnings, legacy schema-1 reading, and
+unchanged HMAC transfer identities. Confirm no seed/private key is installed,
+persisted, printed, or committed outside deterministic test/example source.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -69,7 +76,7 @@ memory only as release diagnostics.
 
 1. Build source and wheel distributions with `python -m build`.
 2. Inspect wheel contents; it must contain only the Python package, extension,
-   metadata, and license.
+   metadata, RBF-Safe license, third-party notice, and Monocypher license.
 3. Install each wheel into a clean environment and run `pip check` plus the
    Python test suite.
 4. Install the CMake package to an empty prefix and rebuild `tests/consumer`.
@@ -84,7 +91,8 @@ memory only as release diagnostics.
 
 Atlas, corridor, region-database, version-store, policy-feedback,
 safety-memory, safety-memory-store, attestation, artifact-transfer-journal,
-calibration-profile, or calibration-lifecycle schema changes require an independent schema number,
+service-trust-bundle, calibration-profile, or calibration-lifecycle schema
+changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
 error. A library version change must never silently reinterpret an existing
 storage schema.

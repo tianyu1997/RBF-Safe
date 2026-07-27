@@ -24,7 +24,8 @@ void bind_remote(py::module_& module) {
 
     py::enum_<ArtifactTransferAuthentication>(module, "ArtifactTransferAuthentication")
         .value("NONE", ArtifactTransferAuthentication::None)
-        .value("HMAC_SHA256", ArtifactTransferAuthentication::HmacSha256);
+        .value("HMAC_SHA256", ArtifactTransferAuthentication::HmacSha256)
+        .value("ED25519", ArtifactTransferAuthentication::Ed25519);
 
     py::class_<ArtifactTransferAttestation>(module, "ArtifactTransferAttestation")
         .def_readonly("id", &ArtifactTransferAttestation::id)
@@ -113,7 +114,9 @@ void bind_remote(py::module_& module) {
         .def_readonly("media_type", &VerifiedArtifactTransfer::media_type)
         .def_readonly("service_sequence", &VerifiedArtifactTransfer::service_sequence)
         .def_readonly("authentication", &VerifiedArtifactTransfer::authentication)
-        .def_readonly("attestation_id", &VerifiedArtifactTransfer::attestation_id);
+        .def_readonly("attestation_id", &VerifiedArtifactTransfer::attestation_id)
+        .def_readonly("verification_key_id", &VerifiedArtifactTransfer::verification_key_id)
+        .def_readonly("trust_bundle_id", &VerifiedArtifactTransfer::trust_bundle_id);
 
     py::class_<RemoteArtifactOptions>(module, "RemoteArtifactOptions")
         .def(py::init<>())

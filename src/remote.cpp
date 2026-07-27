@@ -18,6 +18,7 @@ constexpr std::size_t kMaximumLocatorBytes = 4096;
 constexpr std::size_t kMaximumMediaTypeBytes = 256;
 constexpr std::size_t kMinimumHmacKeyBytes = 32;
 constexpr std::size_t kMaximumHmacKeyBytes = 4096;
+constexpr std::size_t kEd25519SignatureBytes = 64;
 
 bool valid_text(std::string_view value, std::size_t maximum_bytes) {
     return !value.empty() && value.size() <= maximum_bytes &&
@@ -35,11 +36,17 @@ bool valid_operation(ArtifactTransferOperation operation) {
 
 bool valid_authentication(ArtifactTransferAuthentication authentication) {
     return authentication >= ArtifactTransferAuthentication::None &&
-           authentication <= ArtifactTransferAuthentication::HmacSha256;
+           authentication <= ArtifactTransferAuthentication::Ed25519;
 }
 
 bool valid_key(std::span<const std::byte> key) {
     return key.size() >= kMinimumHmacKeyBytes && key.size() <= kMaximumHmacKeyBytes;
+}
+
+bool valid_lowercase_hex(std::string_view value, std::size_t bytes) {
+    return value.size() == bytes * 2 && std::all_of(value.begin(), value.end(), [](unsigned char character) {
+               return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f');
+           });
 }
 
 internal::Json fetch_request_json(const ArtifactFetchRequest& request) {
@@ -114,7 +121,7 @@ internal::Json publish_receipt_json(const ArtifactPublishReceipt& receipt) {
 }
 
 internal::Json transfer_json(const VerifiedArtifactTransfer& transfer) {
-    return internal::Json::Object{
+    internal::Json::Object fields{
         {"artifact_content_digest", transfer.artifact_content_digest},
         {"artifact_generation", std::to_string(transfer.artifact_generation)},
         {"artifact_id", transfer.artifact_id},
@@ -133,6 +140,11 @@ internal::Json transfer_json(const VerifiedArtifactTransfer& transfer) {
         {"service_id", transfer.service_id},
         {"service_sequence", std::to_string(transfer.service_sequence)},
     };
+    if (!transfer.verification_key_id.empty())
+        fields.emplace("verification_key_id", transfer.verification_key_id);
+    if (!transfer.trust_bundle_id.empty())
+        fields.emplace("trust_bundle_id", transfer.trust_bundle_id);
+    return fields;
 }
 
 internal::Json transfer_attestation_json(const ArtifactTransferAttestation& attestation) {
@@ -152,11 +164,6 @@ internal::Json transfer_attestation_json(const ArtifactTransferAttestation& atte
 
 std::string transfer_attestation_identity_message(const ArtifactTransferAttestation& attestation) {
     return std::string("rbfsafe-artifact-transfer-attestation-v1\n") +
-           transfer_attestation_json(attestation).dump(false);
-}
-
-std::string transfer_attestation_authentication_message(const ArtifactTransferAttestation& attestation) {
-    return std::string("rbfsafe-artifact-transfer-attestation-hmac-v1\n") +
            transfer_attestation_json(attestation).dump(false);
 }
 
@@ -234,6 +241,11 @@ Result<std::string> verify_authentication(ArtifactTransferOperation operation, c
         }
         return std::string{};
     }
+    if (authentication == ArtifactTransferAuthentication::Ed25519) {
+        return Result<std::string>::failure(
+            StatusCode::InvalidArgument,
+            "Ed25519 remote transfer verification requires a service trust bundle");
+    }
     if (authentication != ArtifactTransferAuthentication::HmacSha256 ||
         !valid_text(expected_key_id, kMaximumIdentifierBytes) || !valid_key(hmac_key)) {
         return Result<std::string>::failure(
@@ -244,20 +256,17 @@ Result<std::string> verify_authentication(ArtifactTransferOperation operation, c
         return Result<std::string>::failure(StatusCode::IdentityMismatch,
                                             "remote response is missing its required service attestation");
     }
-    if (!valid_artifact_transfer_attestation(*attestation)) {
-        return Result<std::string>::failure(StatusCode::CorruptData,
-                                            "remote service transfer attestation is malformed");
-    }
-    if (attestation->operation != operation || attestation->request_id != request_id ||
-        attestation->response_id != response_id || attestation->service_id != service_id ||
-        attestation->key_id != expected_key_id || attestation->artifact_id != artifact_id ||
-        attestation->payload_digest != payload_digest || attestation->payload_bytes != payload_bytes ||
-        attestation->service_sequence != service_sequence) {
+    auto binding = internal::validate_artifact_transfer_attestation_binding(
+        *attestation, ArtifactAuthenticationAlgorithm::HmacSha256, operation, request_id, response_id,
+        service_id, artifact_id, payload_digest, payload_bytes, service_sequence);
+    if (!binding)
+        return binding.error();
+    if (attestation->key_id != expected_key_id) {
         return Result<std::string>::failure(StatusCode::IdentityMismatch,
-                                            "remote service attestation does not match the complete transfer",
+                                            "remote service attestation key does not match trusted key",
                                             attestation->id);
     }
-    const auto message = transfer_attestation_authentication_message(*attestation);
+    const auto message = internal::artifact_transfer_authentication_message(*attestation);
     const auto expected_tag =
         internal::hmac_sha256(hmac_key, std::as_bytes(std::span(message.data(), message.size())));
     if (!internal::constant_time_equal(expected_tag, attestation->authentication_tag)) {
@@ -274,30 +283,21 @@ make_transfer_attestation(ArtifactTransferOperation operation, const std::string
                           const std::string& artifact_id, const std::string& payload_digest,
                           std::uint64_t payload_bytes, std::uint64_t service_sequence, std::string key_id,
                           std::span<const std::byte> hmac_key) {
-    ArtifactTransferAttestation result;
-    result.service_id = service_id;
-    result.key_id = std::move(key_id);
-    result.operation = operation;
-    result.request_id = request_id;
-    result.response_id = response_id;
-    result.artifact_id = artifact_id;
-    result.payload_digest = payload_digest;
-    result.payload_bytes = payload_bytes;
-    result.service_sequence = service_sequence;
-    result.id = internal::sha256(transfer_attestation_identity_message(result));
-    const auto message = transfer_attestation_authentication_message(result);
+    auto result = internal::make_artifact_transfer_attestation(
+        ArtifactAuthenticationAlgorithm::HmacSha256, operation, request_id, response_id, service_id,
+        artifact_id, payload_digest, payload_bytes, service_sequence, std::move(key_id));
+    const auto message = internal::artifact_transfer_authentication_message(result);
     result.authentication_tag =
         internal::hmac_sha256(hmac_key, std::as_bytes(std::span(message.data(), message.size())));
     return result;
 }
 
-VerifiedArtifactTransfer
-make_verified_transfer(ArtifactTransferOperation operation, const std::string& request_id,
-                       const std::string& response_id, const std::string& service_id,
-                       const std::string& memory_id, const MemoryArtifact& artifact,
-                       const std::string& payload_digest, std::uint64_t payload_bytes,
-                       const std::string& media_type, std::uint64_t service_sequence,
-                       ArtifactTransferAuthentication authentication, std::string attestation_id) {
+VerifiedArtifactTransfer make_verified_transfer(
+    ArtifactTransferOperation operation, const std::string& request_id, const std::string& response_id,
+    const std::string& service_id, const std::string& memory_id, const MemoryArtifact& artifact,
+    const std::string& payload_digest, std::uint64_t payload_bytes, const std::string& media_type,
+    std::uint64_t service_sequence, ArtifactTransferAuthentication authentication, std::string attestation_id,
+    std::string verification_key_id, std::string trust_bundle_id) {
     VerifiedArtifactTransfer result;
     result.operation = operation;
     result.request_id = request_id;
@@ -314,6 +314,8 @@ make_verified_transfer(ArtifactTransferOperation operation, const std::string& r
     result.service_sequence = service_sequence;
     result.authentication = authentication;
     result.attestation_id = std::move(attestation_id);
+    result.verification_key_id = std::move(verification_key_id);
+    result.trust_bundle_id = std::move(trust_bundle_id);
     result.id = internal::verified_artifact_transfer_identity(result);
     return result;
 }
@@ -351,6 +353,177 @@ std::string artifact_transfer_record_identity(const ArtifactTransferRecord& reco
                            {"transfer_id", record.transfer.id},
                        })
                       .dump(false));
+}
+
+ArtifactTransferAttestation make_artifact_transfer_attestation(
+    ArtifactAuthenticationAlgorithm algorithm, ArtifactTransferOperation operation,
+    const std::string& request_id, const std::string& response_id, const std::string& service_id,
+    const std::string& artifact_id, const std::string& payload_digest, std::uint64_t payload_bytes,
+    std::uint64_t service_sequence, std::string key_id) {
+    ArtifactTransferAttestation result;
+    result.service_id = service_id;
+    result.key_id = std::move(key_id);
+    result.algorithm = algorithm;
+    result.operation = operation;
+    result.request_id = request_id;
+    result.response_id = response_id;
+    result.artifact_id = artifact_id;
+    result.payload_digest = payload_digest;
+    result.payload_bytes = payload_bytes;
+    result.service_sequence = service_sequence;
+    result.id = sha256(transfer_attestation_identity_message(result));
+    return result;
+}
+
+std::string artifact_transfer_authentication_message(const ArtifactTransferAttestation& attestation) {
+    std::string domain;
+    switch (attestation.algorithm) {
+    case ArtifactAuthenticationAlgorithm::HmacSha256:
+        domain = "rbfsafe-artifact-transfer-attestation-hmac-v1\n";
+        break;
+    case ArtifactAuthenticationAlgorithm::Ed25519:
+        domain = "rbfsafe-artifact-transfer-attestation-ed25519-v1\n";
+        break;
+    }
+    return domain + transfer_attestation_json(attestation).dump(false);
+}
+
+Result<void> validate_artifact_transfer_attestation_binding(
+    const ArtifactTransferAttestation& attestation, ArtifactAuthenticationAlgorithm algorithm,
+    ArtifactTransferOperation operation, const std::string& request_id, const std::string& response_id,
+    const std::string& service_id, const std::string& artifact_id, const std::string& payload_digest,
+    std::uint64_t payload_bytes, std::uint64_t service_sequence) {
+    if (!valid_artifact_transfer_attestation(attestation)) {
+        return Result<void>::failure(StatusCode::CorruptData,
+                                     "remote service transfer attestation is malformed");
+    }
+    if (attestation.algorithm != algorithm || attestation.operation != operation ||
+        attestation.request_id != request_id || attestation.response_id != response_id ||
+        attestation.service_id != service_id || attestation.artifact_id != artifact_id ||
+        attestation.payload_digest != payload_digest || attestation.payload_bytes != payload_bytes ||
+        attestation.service_sequence != service_sequence) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "remote service attestation does not match the complete transfer",
+                                     attestation.id);
+    }
+    return Result<void>::success();
+}
+
+Result<VerifiedArtifactTransfer>
+finalize_verified_artifact_fetch(const SafetyMemory& memory, const ArtifactFetchRequest& request,
+                                 const ArtifactFetchResponse& response, std::span<const std::byte> payload,
+                                 ArtifactTransferAuthentication authentication, std::string attestation_id,
+                                 std::string verification_key_id, std::string trust_bundle_id,
+                                 const RemoteArtifactOptions& options) {
+    if (!valid_artifact_fetch_request(request)) {
+        return Result<VerifiedArtifactTransfer>::failure(StatusCode::InvalidArgument,
+                                                         "artifact fetch request is invalid");
+    }
+    if (!valid_artifact_fetch_response(response)) {
+        return Result<VerifiedArtifactTransfer>::failure(StatusCode::CorruptData,
+                                                         "artifact fetch response is malformed");
+    }
+    if (request.response_authentication != authentication) {
+        return Result<VerifiedArtifactTransfer>::failure(
+            StatusCode::IdentityMismatch, "artifact fetch authentication does not match the request");
+    }
+    auto artifact =
+        verify_request_artifact(memory, request.memory_id, request.artifact_id, request.artifact_generation,
+                                request.artifact_state, request.artifact_content_digest, options);
+    if (!artifact)
+        return artifact.error();
+    if (payload.size() > options.maximum_payload_bytes || payload.size() > request.maximum_payload_bytes) {
+        return Result<VerifiedArtifactTransfer>::failure(StatusCode::ResourceLimit,
+                                                         "fetched artifact payload exceeds configured limit");
+    }
+    const auto digest = sha256(payload);
+    if (response.request_id != request.id || response.service_id != request.service_id ||
+        response.artifact_id != request.artifact_id ||
+        response.artifact_generation != request.artifact_generation ||
+        response.artifact_state != request.artifact_state ||
+        response.artifact_content_digest != request.artifact_content_digest ||
+        response.payload_digest != digest || response.payload_digest != request.artifact_content_digest ||
+        response.payload_bytes != static_cast<std::uint64_t>(payload.size()) ||
+        response.media_type != request.media_type) {
+        return Result<VerifiedArtifactTransfer>::failure(
+            StatusCode::IdentityMismatch,
+            "fetched artifact bytes or response metadata do not match the request", request.id);
+    }
+    const bool authentication_metadata_valid =
+        (authentication == ArtifactTransferAuthentication::None && attestation_id.empty() &&
+         verification_key_id.empty() && trust_bundle_id.empty()) ||
+        (authentication == ArtifactTransferAuthentication::HmacSha256 && valid_sha256(attestation_id) &&
+         verification_key_id.empty() && trust_bundle_id.empty()) ||
+        (authentication == ArtifactTransferAuthentication::Ed25519 && valid_sha256(attestation_id) &&
+         valid_sha256(verification_key_id) && valid_sha256(trust_bundle_id));
+    if (!authentication_metadata_valid) {
+        return Result<VerifiedArtifactTransfer>::failure(StatusCode::InvalidArgument,
+                                                         "verified fetch authentication metadata is invalid");
+    }
+    return make_verified_transfer(ArtifactTransferOperation::Fetch, request.id, response.id,
+                                  request.service_id, request.memory_id, artifact.value(), digest,
+                                  static_cast<std::uint64_t>(payload.size()), request.media_type,
+                                  response.service_sequence, authentication, std::move(attestation_id),
+                                  std::move(verification_key_id), std::move(trust_bundle_id));
+}
+
+Result<VerifiedArtifactTransfer>
+finalize_verified_artifact_publish(const SafetyMemory& memory, const ArtifactPublishRequest& request,
+                                   const ArtifactPublishReceipt& receipt, std::span<const std::byte> payload,
+                                   ArtifactTransferAuthentication authentication, std::string attestation_id,
+                                   std::string verification_key_id, std::string trust_bundle_id,
+                                   const RemoteArtifactOptions& options) {
+    if (!valid_artifact_publish_request(request)) {
+        return Result<VerifiedArtifactTransfer>::failure(StatusCode::InvalidArgument,
+                                                         "artifact publish request is invalid");
+    }
+    if (!valid_artifact_publish_receipt(receipt)) {
+        return Result<VerifiedArtifactTransfer>::failure(StatusCode::CorruptData,
+                                                         "artifact publish receipt is malformed");
+    }
+    if (request.receipt_authentication != authentication) {
+        return Result<VerifiedArtifactTransfer>::failure(
+            StatusCode::IdentityMismatch, "artifact publish authentication does not match the request");
+    }
+    auto artifact =
+        verify_request_artifact(memory, request.memory_id, request.artifact_id, request.artifact_generation,
+                                request.artifact_state, request.artifact_content_digest, options);
+    if (!artifact)
+        return artifact.error();
+    if (payload.size() > options.maximum_payload_bytes) {
+        return Result<VerifiedArtifactTransfer>::failure(
+            StatusCode::ResourceLimit, "published artifact payload exceeds configured limit");
+    }
+    const auto digest = sha256(payload);
+    if (request.payload_digest != digest ||
+        request.payload_bytes != static_cast<std::uint64_t>(payload.size()) ||
+        receipt.request_id != request.id || receipt.service_id != request.service_id ||
+        receipt.artifact_id != request.artifact_id ||
+        receipt.artifact_generation != request.artifact_generation ||
+        receipt.artifact_state != request.artifact_state ||
+        receipt.artifact_content_digest != request.artifact_content_digest ||
+        receipt.payload_digest != request.payload_digest || receipt.payload_bytes != request.payload_bytes ||
+        receipt.media_type != request.media_type) {
+        return Result<VerifiedArtifactTransfer>::failure(
+            StatusCode::IdentityMismatch,
+            "published artifact bytes or receipt metadata do not match the request", request.id);
+    }
+    const bool authentication_metadata_valid =
+        (authentication == ArtifactTransferAuthentication::None && attestation_id.empty() &&
+         verification_key_id.empty() && trust_bundle_id.empty()) ||
+        (authentication == ArtifactTransferAuthentication::HmacSha256 && valid_sha256(attestation_id) &&
+         verification_key_id.empty() && trust_bundle_id.empty()) ||
+        (authentication == ArtifactTransferAuthentication::Ed25519 && valid_sha256(attestation_id) &&
+         valid_sha256(verification_key_id) && valid_sha256(trust_bundle_id));
+    if (!authentication_metadata_valid) {
+        return Result<VerifiedArtifactTransfer>::failure(
+            StatusCode::InvalidArgument, "verified publication authentication metadata is invalid");
+    }
+    return make_verified_transfer(ArtifactTransferOperation::Publish, request.id, receipt.id,
+                                  request.service_id, request.memory_id, artifact.value(), digest,
+                                  static_cast<std::uint64_t>(payload.size()), request.media_type,
+                                  receipt.service_sequence, authentication, std::move(attestation_id),
+                                  std::move(verification_key_id), std::move(trust_bundle_id));
 }
 
 } // namespace internal
@@ -407,15 +580,24 @@ bool valid_artifact_publish_receipt(const ArtifactPublishReceipt& receipt) {
 }
 
 bool valid_artifact_transfer_attestation(const ArtifactTransferAttestation& attestation) {
+    const bool supported_algorithm = attestation.algorithm == ArtifactAuthenticationAlgorithm::HmacSha256 ||
+                                     attestation.algorithm == ArtifactAuthenticationAlgorithm::Ed25519;
+    const bool valid_key_id = attestation.algorithm == ArtifactAuthenticationAlgorithm::Ed25519
+                                  ? internal::valid_sha256(attestation.key_id)
+                                  : valid_text(attestation.key_id, kMaximumIdentifierBytes);
+    const bool valid_authentication =
+        (attestation.algorithm == ArtifactAuthenticationAlgorithm::HmacSha256 &&
+         internal::valid_sha256(attestation.authentication_tag)) ||
+        (attestation.algorithm == ArtifactAuthenticationAlgorithm::Ed25519 &&
+         valid_lowercase_hex(attestation.authentication_tag, kEd25519SignatureBytes));
     return internal::valid_sha256(attestation.id) &&
-           valid_text(attestation.service_id, kMaximumIdentifierBytes) &&
-           valid_text(attestation.key_id, kMaximumIdentifierBytes) &&
-           attestation.algorithm == ArtifactAuthenticationAlgorithm::HmacSha256 &&
-           valid_operation(attestation.operation) && internal::valid_sha256(attestation.request_id) &&
+           valid_text(attestation.service_id, kMaximumIdentifierBytes) && valid_key_id &&
+           supported_algorithm && valid_operation(attestation.operation) &&
+           internal::valid_sha256(attestation.request_id) &&
            internal::valid_sha256(attestation.response_id) &&
            internal::valid_sha256(attestation.artifact_id) &&
            internal::valid_sha256(attestation.payload_digest) && attestation.service_sequence > 0 &&
-           internal::valid_sha256(attestation.authentication_tag) &&
+           valid_authentication &&
            internal::sha256(transfer_attestation_identity_message(attestation)) == attestation.id;
 }
 
@@ -431,9 +613,15 @@ bool valid_verified_artifact_transfer(const VerifiedArtifactTransfer& transfer) 
            valid_text(transfer.media_type, kMaximumMediaTypeBytes) && transfer.service_sequence > 0 &&
            valid_authentication(transfer.authentication) &&
            ((transfer.authentication == ArtifactTransferAuthentication::None &&
-             transfer.attestation_id.empty()) ||
+             transfer.attestation_id.empty() && transfer.verification_key_id.empty() &&
+             transfer.trust_bundle_id.empty()) ||
             (transfer.authentication == ArtifactTransferAuthentication::HmacSha256 &&
-             internal::valid_sha256(transfer.attestation_id))) &&
+             internal::valid_sha256(transfer.attestation_id) && transfer.verification_key_id.empty() &&
+             transfer.trust_bundle_id.empty()) ||
+            (transfer.authentication == ArtifactTransferAuthentication::Ed25519 &&
+             internal::valid_sha256(transfer.attestation_id) &&
+             internal::valid_sha256(transfer.verification_key_id) &&
+             internal::valid_sha256(transfer.trust_bundle_id))) &&
            internal::verified_artifact_transfer_identity(transfer) == transfer.id;
 }
 
@@ -554,10 +742,11 @@ verify_artifact_fetch(const SafetyMemory& memory, const ArtifactFetchRequest& re
         request.response_authentication, response.service_attestation, expected_key_id, hmac_key);
     if (!attestation_id)
         return attestation_id.error();
-    return make_verified_transfer(
-        ArtifactTransferOperation::Fetch, request.id, response.id, request.service_id, request.memory_id,
-        artifact.value(), digest, static_cast<std::uint64_t>(payload.size()), request.media_type,
-        response.service_sequence, request.response_authentication, std::move(attestation_id).value());
+    return make_verified_transfer(ArtifactTransferOperation::Fetch, request.id, response.id,
+                                  request.service_id, request.memory_id, artifact.value(), digest,
+                                  static_cast<std::uint64_t>(payload.size()), request.media_type,
+                                  response.service_sequence, request.response_authentication,
+                                  std::move(attestation_id).value(), "", "");
 }
 
 Result<ArtifactPublishRequest>
@@ -684,7 +873,7 @@ verify_artifact_publish(const SafetyMemory& memory, const ArtifactPublishRequest
     return make_verified_transfer(
         ArtifactTransferOperation::Publish, request.id, receipt.id, request.service_id, request.memory_id,
         artifact.value(), digest, static_cast<std::uint64_t>(payload.size()), request.media_type,
-        receipt.service_sequence, request.receipt_authentication, std::move(attestation_id).value());
+        receipt.service_sequence, request.receipt_authentication, std::move(attestation_id).value(), "", "");
 }
 
 std::string ArtifactTransferJournal::identity() const {
@@ -765,6 +954,8 @@ std::string artifact_transfer_authentication_name(ArtifactTransferAuthentication
         return "none";
     case ArtifactTransferAuthentication::HmacSha256:
         return "hmac_sha256";
+    case ArtifactTransferAuthentication::Ed25519:
+        return "ed25519";
     }
     return "unknown";
 }

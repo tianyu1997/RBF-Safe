@@ -19,7 +19,8 @@ std::span<const std::byte> bytes_view(const std::string& value) {
 
 void bind_trust(py::module_& module) {
     py::enum_<ArtifactAuthenticationAlgorithm>(module, "ArtifactAuthenticationAlgorithm")
-        .value("HMAC_SHA256", ArtifactAuthenticationAlgorithm::HmacSha256);
+        .value("HMAC_SHA256", ArtifactAuthenticationAlgorithm::HmacSha256)
+        .value("ED25519", ArtifactAuthenticationAlgorithm::Ed25519);
 
     py::class_<ArtifactAttestation>(module, "ArtifactAttestation")
         .def_readonly("sequence", &ArtifactAttestation::sequence)

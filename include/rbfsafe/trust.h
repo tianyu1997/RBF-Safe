@@ -13,6 +13,7 @@ namespace rbfsafe {
 
 enum class ArtifactAuthenticationAlgorithm : std::uint8_t {
     HmacSha256 = 0,
+    Ed25519 = 1,
 };
 
 struct ArtifactAttestation {

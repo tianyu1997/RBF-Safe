@@ -1,0 +1,31 @@
+{
+  "format": "rbfsafe-artifact-transfer-records",
+  "records": [
+    {
+      "id": "43197ea62038f190add715bfcb0d60d9d14c118f2713e540e2716fd9daa42800",
+      "parent_id": "",
+      "sequence": "1",
+      "transfer": {
+        "artifact_content_digest": "4753e499617943c6b3dfa197752908e793797df2a669c7696ab3e53e534df4bd",
+        "artifact_generation": "1",
+        "artifact_id": "a3ceddd57703af4603663a53062ce1c68876410d85b90fc1a989b06fa5853d0a",
+        "artifact_state": 0,
+        "attestation_id": "abcd8494b93b50fa43594bf71877778a502a31509b668d559b3b100e048149f2",
+        "authentication": 2,
+        "id": "adc998c4e748753eb5b2aa7bb9c1405cf9679089189869af5beb0653b21af21f",
+        "media_type": "application/vnd.rbfsafe.atlas",
+        "memory_id": "9f4d9492503ad540db5a7e18ee254496f47ef9775e9e43a7bfa73c42668008c1",
+        "operation": 1,
+        "payload_bytes": "24",
+        "payload_digest": "4753e499617943c6b3dfa197752908e793797df2a669c7696ab3e53e534df4bd",
+        "request_id": "ad3283f893c4a8960e1d0507ca8c969a059857ba379cfc6795334f692484c72b",
+        "response_id": "63eabb4fdf518ba02cdc22f7d67a3b13998ed4a06517591a4c6592a3fb84236f",
+        "service_id": "artifact-service",
+        "service_sequence": "101",
+        "trust_bundle_id": "b6f6e30bc2245e64a519c8a02e61063bdf2fe1d8dc5ee35d980f46e1e4aa584d",
+        "verification_key_id": "deeb721ce417eb73af26ccc9a69a2a8c4343dada00e2e6f3864084c1e328e732"
+      }
+    }
+  ],
+  "schema": 2
+}

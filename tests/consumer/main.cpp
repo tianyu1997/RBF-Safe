@@ -24,6 +24,7 @@ int main() {
     const rbfsafe::ArtifactVerificationOptions artifact_verification_options;
     const rbfsafe::RemoteArtifactOptions remote_options;
     const rbfsafe::ArtifactTransferJournalLoadOptions transfer_journal_options;
+    const rbfsafe::ServiceTrustBundleLoadOptions trust_bundle_options;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
     return interval.contains(0.0) && options.maximum_region_tests > 0 &&
@@ -39,10 +40,12 @@ int main() {
                    fleet_archive && fleet_archive.value().valid() &&
                    artifact_verification_options.maximum_payload_bytes > 0 &&
                    remote_options.maximum_payload_bytes > 0 && transfer_journal_options.maximum_records > 0 &&
+                   trust_bundle_options.maximum_keys > 0 &&
                    rbfsafe::artifact_transfer_operation_name(rbfsafe::ArtifactTransferOperation::Fetch) ==
                        "fetch" &&
                    rbfsafe::artifact_authentication_algorithm_name(
-                       rbfsafe::ArtifactAuthenticationAlgorithm::HmacSha256) == "hmac_sha256" &&
+                       rbfsafe::ArtifactAuthenticationAlgorithm::Ed25519) == "ed25519" &&
+                   rbfsafe::service_key_state_name(rbfsafe::ServiceKeyState::Active) == "active" &&
                    report.status == rbfsafe::TrajectoryAuditStatus::Invalid
                ? 0
                : 1;

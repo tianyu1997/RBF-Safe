@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.6.0"
+    assert rbfsafe.__version__ == "3.7.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -1089,7 +1089,7 @@ def test_remote_artifact_transfer_and_journal(
 
     assert main([str(destination)]) == 0
     output = capsys.readouterr().out
-    assert "RBF-Safe artifact-transfer-journal schema=1" in output
+    assert "RBF-Safe artifact-transfer-journal schema=2" in output
     assert "records=2" in output
     assert "operation=fetch" in output
     assert "authentication=hmac_sha256" in output
@@ -1099,6 +1099,118 @@ def test_remote_artifact_transfer_and_journal(
         rbfsafe.verify_artifact_fetch(
             memory, fetch, response, b"altered", "service-key-1", key
         )
+
+
+def test_public_service_identity_and_offline_verification(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = b"immutable atlas payload\n"
+    item = rbfsafe.MemoryArtifactInput()
+    item.type = rbfsafe.MemoryArtifactType.SAFE_ATLAS
+    item.deployment_id = "arm-a"
+    item.robot_digest = "a" * 64
+    item.scene_digest = "b" * 64
+    item.task_id = "shelf-pick"
+    item.content_digest = hashlib.sha256(payload).hexdigest()
+    item.locator = "artifacts/shelf-atlas"
+    item.evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+    memory = rbfsafe.SafetyMemory()
+    artifact = memory.register_artifact(item)
+
+    key_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+    service_key = rbfsafe.make_service_public_key(
+        "artifact-service",
+        key_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+    )
+    assert rbfsafe.valid_service_public_key(service_key)
+    bundle = rbfsafe.ServiceTrustBundle.create(1, "", [service_key])
+
+    request = rbfsafe.prepare_artifact_publish(
+        memory,
+        artifact.id,
+        payload,
+        "artifact-service",
+        31,
+        "application/vnd.rbfsafe.atlas",
+        rbfsafe.ArtifactTransferAuthentication.ED25519,
+    )
+    receipt = rbfsafe.make_artifact_publish_receipt(request, 101)
+    inconsistent_secret = bytearray(key_pair.secret_key)
+    inconsistent_secret[0] ^= 1
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.sign_artifact_publish_receipt(
+            receipt, service_key.id, bytes(inconsistent_secret)
+        )
+    receipt = rbfsafe.sign_artifact_publish_receipt(
+        receipt, service_key.id, key_pair.secret_key
+    )
+    verified = rbfsafe.verify_artifact_publish_offline(
+        memory, request, receipt, payload, bundle
+    )
+    assert verified.authentication == rbfsafe.ArtifactTransferAuthentication.ED25519
+    assert verified.verification_key_id == service_key.id
+    assert verified.trust_bundle_id == bundle.id
+    assert (
+        rbfsafe.artifact_authentication_algorithm_name(
+            receipt.service_attestation.algorithm
+        )
+        == "ed25519"
+    )
+
+    pending_key = rbfsafe.make_service_public_key(
+        "artifact-service",
+        key_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.PENDING,
+    )
+    pending_bundle = rbfsafe.ServiceTrustBundle.create(1, "", [pending_key])
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.verify_artifact_publish_offline(
+            memory, request, receipt, payload, pending_bundle
+        )
+
+    bundle_path = tmp_path / "service-trust-bundle.json"
+    bundle.save(bundle_path)
+    loaded_bundle = rbfsafe.ServiceTrustBundle.load(bundle_path)
+    assert loaded_bundle.id == bundle.id
+    assert loaded_bundle.key("artifact-service", service_key.id).id == service_key.id
+
+    journal = rbfsafe.ArtifactTransferJournal()
+    journal.append(verified, "")
+    journal_path = tmp_path / "public-transfer-journal"
+    journal.save(journal_path)
+    loaded_journal = rbfsafe.ArtifactTransferJournal.load(journal_path)
+    assert loaded_journal.records[0].transfer.trust_bundle_id == bundle.id
+
+    data_root = Path(__file__).resolve().parents[1] / "data"
+    fixed_bundle = rbfsafe.ServiceTrustBundle.load(
+        data_root / "service_trust_bundle_schema1" / "bundle.json"
+    )
+    assert (
+        fixed_bundle.id
+        == "b6f6e30bc2245e64a519c8a02e61063bdf2fe1d8dc5ee35d980f46e1e4aa584d"
+    )
+    fixed_journal = rbfsafe.ArtifactTransferJournal.load(
+        data_root / "artifact_transfer_journal_schema2"
+    )
+    assert fixed_journal.records[0].transfer.trust_bundle_id == fixed_bundle.id
+
+    from rbfsafe.cli import main
+
+    assert main([str(bundle_path)]) == 0
+    bundle_output = capsys.readouterr().out
+    assert "RBF-Safe service-trust-bundle schema=1" in bundle_output
+    assert "state=active" in bundle_output
+    assert "algorithm=ed25519" in bundle_output
+    assert "caller_pinned=false" in bundle_output
+    assert main([str(journal_path)]) == 0
+    journal_output = capsys.readouterr().out
+    assert "RBF-Safe artifact-transfer-journal schema=2" in journal_output
+    assert f"trust_bundle={bundle.id}" in journal_output
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

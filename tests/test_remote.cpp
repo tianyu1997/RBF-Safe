@@ -229,13 +229,18 @@ int main() {
     const auto manifest_path = journal_path / "manifest.json";
     const auto saved_manifest = read_text(manifest_path);
     auto unknown_schema = saved_manifest;
-    const auto schema_position = unknown_schema.find("\"schema\": 1");
+    const auto schema_position = unknown_schema.find("\"schema\": 2");
     CHECK(schema_position != std::string::npos);
-    unknown_schema.replace(schema_position, std::string("\"schema\": 1").size(), "\"schema\": 99");
+    unknown_schema.replace(schema_position, std::string("\"schema\": 2").size(), "\"schema\": 99");
     write_text(manifest_path, unknown_schema);
     auto incompatible = ArtifactTransferJournal::load(journal_path);
     CHECK(!incompatible);
     CHECK(incompatible.error().code == StatusCode::IncompatibleFormat);
+    write_text(manifest_path, saved_manifest);
+    write_text(manifest_path, std::string(1'048'577, 'x'));
+    auto manifest_limited = ArtifactTransferJournal::load(journal_path);
+    CHECK(!manifest_limited);
+    CHECK(manifest_limited.error().code == StatusCode::ResourceLimit);
     write_text(manifest_path, saved_manifest);
 
     auto stale = memory.transition(artifact.value().id, artifact.value().generation,
