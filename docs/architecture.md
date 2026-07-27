@@ -13,6 +13,8 @@ RBFSafe::geometry
                                                       +-> RBFSafe::identity
                                                                |
                                                                +-> RBFSafe::deployment
+                                                                      |
+                                                                      +-> RBFSafe::execution
           |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy (+ calibration)
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
@@ -195,6 +197,18 @@ controller, platform, runtime-build, root, checkpoint, and head identities.
 The layer does not inspect hardware, read clocks, attest a runtime, collect
 observations, configure a controller, or authorize actuation. Review and
 conformance are governance metadata with `Unknown` evidence.
+
+### Bounded execution boundary
+
+`RBFSafe::execution` depends on `RBFSafe::deployment` and `RBFSafe::atlas`.
+It owns deterministic certified command sequences, controller/runtime-monitor
+endpoint identities, reviewer/controller/monitor Ed25519 acknowledgements,
+bounded session persistence, and exact per-command time-window authorization.
+
+The module is transport and clock neutral. It never reads system time, sends a
+command, opens a device, interprets a service publication key as controller
+authority, or turns the session itself into a permit. Only an exact command
+query can produce the narrowly scoped `RuntimeExecutable` value.
 
 ### Python and tools
 

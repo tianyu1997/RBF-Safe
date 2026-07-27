@@ -1,0 +1,50 @@
+{
+  "format": "rbfsafe-service-trust-bundle",
+  "id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+  "keys": [
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "9b49e066c347f583fef752cbf29cd06a42f89fb6c6fbd07698fed629f411ce25",
+      "public_key": "e7f162a10bec559afea195e4dce84b69568d5d2cb0963eb446c0685e2b17f2f0",
+      "service_id": "execution-review-controls",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "cc0afcc3fffcd84ef5695ae89f6cf50278b6ef3b04df2358e80a811720484119",
+      "public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+      "service_id": "execution-review-safety",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": false,
+      "allow_rotate": true,
+      "id": "0210bd021b84e3385a2591efabec72310b6988cf32249dcc3c5543cb87921d4c",
+      "public_key": "adc14011f82d1c56d956aa4f9d73d8858361a606048525e0d08c638dc75dd8c7",
+      "service_id": "execution-trust-governance",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    }
+  ],
+  "library_version": "3.11.0",
+  "parent_id": "",
+  "rotation_policy": {
+    "minimum_signatures": 1,
+    "require_distinct_services": false
+  },
+  "schema": 3,
+  "sequence": "1"
+}

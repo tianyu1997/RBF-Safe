@@ -20,7 +20,10 @@ rotation authority, exact-successor signatures, schema-2 trust bundles, and
 expected-head guarded replayable trust histories. Version 3.9 adds immutable
 quorum/distinct-service rotation policy, schema-3 trust bundles, schema-2
 authorization-set histories, and caller-pinned signed trust checkpoints.
-Documented public C++
+Version 3.10 adds reviewed deployment profiles and role-aware signed approval
+quorums under exact trust checkpoints. Version 3.11 adds bounded execution
+sessions, explicit controller/monitor acknowledgements, and exact
+closed-window command authorization. Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
 minor releases. Deprecated APIs remain functional through 3.x and may be
@@ -207,6 +210,15 @@ constraints and review policy. Loading replays the caller-pinned history and
 verifies every approval. It does not reinterpret any prior schema, attest
 hardware/runtime observations, or raise evidence above `Unknown`.
 
+The v3.11 bounded-execution-session schema 1 is an independent bounded JSON
+document containing one exact certified command sequence, reviewed-profile
+and trust bindings, role-aware execution approvals, controller
+acknowledgement, and monitor-signed runtime observation. Loading recomputes all
+identities, replays the trust/profile/Atlas chain, and recreates session time
+bounds. It does not alter any prior schema. The persisted session remains
+`Unknown`; `RuntimeExecutable` exists only in an ephemeral exact-command
+authorization returned for caller-supplied monotonic time.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -234,8 +246,8 @@ order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
-service-trust-history/service-trust-checkpoint/reviewed-deployment-profile
-fixtures,
+service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
+bounded-execution-session fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

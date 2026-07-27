@@ -19,4 +19,5 @@ no source, build, runtime, or data-format dependency on it.
 | Signed trust successors and local trust histories | New in v3.8 | Repository-local authorization, expected-head publication, bounded replay, and persistence design; no RapidBoxForest trust-history code migrated |
 | Quorum trust rotation and signed head checkpoints | New in v3.9 | Repository-local canonical multi-signature policy, authorization-set/history schema, bounded checkpoint persistence, and caller-anchor design; no RapidBoxForest trust or checkpoint code migrated |
 | Reviewed deployment profiles | New in v3.10 | Repository-local deterministic deployment/runtime constraints, role-aware Ed25519 approval policy, checkpoint binding, bounded persistence, and conformance reports; no RapidBoxForest deployment-governance code migrated |
+| Bounded execution sessions | New in v3.11 | Repository-local exact Atlas/trajectory/profile/endpoint/approval/runtime binding, bounded persistence, and closed-window command evidence; no RapidBoxForest controller or hardware-execution code migrated |
 | Experiments, manuscript and generated outputs | Excluded | Remain in RapidBoxForest |

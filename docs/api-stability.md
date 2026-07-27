@@ -29,7 +29,10 @@ available. RBF-Safe 3.10 additively introduces `RBFSafe::deployment`,
 deterministic profile/runtime/review values, role-aware Ed25519 approval
 functions, `ReviewedDeploymentProfile`, schema-1 load options and
 persistence, and conformance assessment APIs. Existing evidence meanings and
-all prior targets remain unchanged. Public headers under `include/rbfsafe`,
+all prior targets remain unchanged. RBF-Safe 3.11 additively introduces
+`RBFSafe::execution`, certified command/session/endpoint/acknowledgement
+values, exact-command authorization, and bounded schema-1 persistence. Public
+headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
 historical contracts; `tools/check_api_surface.py` selects the snapshot for the
@@ -72,7 +75,8 @@ The following installed target names are stable in 3.x:
 - `RBFSafe::update`, `RBFSafe::ik`, `RBFSafe::corridor`;
 - `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`;
 - `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, `RBFSafe::trust`,
-  `RBFSafe::remote`, `RBFSafe::identity`, `RBFSafe::deployment`, and aggregate
+  `RBFSafe::remote`, `RBFSafe::identity`, `RBFSafe::deployment`,
+  `RBFSafe::execution`, and aggregate
   `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 
@@ -84,10 +88,11 @@ machine-readable contract.
 ## Evidence compatibility
 
 Numeric values and ordering of `EvidenceLevel` are stable throughout 3.x.
-Consumers must compare enum values rather than parsing display names. No 3.x
-component may issue `RuntimeExecutable` without a separately reviewed
-deployment-profile contract that models timing, tracking, uncertainty, and
-hardware assumptions.
+Consumers must compare enum values rather than parsing display names. In 3.11,
+only an exact closed-window `ExecutionCommandAuthorization` may issue
+`RuntimeExecutable`; reviewed profiles and bounded sessions remain `Unknown`.
+The application must still enforce its separately reviewed tracking,
+uncertainty, clock, transport, device, and emergency-stop assumptions.
 
 Storage compatibility is governed separately by
 [the schema migration policy](schema-migrations.md). A library version bump

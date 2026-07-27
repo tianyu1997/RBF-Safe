@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.10.0"
+    assert rbfsafe.__version__ == "3.11.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -1689,6 +1689,310 @@ def test_reviewed_deployment_profile(
     assert "approvals=2" in output
     assert "review_signatures_verified=true" in output
     assert "runtime_executable=false" in output
+
+
+def test_bounded_execution_session(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    robot = rbfsafe.SerialRobotModel(
+        "python-execution-planar",
+        [
+            rbfsafe.DhJoint(
+                0.0, 1.0, 0.0, 0.0, rbfsafe.JointType.REVOLUTE
+            ),
+            rbfsafe.DhJoint(
+                0.0, 1.0, 0.0, 0.0, rbfsafe.JointType.REVOLUTE
+            ),
+        ],
+        [rbfsafe.Interval(-1.5, 1.5), rbfsafe.Interval(-1.5, 1.5)],
+        [0.05, 0.05],
+    )
+    scene = rbfsafe.SceneSnapshot([], "python-execution-v1")
+    atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
+
+    safety_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+    controls_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(33, 65)))
+    governance_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(65, 97)))
+    controller_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(97, 129)))
+    monitor_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(129, 161)))
+    safety_key = rbfsafe.make_service_public_key(
+        "python-execution-safety",
+        safety_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        False,
+    )
+    controls_key = rbfsafe.make_service_public_key(
+        "python-execution-controls",
+        controls_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        False,
+    )
+    governance_key = rbfsafe.make_service_public_key(
+        "python-execution-governance",
+        governance_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        False,
+        True,
+    )
+    rotation = rbfsafe.ServiceTrustRotationPolicy()
+    bundle = rbfsafe.ServiceTrustBundle.create_with_rotation_policy(
+        1, "", [controls_key, governance_key, safety_key], rotation
+    )
+    history_path = tmp_path / "execution-trust-history"
+    history = rbfsafe.ServiceTrustHistory.create(
+        history_path, bundle, bundle.id
+    )
+    checkpoint_signature = rbfsafe.sign_service_trust_checkpoint(
+        history,
+        governance_key.service_id,
+        governance_key.id,
+        governance_pair.secret_key,
+    )
+    checkpoint = rbfsafe.assemble_service_trust_checkpoint(
+        history, [checkpoint_signature]
+    )
+    checkpoint_path = tmp_path / "execution-checkpoint.json"
+    checkpoint.save(checkpoint_path)
+
+    constraints = rbfsafe.DeploymentRuntimeConstraints()
+    constraints.maximum_observation_age_ns = 1_000_000
+    constraints.maximum_command_latency_ns = 20_000
+    constraints.maximum_control_period_ns = 50_000
+    policy = rbfsafe.DeploymentReviewPolicy()
+    policy.minimum_approvals = 2
+    policy.require_distinct_services = True
+    policy.required_roles = [
+        rbfsafe.DeploymentReviewRole.SAFETY,
+        rbfsafe.DeploymentReviewRole.CONTROLS,
+    ]
+    profile_input = rbfsafe.DeploymentProfileInput()
+    profile_input.deployment_id = "python-execution-cell"
+    profile_input.robot_digest = atlas.robot_digest
+    profile_input.controller_digest = "b" * 64
+    profile_input.platform_digest = "c" * 64
+    profile_input.runtime_digest = "d" * 64
+    profile_input.trust_root_bundle_id = bundle.id
+    profile_input.trust_checkpoint_id = checkpoint.id
+    profile_input.trust_bundle_id = bundle.id
+    profile_input.trust_bundle_sequence = bundle.sequence
+    profile_input.runtime_constraints = constraints
+    profile_input.review_policy = policy
+    profile = rbfsafe.DeploymentProfile.create(profile_input)
+    profile_safety = rbfsafe.sign_deployment_profile_approval(
+        profile,
+        safety_key.service_id,
+        safety_key.id,
+        rbfsafe.DeploymentReviewRole.SAFETY,
+        safety_pair.secret_key,
+    )
+    profile_controls = rbfsafe.sign_deployment_profile_approval(
+        profile,
+        controls_key.service_id,
+        controls_key.id,
+        rbfsafe.DeploymentReviewRole.CONTROLS,
+        controls_pair.secret_key,
+    )
+    profile_approvals = rbfsafe.assemble_deployment_profile_approvals(
+        profile, [profile_controls, profile_safety]
+    )
+    reviewed = rbfsafe.ReviewedDeploymentProfile.create(
+        profile, profile_approvals, history, checkpoint, checkpoint.id
+    )
+    reviewed_path = tmp_path / "reviewed-profile.json"
+    reviewed.save(reviewed_path)
+
+    configurations = [[-1.0, -1.0], [0.0, 0.0], [1.0, 1.0]]
+    sequence = rbfsafe.ExecutionCommandSequence.create(
+        atlas, configurations, [0, 50_000, 100_000]
+    )
+    assert sequence.valid()
+    sequence.verify_compatible(atlas)
+    controller = rbfsafe.make_execution_endpoint_key(
+        "python-execution-controller",
+        rbfsafe.ExecutionEndpointRole.CONTROLLER,
+        controller_pair.public_key,
+    )
+    monitor = rbfsafe.make_execution_endpoint_key(
+        "python-execution-monitor",
+        rbfsafe.ExecutionEndpointRole.RUNTIME_MONITOR,
+        monitor_pair.public_key,
+    )
+    limits = rbfsafe.ExecutionSessionLimits()
+    limits.maximum_start_delay_ns = 10_000
+    limits.maximum_duration_ns = 100_000
+    limits.maximum_commands = 3
+    request_input = rbfsafe.ExecutionSessionRequestInput()
+    request_input.session_nonce = "9" * 64
+    request_input.controller = controller
+    request_input.runtime_monitor = monitor
+    request_input.limits = limits
+    request = rbfsafe.ExecutionSessionRequest.create(
+        reviewed, sequence, request_input
+    )
+    session_safety = rbfsafe.sign_execution_session_approval(
+        request, profile_safety, safety_pair.secret_key
+    )
+    session_controls = rbfsafe.sign_execution_session_approval(
+        request, profile_controls, controls_pair.secret_key
+    )
+    session_approvals = rbfsafe.assemble_execution_session_approvals(
+        request, reviewed, [session_safety, session_controls]
+    )
+    rbfsafe.verify_execution_session_approvals(
+        request, reviewed, session_approvals, bundle
+    )
+    controller_ack = rbfsafe.sign_execution_controller_acknowledgement(
+        request, controller_pair.secret_key
+    )
+
+    runtime = rbfsafe.DeploymentRuntimeSnapshot()
+    runtime.deployment_id = profile.deployment_id
+    runtime.robot_digest = atlas.robot_digest
+    runtime.controller_digest = profile.controller_digest
+    runtime.platform_digest = profile.platform_digest
+    runtime.runtime_digest = profile.runtime_digest
+    runtime.observation_age_ns = 10_000
+    runtime.command_latency_ns = 20_000
+    runtime.control_period_ns = 50_000
+    runtime.runtime_monitor_active = True
+    runtime.fail_closed_transport_active = True
+    runtime.authenticated_artifacts = True
+    observation_input = rbfsafe.ExecutionRuntimeObservationInput()
+    observation_input.runtime = runtime
+    observation_input.observation_sequence = 7
+    observation_input.observed_monotonic_ns = 1_000_000
+    observation_input.monitor_state = (
+        rbfsafe.ExecutionMonitorState.ARMED_CERTIFIED_SEQUENCE
+    )
+    observation = rbfsafe.ExecutionRuntimeObservation.create(
+        request, observation_input
+    )
+    monitor_ack = rbfsafe.sign_execution_monitor_acknowledgement(
+        request, observation, monitor_pair.secret_key
+    )
+    session = rbfsafe.BoundedExecutionSession.create(
+        request,
+        sequence,
+        session_approvals,
+        controller_ack,
+        monitor_ack,
+        reviewed,
+        bundle,
+        atlas,
+    )
+    assert session.valid()
+    assert session.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not session.authorizes_execution
+    exact = session.authorize_command(1, configurations[1], 1_050_001)
+    assert exact is not None
+    assert exact.valid()
+    assert exact.evidence == rbfsafe.EvidenceLevel.RUNTIME_EXECUTABLE
+    assert not exact.open_ended
+    assert session.authorize_command(1, configurations[0], 1_050_001) is None
+    assert session.authorize_command(1, configurations[1], 1_049_999) is None
+
+    atlas_path = tmp_path / "execution-atlas"
+    atlas.save(atlas_path)
+    session_path = tmp_path / "execution-session.json"
+    session.save(session_path)
+    loaded = rbfsafe.BoundedExecutionSession.load(
+        session_path,
+        reviewed,
+        history,
+        checkpoint,
+        checkpoint.id,
+        atlas,
+    )
+    assert loaded.id == session.id
+
+    from rbfsafe.cli import main
+
+    common = [
+        str(session_path),
+        "--reviewed-profile",
+        str(reviewed_path),
+        "--execution-atlas",
+        str(atlas_path),
+        "--trust-history",
+        str(history_path),
+        "--trust-checkpoint",
+        str(checkpoint_path),
+        "--expected-trust-root",
+        bundle.id,
+        "--expected-trust-checkpoint",
+        checkpoint.id,
+    ]
+    assert main(common) == 0
+    output = capsys.readouterr().out
+    assert "bounded-execution-session schema=1 commands=3 approvals=2" in output
+    assert "session_evidence=unknown" in output
+    assert "session_authorizes_execution=false" in output
+    assert "command_authorization_requires_exact_runtime_input=true" in output
+    assert (
+        main(
+            common
+            + [
+                "--execution-command-index",
+                "1",
+                "--execution-configuration",
+                "0",
+                "0",
+                "--dispatch-monotonic-ns",
+                "1050001",
+            ]
+        )
+        == 0
+    )
+    exact_output = capsys.readouterr().out
+    assert "command_authorized=true" in exact_output
+    assert "command_evidence=runtime_executable" in exact_output
+    assert "command_open_ended=false" in exact_output
+
+    fixture_root = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "bounded_execution_session_schema1"
+    )
+    fixed_checkpoint = rbfsafe.ServiceTrustCheckpoint.load(
+        fixture_root / "checkpoint.json"
+    )
+    fixed_history = rbfsafe.ServiceTrustHistory.open(
+        fixture_root / "trust-history",
+        fixed_checkpoint.root_bundle_id,
+        fixed_checkpoint,
+        fixed_checkpoint.id,
+    )
+    fixed_reviewed = rbfsafe.ReviewedDeploymentProfile.load(
+        fixture_root / "profile.json",
+        fixed_history,
+        fixed_checkpoint,
+        fixed_checkpoint.id,
+    )
+    fixed_atlas = rbfsafe.SafeAtlas.load(fixture_root / "atlas")
+    fixed_session = rbfsafe.BoundedExecutionSession.load(
+        fixture_root / "session.json",
+        fixed_reviewed,
+        fixed_history,
+        fixed_checkpoint,
+        fixed_checkpoint.id,
+        fixed_atlas,
+    )
+    assert (
+        fixed_session.id
+        == "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df"
+    )
+    assert not fixed_session.authorizes_execution
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

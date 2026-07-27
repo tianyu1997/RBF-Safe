@@ -172,6 +172,21 @@ and
 It contains public keys and signatures only, is synthetic interoperability
 data, and does not authorize any deployment or execution.
 
+`data/bounded_execution_session_schema1` is the fixed RBF-Safe 3.11
+end-to-end execution-session fixture. It contains a schema-2 Atlas, schema-3
+public trust root/history, signed checkpoint, two-reviewer profile, certified
+three-command sequence, controller acknowledgement, and independently signed
+armed monitor observation. The exact Atlas, checkpoint, profile, and session
+IDs are respectively
+`900f017e78acb91948f908edd9fbec5567280e4da4df8284f307b19e46fac862`,
+`3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01`,
+`7981b3bbd373255d5f5bd0bcfac2139ac8c55a8d841dedc15e32bbb53bf310d2`,
+and
+`62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df`.
+It contains no private key. The session is synthetic `Unknown` evidence, not
+deployment authority; tests obtain `RuntimeExecutable` only for the fixture's
+exact second command inside its stored closed window.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -204,3 +219,9 @@ bound to the exact trust root, checkpoint, and head; two distinct-service
 Safety/Controls approvals; and one conformant but non-executable runtime
 assessment per case. Only deterministic identities and discrete counts enter
 the digest.
+
+The reviewed RBF-Safe 3.11 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `ece841463f4b76e6`. It
+additionally covers a complete bounded execution session and one exact
+closed-window command authorization per case. Sessions remain non-authorizing
+`Unknown` evidence.

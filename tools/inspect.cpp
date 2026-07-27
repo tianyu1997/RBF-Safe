@@ -1,6 +1,7 @@
 #include <rbfsafe/rbfsafe.h>
 
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -9,10 +10,11 @@
 
 namespace {
 
-bool bounded_file_contains(const std::filesystem::path& path, const std::string& marker) {
+bool bounded_file_contains(const std::filesystem::path& path, const std::string& marker,
+                           std::uintmax_t maximum_bytes = 65'536) {
     std::error_code error;
     const auto bytes = std::filesystem::file_size(path, error);
-    if (error || bytes > 65'536)
+    if (error || bytes > maximum_bytes)
         return false;
     std::ifstream input(path, std::ios::binary);
     if (!input)
@@ -35,6 +37,10 @@ bool is_reviewed_deployment_profile(const std::filesystem::path& path) {
     return bounded_file_contains(path, "\"rbfsafe-reviewed-deployment-profile\"");
 }
 
+bool is_bounded_execution_session(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-bounded-execution-session\"", 67'108'864);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -46,8 +52,70 @@ int main(int argc, char** argv) {
                   << "       rbfsafe-inspect <checkpoint> <trust-history> <expected-root> "
                      "<expected-checkpoint>\n"
                   << "       rbfsafe-inspect <reviewed-deployment-profile> <trust-history> "
-                     "<expected-root> <checkpoint> <expected-checkpoint>\n";
+                     "<expected-root> <checkpoint> <expected-checkpoint>\n"
+                  << "       rbfsafe-inspect <bounded-execution-session> <reviewed-profile> "
+                     "<atlas> <trust-history> <expected-root> <checkpoint> "
+                     "<expected-checkpoint>\n";
         return 2;
+    }
+    if (is_bounded_execution_session(std::filesystem::path(argv[1]))) {
+        if (argc != 8) {
+            std::cerr << "bounded execution-session inspection requires reviewed profile, Atlas, "
+                         "trust history, expected root, checkpoint, and expected checkpoint ID\n";
+            return 2;
+        }
+        auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[6]));
+        if (!checkpoint) {
+            std::cerr << checkpoint.error().describe() << '\n';
+            return 1;
+        }
+        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[4]), argv[5],
+                                                          checkpoint.value(), argv[7]);
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        auto reviewed = rbfsafe::ReviewedDeploymentProfile::load(
+            std::filesystem::path(argv[2]), history.value(), checkpoint.value(), argv[7]);
+        if (!reviewed) {
+            std::cerr << reviewed.error().describe() << '\n';
+            return 1;
+        }
+        auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[3]));
+        if (!atlas) {
+            std::cerr << atlas.error().describe() << '\n';
+            return 1;
+        }
+        auto session = rbfsafe::BoundedExecutionSession::load(std::filesystem::path(argv[1]),
+                                                              reviewed.value(), history.value(),
+                                                              checkpoint.value(), argv[7], atlas.value());
+        if (!session) {
+            std::cerr << session.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe bounded execution session\n"
+                  << "schema: 1\n"
+                  << "session: " << session.value().id() << '\n'
+                  << "request: " << session.value().request().id << '\n'
+                  << "profile: " << session.value().request().reviewed_profile_id << '\n'
+                  << "atlas: " << session.value().request().atlas_id << '\n'
+                  << "commands: " << session.value().command_sequence().commands.size() << '\n'
+                  << "approvals: " << session.value().approval_set().approvals.size() << '\n'
+                  << "controller: " << session.value().request().controller.service_id << '\n'
+                  << "monitor: " << session.value().request().runtime_monitor.service_id << '\n'
+                  << "monitor state: "
+                  << rbfsafe::execution_monitor_state_name(
+                         session.value().monitor_acknowledgement().observation.monitor_state)
+                  << '\n'
+                  << "valid from monotonic ns: " << session.value().valid_from_monotonic_ns() << '\n'
+                  << "start deadline monotonic ns: " << session.value().start_deadline_monotonic_ns() << '\n'
+                  << "valid through monotonic ns: " << session.value().valid_through_monotonic_ns() << '\n'
+                  << "caller pinned: true\n"
+                  << "profile and signatures verified: true\n"
+                  << "session evidence: unknown\n"
+                  << "runtime executable: false\n"
+                  << "exact command input required: true\n";
+        return 0;
     }
     if (is_reviewed_deployment_profile(std::filesystem::path(argv[1]))) {
         if (argc != 6) {

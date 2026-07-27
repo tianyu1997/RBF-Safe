@@ -98,20 +98,27 @@
 
 ## Continued product hardening
 
-- **v3.10 (current) - Reviewed deployment profiles:** deterministic schema-1
+- **v3.10 - Reviewed deployment profiles:** deterministic schema-1
   manifests binding exact robot/controller/platform/runtime and trust
   checkpoint identities; timing/monitor/transport/artifact constraints;
   role-aware Ed25519 approval quorums; bounded C++/Python persistence;
   conformant/nonconformant assessments; CLI verification; and fixed
   cross-platform fixtures. All output remains `Unknown` evidence and cannot
   authorize actuation.
-- **v3.11 candidate - Bounded execution sessions:** bind an exact reviewed
-  deployment profile, caller-authenticated live observation, certified
-  trajectory/route subject, controller command sequence, and independent
-  runtime-monitor acknowledgement before narrowly scoped execution evidence.
-  No general hardware claim or open-ended permit will be inferred.
-- **later v3.x:** revocation-aware execution-session history and independently
-  attested controller/runtime observations.
+- **v3.11 (current) - Bounded execution sessions:** exact reviewed-profile,
+  trust-checkpoint/head, Atlas, re-audited trajectory/route, command schedule,
+  reviewer, controller, and independent runtime-monitor binding; bounded
+  schema-1 persistence; C++/Python/CLI tooling; fixed fixtures; and
+  `RuntimeExecutable` evidence only for one exact command/configuration inside
+  one closed monotonic window. The session itself remains `Unknown` and is
+  never an open-ended permit.
+- **v3.12 candidate - Revocation-aware execution ledger:** append-only,
+  expected-head session/command-authorization history; current-checkpoint
+  revalidation before each authorization; explicit expiration, cancellation,
+  and key/profile/scene revocation records; independently attested controller
+  completion observations; and offline audit without adding hardware I/O.
+- **later v3.x:** transparency-backed deployment anchors and independently
+  attested runtime observation sources.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 

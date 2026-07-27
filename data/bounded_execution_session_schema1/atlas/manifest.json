@@ -1,0 +1,29 @@
+{
+  "atlas_version": {
+    "id": "900f017e78acb91948f908edd9fbec5567280e4da4df8284f307b19e46fac862",
+    "parent_id": "",
+    "scene_digest": "37d02799b7953e051c906105874b8a12cac83d6eaf85126f464587459530f855",
+    "scene_version": "bounded-execution-empty-v1",
+    "sequence": "0",
+    "transition_digest": ""
+  },
+  "certificates": 1,
+  "dependencies": 1,
+  "dimension": 2,
+  "format": "rbfsafe-atlas",
+  "lect_nodes": 1,
+  "library_version": "3.11.0",
+  "payloads": {
+    "certificates.json": "d9ec29179f931ec71acefca53c2b9560770bb920304c9401ef67ee3fab0c03b9",
+    "dependencies.bin": "d7c582705bc06938d8142070efea22d80923961183743e84bd061ba68a10e3bf",
+    "graph.bin": "cdb36774b9f0010186e5c157cc2e4406679a86ad7d249a7cc4b7a3cc28c36072",
+    "lect/nodes.bin": "9a88166372941a9978b5ff15ad7fb900fdccb7b031e37ece950a0377acf95354",
+    "regions.bin": "b0c7c055abfbac3c6c24127d687e420522d4901b7074e19b09dc6031d7425776"
+  },
+  "regions": 1,
+  "repair_domains": 0,
+  "robot_digest": "db26bacbb1567671d9c5b558f2c31936c5dfaa2021e88b14a4c28808db682c90",
+  "scene_digest": "37d02799b7953e051c906105874b8a12cac83d6eaf85126f464587459530f855",
+  "schema": 2,
+  "transition": false
+}

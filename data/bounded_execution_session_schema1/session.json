@@ -1,0 +1,145 @@
+{
+  "approval_set": {
+    "approvals": [
+      {
+        "algorithm": 1,
+        "authentication_tag": "fe203a17d98224a8b7d9bbe9607e1cead943da31f6872a3bf0d26b8179fdfbd594b859a7a2e321866c644c0f6f3ca783a970a358d851b5d6f71b8656f4cd2706",
+        "id": "8375b1d7fc0d053b6dc0a7391e27402b684a7eb581cd4fe0f9499554e1fb5bd6",
+        "request_id": "942ca9918a4490880b230e5c89a121d7ca66a07ee2b659a65d007c2c9d172b1d",
+        "role": 1,
+        "signer_key_id": "9b49e066c347f583fef752cbf29cd06a42f89fb6c6fbd07698fed629f411ce25",
+        "signer_service_id": "execution-review-controls"
+      },
+      {
+        "algorithm": 1,
+        "authentication_tag": "66e45624214ca4f345b28a85474d0786ad780a129ba02a07bd6b0a4e3bd76a6f5f1c4bf64dcc36170e5d921a2f44aa650daeb99349c339096bae1d5ae3fd7d0a",
+        "id": "9a3c48ab470bc8b72fde74eddd97c138307f9c2c40bb338f94ed6dde2011ecf4",
+        "request_id": "942ca9918a4490880b230e5c89a121d7ca66a07ee2b659a65d007c2c9d172b1d",
+        "role": 0,
+        "signer_key_id": "cc0afcc3fffcd84ef5695ae89f6cf50278b6ef3b04df2358e80a811720484119",
+        "signer_service_id": "execution-review-safety"
+      }
+    ],
+    "id": "5e23ab4aa2ffd8f8754bace1020aa496d3634f81176f80a8990b623948c9a108",
+    "request_id": "942ca9918a4490880b230e5c89a121d7ca66a07ee2b659a65d007c2c9d172b1d"
+  },
+  "command_sequence": {
+    "atlas_id": "900f017e78acb91948f908edd9fbec5567280e4da4df8284f307b19e46fac862",
+    "commands": [
+      {
+        "configuration": [
+          -1,
+          -1
+        ],
+        "index": "0",
+        "scheduled_offset_ns": "0"
+      },
+      {
+        "configuration": [
+          0,
+          0
+        ],
+        "index": "1",
+        "scheduled_offset_ns": "50000"
+      },
+      {
+        "configuration": [
+          1,
+          1
+        ],
+        "index": "2",
+        "scheduled_offset_ns": "100000"
+      }
+    ],
+    "connectivity_certificate_id": "0d3971aa6c1b26e7dbdea525364c3b9b82cfafea60b281deb342da10d2bcd0f7",
+    "dimension": "2",
+    "id": "b3a0b42b11eb19031ee6a6ceeffa4c94b896d00f46451452b8b1b6229e346b5c",
+    "region_sequence": [
+      "6955318577211889172"
+    ],
+    "robot_digest": "db26bacbb1567671d9c5b558f2c31936c5dfaa2021e88b14a4c28808db682c90",
+    "scene_digest": "37d02799b7953e051c906105874b8a12cac83d6eaf85126f464587459530f855",
+    "storage_schema": 1
+  },
+  "controller_acknowledgement": {
+    "accepted_command_count": "3",
+    "algorithm": 1,
+    "authentication_tag": "5324259313c3fb24c61e46ed794cba64958cf041bc251e9f873160c6936ed366ad0d9a5e7c9a69476708da86eb4aedb23897e05008cfb7e7da5b63979bc8b80c",
+    "command_sequence_id": "b3a0b42b11eb19031ee6a6ceeffa4c94b896d00f46451452b8b1b6229e346b5c",
+    "controller_key_id": "a737132096faffe9c761eb6c0e55c3fb705f5bf6ae08dac4048148f0af3b06b6",
+    "controller_service_id": "execution-controller",
+    "id": "3b91ea371a6983c46eea3d49a79e5b016012f7416188e5464e30ceb9ee7dae75",
+    "request_id": "942ca9918a4490880b230e5c89a121d7ca66a07ee2b659a65d007c2c9d172b1d"
+  },
+  "format": "rbfsafe-bounded-execution-session",
+  "id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+  "library_version": "3.11.0",
+  "monitor_acknowledgement": {
+    "algorithm": 1,
+    "authentication_tag": "25a28de2bd0cbdf70488fb2e001bcde2a9771d69d34e8948a77f946ab27d34201c744c60b7d8b200c638b80c297eb383d8c52ef859fc2c2f11d423162eaa090a",
+    "id": "f2ce8981340d45f5919722fa432c37f2be30db7bcbf27866f20dda065b0d8af7",
+    "monitor_key_id": "e605e573d6f1cb2c6427ed0134193c32e2f785c81bd7c34ca88539bd63aa69e8",
+    "monitor_service_id": "execution-monitor",
+    "observation": {
+      "command_sequence_id": "b3a0b42b11eb19031ee6a6ceeffa4c94b896d00f46451452b8b1b6229e346b5c",
+      "id": "f8b916212c1a9caea556e4ac68e9fda1b153b594eaea0bc03a5417a9cd8ce587",
+      "monitor_state": 0,
+      "observation_sequence": "7",
+      "observed_monotonic_ns": "1000000",
+      "request_id": "942ca9918a4490880b230e5c89a121d7ca66a07ee2b659a65d007c2c9d172b1d",
+      "runtime": {
+        "authenticated_artifacts": true,
+        "command_latency_ns": "20000",
+        "consecutive_missed_cycles": "0",
+        "control_period_ns": "50000",
+        "controller_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "deployment_id": "execution-cell-a",
+        "fail_closed_transport_active": true,
+        "observation_age_ns": "10000",
+        "platform_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "robot_digest": "db26bacbb1567671d9c5b558f2c31936c5dfaa2021e88b14a4c28808db682c90",
+        "runtime_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "runtime_monitor_active": true
+      }
+    }
+  },
+  "request": {
+    "atlas_id": "900f017e78acb91948f908edd9fbec5567280e4da4df8284f307b19e46fac862",
+    "command_count": "3",
+    "command_sequence_id": "b3a0b42b11eb19031ee6a6ceeffa4c94b896d00f46451452b8b1b6229e346b5c",
+    "controller": {
+      "algorithm": 1,
+      "id": "a737132096faffe9c761eb6c0e55c3fb705f5bf6ae08dac4048148f0af3b06b6",
+      "public_key": "882d0ea3b2864e7a587f3e698cea4459998312e655e05fa5e8b5119d8baac8cd",
+      "role": 0,
+      "service_id": "execution-controller"
+    },
+    "id": "942ca9918a4490880b230e5c89a121d7ca66a07ee2b659a65d007c2c9d172b1d",
+    "limits": {
+      "maximum_commands": "3",
+      "maximum_duration_ns": "100000",
+      "maximum_start_delay_ns": "10000"
+    },
+    "reviewed_profile_approval_set_id": "350519fb3c6c246268312edd5035142f5e2657cf911b39a40eb9bef94956503f",
+    "reviewed_profile_id": "7981b3bbd373255d5f5bd0bcfac2139ac8c55a8d841dedc15e32bbb53bf310d2",
+    "robot_digest": "db26bacbb1567671d9c5b558f2c31936c5dfaa2021e88b14a4c28808db682c90",
+    "runtime_monitor": {
+      "algorithm": 1,
+      "id": "e605e573d6f1cb2c6427ed0134193c32e2f785c81bd7c34ca88539bd63aa69e8",
+      "public_key": "020bd427446b723424d80d2cad352ba3df3649d0ef8faae0ca7eb25443941b29",
+      "role": 1,
+      "service_id": "execution-monitor"
+    },
+    "scene_digest": "37d02799b7953e051c906105874b8a12cac83d6eaf85126f464587459530f855",
+    "session_nonce": "9999999999999999999999999999999999999999999999999999999999999999",
+    "storage_schema": 1,
+    "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+    "trust_bundle_sequence": "1",
+    "trust_checkpoint_id": "3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01",
+    "trust_root_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780"
+  },
+  "schema": 1,
+  "start_deadline_monotonic_ns": "1010000",
+  "valid_from_monotonic_ns": "1000000",
+  "valid_through_monotonic_ns": "1100000"
+}

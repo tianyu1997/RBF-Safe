@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 3.10.0
+    VERSION 3.11.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES C CXX)
@@ -285,10 +285,23 @@ target_include_directories(rbfsafe_deployment
 target_link_libraries(rbfsafe_deployment PUBLIC rbfsafe_identity)
 rbfsafe_configure_target(rbfsafe_deployment)
 
+add_library(rbfsafe_execution
+    src/execution.cpp
+    src/execution_persistence.cpp)
+add_library(RBFSafe::execution ALIAS rbfsafe_execution)
+set_target_properties(rbfsafe_execution PROPERTIES EXPORT_NAME execution)
+target_include_directories(rbfsafe_execution
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(rbfsafe_execution PUBLIC rbfsafe_deployment rbfsafe_atlas)
+rbfsafe_configure_target(rbfsafe_execution)
+
 add_library(rbfsafe INTERFACE)
 add_library(RBFSafe::rbfsafe ALIAS rbfsafe)
 set_target_properties(rbfsafe PROPERTIES EXPORT_NAME rbfsafe)
-target_link_libraries(rbfsafe INTERFACE rbfsafe_optimization rbfsafe_policy rbfsafe_deployment rbfsafe_update rbfsafe_planning)
+target_link_libraries(rbfsafe INTERFACE rbfsafe_optimization rbfsafe_policy rbfsafe_execution rbfsafe_update rbfsafe_planning)
 
 set(RBFSAFE_OMPL_BUILT 0)
 if(RBFSAFE_BUILD_OMPL)
@@ -386,6 +399,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_deployment_profile_quickstart examples/deployment_profile_quickstart.cpp)
     target_link_libraries(rbfsafe_deployment_profile_quickstart PRIVATE RBFSafe::deployment)
     rbfsafe_configure_target(rbfsafe_deployment_profile_quickstart)
+    add_executable(rbfsafe_bounded_execution_session_quickstart examples/bounded_execution_session_quickstart.cpp)
+    target_link_libraries(rbfsafe_bounded_execution_session_quickstart PRIVATE RBFSafe::execution)
+    rbfsafe_configure_target(rbfsafe_bounded_execution_session_quickstart)
     if(RBFSAFE_BUILD_OMPL)
         add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
         target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
@@ -423,7 +439,7 @@ endif()
 if(RBFSAFE_BUILD_PYTHON)
     find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
-    pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp python/bindings_calibration.cpp python/bindings_memory.cpp python/bindings_trust.cpp python/bindings_remote.cpp python/bindings_identity.cpp python/bindings_deployment.cpp)
+    pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp python/bindings_calibration.cpp python/bindings_memory.cpp python/bindings_trust.cpp python/bindings_remote.cpp python/bindings_identity.cpp python/bindings_deployment.cpp python/bindings_execution.cpp)
     target_link_libraries(_rbfsafe PRIVATE RBFSafe::rbfsafe)
     target_include_directories(_rbfsafe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     install(TARGETS _rbfsafe LIBRARY DESTINATION rbfsafe RUNTIME DESTINATION rbfsafe)
@@ -445,7 +461,7 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/licenses/Monocypher
         RENAME LICENSE.md)
 
-    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe_policy rbfsafe_memory rbfsafe_trust rbfsafe_remote rbfsafe_identity rbfsafe_deployment rbfsafe
+    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe_policy rbfsafe_memory rbfsafe_trust rbfsafe_remote rbfsafe_identity rbfsafe_deployment rbfsafe_execution rbfsafe
         EXPORT RBFSafeTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -492,6 +508,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_checkpoint_schema1)
     install(DIRECTORY data/reviewed_deployment_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/reviewed_deployment_profile_schema1)
+    install(DIRECTORY data/bounded_execution_session_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/bounded_execution_session_schema1)
     install(DIRECTORY data/policy_calibration_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
     install(DIRECTORY data/policy_calibration_lifecycle_schema1/

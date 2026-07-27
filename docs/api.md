@@ -39,8 +39,10 @@ custom `RegionValidator` must attach one valid conservative workspace AABB per
 robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
-convergence remains `PointChecked`. No v3.10 component issues
-`RuntimeExecutable`.
+convergence remains `PointChecked`. In v3.11 only an exact command returned by
+a fully verified `BoundedExecutionSession::authorize_command` can carry
+`RuntimeExecutable`; the session and every upstream artifact remain lower
+evidence.
 
 ## Reviewed deployment profiles
 
@@ -69,6 +71,33 @@ reviewed-deployment-profile schema 1. Loading requires the trust history,
 checkpoint, and caller-retained checkpoint ID; no self-consistent file is
 trusted automatically. See
 [reviewed deployment profiles](deployment-profile-format.md).
+
+## Bounded execution sessions
+
+Include `<rbfsafe/execution.h>` and link `RBFSafe::execution`.
+
+`ExecutionCommandSequence::create(atlas, configurations, offsets)` requires at
+least two finite configurations, an offset-zero strictly increasing schedule,
+continuous trajectory certification, and an Atlas connectivity certificate.
+`verify_compatible` repeats the audit and requires the exact region sequence,
+Atlas identity, robot/scene identities, and connectivity-certificate ID.
+
+`ExecutionSessionRequest::create` binds that sequence to one exact reviewed
+profile, trust checkpoint/head, distinct controller/runtime-monitor Ed25519
+endpoint keys, a SHA-256 session nonce, and bounded start/duration/command
+limits. New role-bound execution approvals must be signed by the exact
+reviewers that approved the profile. Separate controller and monitor
+acknowledgements bind the request, accepted command count, runtime snapshot,
+monotonic observation time, and armed state.
+
+`BoundedExecutionSession::create` reverifies the entire chain. The session
+reports `Unknown` and never authorizes execution. `authorize_command` returns
+an optional `ExecutionCommandAuthorization` with `RuntimeExecutable` only for
+the exact index/configuration inside its closed command window. `save`/`load`
+use bounded atomic schema-1 JSON and loading requires the exact reviewed
+profile, trust history/checkpoint caller anchor, and Atlas.
+
+See [bounded execution sessions](bounded-execution-session-format.md).
 
 ## LECT
 
