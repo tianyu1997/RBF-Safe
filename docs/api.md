@@ -302,6 +302,29 @@ gates, records raw/effective metadata, and delegates effective proposals to
 `LearningPolicySafetyGate`. Profile `save`/`load` use bounded schema-1 JSON.
 See [policy calibration](policy-calibration.md).
 
+`assess_policy_calibration_drift(profile, window, options)` compares aggregate
+operational outcomes with the exact profile baseline. It derives confidence-
+distribution total variation distance, live calibration errors, overall
+success-rate drop, and maximum per-bin success-rate drop, then returns
+`InsufficientData`, `Stable`, or `DriftDetected` with explicit reasons and a
+deterministic report ID.
+
+`PolicyCalibrationLifecycle::create(profile)` starts a profile-bound
+`PendingReview` history. `assess(...)` appends a drift report and automatically
+quarantines detected drift; `transition(...)` performs reviewed manual state
+changes under an expected-head precondition. Activation requires the latest
+assessment to be stable, quarantined histories must return through pending
+review, and retired histories are terminal. Every event binds its parent and
+receives a deterministic ID.
+
+`CalibratedPolicySafetyGate::check_proposals_guarded(...)` requires the exact
+lifecycle to be valid, active, stable, and equal to a trusted expected head
+before invoking the complete calibrated gate. Lifecycle `save`/`load` use an
+independent bounded schema-1 JSON file and replay all reports, transitions,
+IDs, and parent links. Neither drift status nor lifecycle state raises
+evidence to `RuntimeExecutable`. See
+[policy calibration drift and lifecycle](policy-calibration-lifecycle.md).
+
 ## Persistent safety memory and fleets
 
 Include `<rbfsafe/memory.h>` and link `RBFSafe::memory`.

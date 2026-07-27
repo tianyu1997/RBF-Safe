@@ -89,9 +89,14 @@ are never stored by RBF-Safe. Loading an attestation validates its schema and
 deterministic identity; only explicit verification authenticates it.
 
 `RBFSafe::policy` also provides policy-calibration profiles and calibrated
-gating in 3.4. This adds no ML framework dependency: callers supply aggregate
-held-out counts and retain responsibility for model inference and dataset
-governance.
+gating. In 3.5 it additionally provides aggregate operational drift
+assessment, a persistent profile lifecycle, and expected-head guarded gating.
+These features add no ML framework dependency: callers supply aggregate
+held-out and operational counts and retain responsibility for model
+inference, observation collection, review, and dataset governance.
+
+With examples enabled, run `rbfsafe_calibration_lifecycle_quickstart` to
+exercise assessment, activation, persistence, reload, and guarded gating.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

@@ -15,6 +15,7 @@ int main() {
     const rbfsafe::ShieldOptions shield_options;
     const rbfsafe::PolicyGateOptions policy_options;
     const rbfsafe::CalibratedPolicyGateOptions calibrated_policy_options;
+    const rbfsafe::PolicyCalibrationLifecycleLoadOptions calibration_lifecycle_options;
     const rbfsafe::SafetyMemoryLoadOptions memory_load_options;
     const rbfsafe::SafetyMemoryStoreOpenOptions memory_store_options;
     const rbfsafe::SafetyMemory memory;
@@ -30,6 +31,7 @@ int main() {
                    projection_options.maximum_iterations > 0 && shield_options.maximum_input_waypoints > 0 &&
                    policy_options.maximum_proposals > 0 && memory_load_options.maximum_artifacts > 0 &&
                    calibrated_policy_options.minimum_total_samples > 0 &&
+                   calibration_lifecycle_options.maximum_reports > 0 &&
                    memory_store_options.maximum_revisions > 0 && memory.identity().size() == 64 &&
                    fleet_options.maximum_pair_evaluations > 0 && fleet_archive_options.maximum_versions > 0 &&
                    fleet_archive && fleet_archive.value().valid() &&

@@ -1,0 +1,93 @@
+{
+  "current_event_id": "9a603a46a7bb23fe2976d0527df35bd886d943503f45e1434145a32126dcdf6a",
+  "events": [
+    {
+      "current_state": 0,
+      "detail": "calibration profile registered",
+      "id": "dcba1cf6f89712ba7aa923f5958eb0f7f24ce1b7778f812c14ed77301cbaa99d",
+      "parent_id": "",
+      "previous_state": 0,
+      "report_id": "",
+      "sequence": "0",
+      "type": 0
+    },
+    {
+      "current_state": 0,
+      "detail": "stable",
+      "id": "0a43824d266c68ea2ca24ca18bddb26a5ff276d76cb920038a7d7481eb36f5e2",
+      "parent_id": "dcba1cf6f89712ba7aa923f5958eb0f7f24ce1b7778f812c14ed77301cbaa99d",
+      "previous_state": 0,
+      "report_id": "e6aa1faba1fd8819df5bb2d1b9e3fde26ce9872b825d9321a56e091b7d7fe21b",
+      "sequence": "1",
+      "type": 1
+    },
+    {
+      "current_state": 1,
+      "detail": "independent review approved",
+      "id": "9a603a46a7bb23fe2976d0527df35bd886d943503f45e1434145a32126dcdf6a",
+      "parent_id": "0a43824d266c68ea2ca24ca18bddb26a5ff276d76cb920038a7d7481eb36f5e2",
+      "previous_state": 0,
+      "report_id": "",
+      "sequence": "2",
+      "type": 2
+    }
+  ],
+  "format": "rbfsafe-policy-calibration-lifecycle",
+  "generation": "2",
+  "latest_report_id": "e6aa1faba1fd8819df5bb2d1b9e3fde26ce9872b825d9321a56e091b7d7fe21b",
+  "library_version": "3.5.0",
+  "profile_id": "7df9fb165b202f0d6e77dc98e409253f991780992e0b1be4920b690bcb0060c4",
+  "reports": [
+    {
+      "baseline_success_rate": 0.5,
+      "bins": [
+        {
+          "absolute_calibration_error": 0.049999999999999989,
+          "baseline_fraction": 0.5,
+          "baseline_success_rate": 0.20000000000000001,
+          "observed_fraction": 0.5,
+          "observed_success_rate": 0.20000000000000001,
+          "outcome_rate_available": true,
+          "samples": "500",
+          "success_rate_drop": 0,
+          "successes": "100"
+        },
+        {
+          "absolute_calibration_error": 0.049999999999999933,
+          "baseline_fraction": 0.5,
+          "baseline_success_rate": 0.80000000000000004,
+          "observed_fraction": 0.5,
+          "observed_success_rate": 0.80000000000000004,
+          "outcome_rate_available": true,
+          "samples": "500",
+          "success_rate_drop": 0,
+          "successes": "400"
+        }
+      ],
+      "expected_calibration_error": 0.049999999999999954,
+      "id": "e6aa1faba1fd8819df5bb2d1b9e3fde26ce9872b825d9321a56e091b7d7fe21b",
+      "maximum_bin_success_rate_drop": 0,
+      "maximum_calibration_error": 0.049999999999999989,
+      "observed_success_rate": 0.5,
+      "options": {
+        "maximum_bin_success_rate_drop": 0.20000000000000001,
+        "maximum_expected_calibration_error": 0.10000000000000001,
+        "maximum_overall_success_rate_drop": 0.10000000000000001,
+        "maximum_total_variation_distance": 0.10000000000000001,
+        "minimum_bin_samples": "30",
+        "minimum_total_samples": "1000"
+      },
+      "overall_success_rate_drop": 0,
+      "profile_id": "7df9fb165b202f0d6e77dc98e409253f991780992e0b1be4920b690bcb0060c4",
+      "reasons": [],
+      "sample_count": "1000",
+      "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": 1,
+      "total_variation_distance": 0,
+      "window_id": "production-window-0",
+      "window_sequence": "0"
+    }
+  ],
+  "schema": 1,
+  "state": 1
+}

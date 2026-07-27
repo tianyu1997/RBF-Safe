@@ -3,6 +3,27 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.5.0] - 2026-07-27
+
+### Added
+
+- Deterministic operational calibration windows with total-variation,
+  calibration-error, overall success-drop, and per-bin success-drop
+  measurements plus explicit insufficient/stable/drift outcomes.
+- Parent-linked calibration lifecycle history with optimistic head checks,
+  fail-closed automatic quarantine/pending-review transitions, explicit
+  reviewed activation, bounded schema-1 persistence, and replay validation.
+- Lifecycle-guarded calibrated policy gating, C++/Python APIs, CLI/native
+  inspection, runnable examples, fixed fixtures, and post-deployment
+  monitoring safety guidance.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.5.0. Existing 3.x APIs and storage readers remain available.
+- The release benchmark now exercises an active, stable calibration lifecycle
+  and binds its drift report and parent-linked head into the logical digest.
+
 ## [3.4.0] - 2026-07-23
 
 ### Added

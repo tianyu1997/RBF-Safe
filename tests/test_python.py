@@ -8,7 +8,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.4.0"
+    assert rbfsafe.__version__ == "3.5.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -539,6 +539,61 @@ def test_calibrated_policy_profile_and_gate(
     assert "conservative_confidence=" in output
     assert "runtime_executable=false" in output
 
+    def window(
+        sequence: int,
+        bins: list[rbfsafe.PolicyCalibrationWindowBinInput],
+        digest_character: str = "c",
+    ) -> rbfsafe.PolicyCalibrationWindowInput:
+        value = rbfsafe.PolicyCalibrationWindowInput()
+        value.window_id = f"production-window-{sequence}"
+        value.sequence = sequence
+        value.source_digest = digest_character * 64
+        value.bins = bins
+        return value
+
+    stable_window = window(
+        0,
+        [
+            rbfsafe.PolicyCalibrationWindowBinInput(500, 100),
+            rbfsafe.PolicyCalibrationWindowBinInput(500, 400),
+        ],
+    )
+    drift = rbfsafe.assess_policy_calibration_drift(profile, stable_window)
+    assert drift.status == rbfsafe.PolicyCalibrationDriftStatus.STABLE
+    assert drift.total_variation_distance == pytest.approx(0.0)
+    assert drift.expected_calibration_error == pytest.approx(0.05)
+    lifecycle = rbfsafe.PolicyCalibrationLifecycle.create(profile)
+    assert lifecycle.state == rbfsafe.PolicyCalibrationLifecycleState.PENDING_REVIEW
+    lifecycle.assess(profile, stable_window, lifecycle.current_event_id)
+    lifecycle.transition(
+        profile,
+        lifecycle.current_event_id,
+        rbfsafe.PolicyCalibrationLifecycleState.ACTIVE,
+        "independent review approved",
+    )
+    assert lifecycle.valid(profile)
+    assert lifecycle.deployment_ready
+    lifecycle_path = tmp_path / "policy-calibration-lifecycle.json"
+    lifecycle.save(lifecycle_path, profile)
+    loaded_lifecycle = rbfsafe.PolicyCalibrationLifecycle.load(lifecycle_path, profile)
+    assert loaded_lifecycle.current_event_id == lifecycle.current_event_id
+    assert loaded_lifecycle.summary.stable == 1
+    assert (
+        main(
+            [
+                str(lifecycle_path),
+                "--calibration-profile",
+                str(profile_path),
+            ]
+        )
+        == 0
+    )
+    lifecycle_output = capsys.readouterr().out
+    assert "RBF-Safe policy-calibration-lifecycle schema=1" in lifecycle_output
+    assert "state=active" in lifecycle_output
+    assert "deployment_ready=true" in lifecycle_output
+    assert "runtime_executable=false" in lifecycle_output
+
     robot = make_robot()
     scene = rbfsafe.SceneSnapshot([], "python-calibration-v1")
     atlas = rbfsafe.AtlasBuilder().build(robot, scene, [[0.0, 0.0]]).atlas
@@ -588,6 +643,48 @@ def test_calibrated_policy_profile_and_gate(
     assert report.policy_report.selected_index == 1
     assert report.policy_report.feedback[0].label == rbfsafe.PolicyFeedbackLabel.POLICY_REJECTED
     assert report.policy_report.feedback[1].evidence != rbfsafe.EvidenceLevel.RUNTIME_EXECUTABLE
+    guarded = gate.check_proposals_guarded(
+        loaded,
+        loaded_lifecycle,
+        loaded_lifecycle.current_event_id,
+        "factory-cell-a",
+        "a" * 64,
+        robot,
+        scene,
+        atlas,
+        [0.0, 0.0],
+        proposals,
+        options,
+    )
+    assert guarded.lifecycle_event_id == loaded_lifecycle.current_event_id
+    drifted_window = window(
+        1,
+        [
+            rbfsafe.PolicyCalibrationWindowBinInput(900, 90),
+            rbfsafe.PolicyCalibrationWindowBinInput(100, 60),
+        ],
+        "d",
+    )
+    drifted = loaded_lifecycle.assess(
+        loaded, drifted_window, loaded_lifecycle.current_event_id
+    )
+    assert drifted.status == rbfsafe.PolicyCalibrationDriftStatus.DRIFT_DETECTED
+    assert loaded_lifecycle.state == rbfsafe.PolicyCalibrationLifecycleState.QUARANTINED
+    assert not loaded_lifecycle.deployment_ready
+    with pytest.raises(ValueError):
+        gate.check_proposals_guarded(
+            loaded,
+            loaded_lifecycle,
+            loaded_lifecycle.current_event_id,
+            "factory-cell-a",
+            "a" * 64,
+            robot,
+            scene,
+            atlas,
+            [0.0, 0.0],
+            proposals,
+            options,
+        )
 
 
 def test_safety_memory_reuse_fleet_persistence_and_cli(

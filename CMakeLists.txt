@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 3.4.0
+    VERSION 3.5.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES CXX)
@@ -163,7 +163,12 @@ target_include_directories(rbfsafe_shield
 target_link_libraries(rbfsafe_shield PUBLIC rbfsafe_ik)
 rbfsafe_configure_target(rbfsafe_shield)
 
-add_library(rbfsafe_policy src/calibration.cpp src/policy.cpp src/policy_persistence.cpp)
+add_library(rbfsafe_policy
+    src/calibration.cpp
+    src/calibration_lifecycle.cpp
+    src/calibration_lifecycle_persistence.cpp
+    src/policy.cpp
+    src/policy_persistence.cpp)
 add_library(RBFSafe::policy ALIAS rbfsafe_policy)
 set_target_properties(rbfsafe_policy PROPERTIES EXPORT_NAME policy)
 target_include_directories(rbfsafe_policy
@@ -278,6 +283,9 @@ if(RBFSAFE_BUILD_EXAMPLES)
     add_executable(rbfsafe_calibrated_policy_quickstart examples/calibrated_policy_quickstart.cpp)
     target_link_libraries(rbfsafe_calibrated_policy_quickstart PRIVATE RBFSafe::policy)
     rbfsafe_configure_target(rbfsafe_calibrated_policy_quickstart)
+    add_executable(rbfsafe_calibration_lifecycle_quickstart examples/calibration_lifecycle_quickstart.cpp)
+    target_link_libraries(rbfsafe_calibration_lifecycle_quickstart PRIVATE RBFSafe::policy)
+    rbfsafe_configure_target(rbfsafe_calibration_lifecycle_quickstart)
     add_executable(rbfsafe_safety_memory_quickstart examples/safety_memory_quickstart.cpp)
     target_link_libraries(rbfsafe_safety_memory_quickstart PRIVATE RBFSafe::memory)
     rbfsafe_configure_target(rbfsafe_safety_memory_quickstart)
@@ -372,6 +380,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/artifact_attestation_schema1)
     install(DIRECTORY data/policy_calibration_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
+    install(DIRECTORY data/policy_calibration_lifecycle_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_lifecycle_schema1)
     install(EXPORT RBFSafeTargets
         FILE RBFSafeTargets.cmake
         NAMESPACE RBFSafe::

@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.4 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.5 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.4 |
+| Format | Read | Write | Migration in 3.5 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -19,6 +19,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Fleet-schedule archive | 1 | 1 | Independent version history; no report-only legacy bytes are inferred |
 | Artifact attestation | 1 | 1 | Independent sidecar; existing payloads require a new keyed attestation |
 | Policy calibration profile | 1 | 1 | Independent empirical record; no uncalibrated metadata is upgraded implicitly |
+| Policy calibration lifecycle | 1 | 1 | Independent monitoring history; no profile or feedback is treated as operational review |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -55,7 +56,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.4 remain available throughout 3.x.
+- Readers for schemas supported by 3.5 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -96,3 +97,11 @@ feedback cannot be converted implicitly because it does not declare held-out
 bin boundaries, outcome semantics, exact model/data identity, or evaluation
 method. Build a new profile from independently reviewed calibration data;
 existing feedback bytes remain unchanged.
+
+Policy-calibration-lifecycle schema 1 is specified in
+[Policy calibration drift and lifecycle](policy-calibration-lifecycle.md).
+A profile alone has no operational history, and policy-feedback schema 1 does
+not bind reviewed aggregation windows, thresholds, lifecycle parents, or
+manual transitions. Create a new pending lifecycle for an exact validated
+profile, assess retained operational aggregates, and explicitly review any
+activation; no prior format is upgraded implicitly.

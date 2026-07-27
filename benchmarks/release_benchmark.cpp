@@ -47,6 +47,7 @@ struct CaseMetrics {
     std::size_t inherited_certificates = 0;
     std::size_t policy_feedback_records = 0;
     std::size_t policy_calibration_profiles = 0;
+    std::size_t policy_calibration_lifecycles = 0;
     std::size_t memory_artifacts = 0;
     std::size_t memory_reuses = 0;
     std::size_t fleet_schedule_checks = 0;
@@ -378,18 +379,37 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     calibrated_options.maximum_expected_calibration_error = 0.06;
     calibrated_options.maximum_bin_calibration_error = 0.06;
     calibrated_options.policy = policy_options;
+    auto calibration_lifecycle = rbfsafe::PolicyCalibrationLifecycle::create(calibration.value());
+    if (!calibration_lifecycle)
+        return calibration_lifecycle.error();
+    rbfsafe::PolicyCalibrationWindowInput calibration_window;
+    calibration_window.window_id = fixture.name + "-release-window";
+    calibration_window.source_digest = scene.value().digest();
+    calibration_window.bins = {{500, 100}, {500, 400}};
+    auto drift_report = calibration_lifecycle.value().assess(
+        calibration.value(), std::move(calibration_window), calibration_lifecycle.value().current_event_id());
+    if (!drift_report)
+        return drift_report.error();
+    auto calibration_activated = calibration_lifecycle.value().transition(
+        calibration.value(), calibration_lifecycle.value().current_event_id(),
+        rbfsafe::PolicyCalibrationLifecycleState::Active, "release benchmark review approved");
+    if (!calibration_activated)
+        return calibration_activated.error();
     rbfsafe::CalibratedPolicySafetyGate calibrated_gate;
-    auto calibrated_report = calibrated_gate.check_proposals(
-        calibration.value(), fixture.name, robot.value().digest(), robot.value(), scene.value(), atlas,
-        fixture.start, proposals, calibrated_options);
+    auto calibrated_report = calibrated_gate.check_proposals_guarded(
+        calibration.value(), calibration_lifecycle.value(), calibration_lifecycle.value().current_event_id(),
+        fixture.name, robot.value().digest(), robot.value(), scene.value(), atlas, fixture.start, proposals,
+        calibrated_options);
     if (!calibrated_report || calibrated_report.value().policy_report.selected_index != 0 ||
         calibrated_report.value().applications[0].conservative_confidence >=
-            calibrated_report.value().applications[0].raw_metadata.confidence) {
+            calibrated_report.value().applications[0].raw_metadata.confidence ||
+        calibrated_report.value().lifecycle_event_id != calibration_lifecycle.value().current_event_id()) {
         return rbfsafe::Result<CaseMetrics>::failure(
             rbfsafe::StatusCode::InternalError, "release fixture calibrated policy gate was inconsistent",
             fixture.name);
     }
     metrics.policy_calibration_profiles = 1;
+    metrics.policy_calibration_lifecycles = 1;
     rbfsafe::SafetyMemory memory;
     rbfsafe::MemoryArtifactInput memory_input;
     memory_input.type = rbfsafe::MemoryArtifactType::SafeAtlas;
@@ -515,8 +535,12 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.policy_feedback_records));
     hash_field(logical_hash, "policy-calibration-conservative-selected-accept");
     hash_field(logical_hash, calibration.value().id());
+    hash_field(logical_hash, drift_report.value().id);
+    hash_field(logical_hash, calibration_lifecycle.value().current_event_id());
     hash_field(logical_hash, calibrated_report.value().applications[0].id);
     hash_field(logical_hash, std::to_string(metrics.policy_calibration_profiles));
+    hash_field(logical_hash, "policy-calibration-lifecycle-active");
+    hash_field(logical_hash, std::to_string(metrics.policy_calibration_lifecycles));
     hash_field(logical_hash, "memory-direct-cross-task-reuse");
     hash_field(logical_hash, memory.identity());
     hash_field(logical_hash, std::to_string(metrics.memory_artifacts));
@@ -549,6 +573,7 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"inherited_certificates\":" << item.inherited_certificates
                   << ",\"policy_feedback_records\":" << item.policy_feedback_records
                   << ",\"policy_calibration_profiles\":" << item.policy_calibration_profiles
+                  << ",\"policy_calibration_lifecycles\":" << item.policy_calibration_lifecycles
                   << ",\"fleet_schedule_versions\":" << item.fleet_schedule_versions
                   << ",\"artifact_attestations\":" << item.artifact_attestations
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
@@ -567,6 +592,7 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " estimated_memory_bytes=" << item.estimated_memory_bytes
                   << " policy_feedback_records=" << item.policy_feedback_records
                   << " policy_calibration_profiles=" << item.policy_calibration_profiles
+                  << " policy_calibration_lifecycles=" << item.policy_calibration_lifecycles
                   << " fleet_schedule_versions=" << item.fleet_schedule_versions
                   << " artifact_attestations=" << item.artifact_attestations << " build_ms=" << item.build_ms
                   << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';

@@ -300,3 +300,44 @@ report = rbfsafe.CalibratedPolicySafetyGate().check_proposals(
 Inspect `report.applications` to retain both raw and effective confidence.
 The nested `policy_report` still requires geometric shield acceptance and
 never authorizes execution. See [policy calibration](policy-calibration.md).
+
+For a deployment-facing check, assess a new operational window, record review,
+and bind the gate to the exact lifecycle head:
+
+```python
+lifecycle = rbfsafe.PolicyCalibrationLifecycle.create(profile)
+drift = lifecycle.assess(
+    profile,
+    operational_window,
+    lifecycle.current_event_id,
+    rbfsafe.PolicyCalibrationDriftOptions(),
+)
+assert drift.status == rbfsafe.PolicyCalibrationDriftStatus.STABLE
+lifecycle.transition(
+    profile,
+    lifecycle.current_event_id,
+    rbfsafe.PolicyCalibrationLifecycleState.ACTIVE,
+    "deployment review approved",
+)
+trusted_head = lifecycle.current_event_id
+
+report = rbfsafe.CalibratedPolicySafetyGate().check_proposals_guarded(
+    profile,
+    lifecycle,
+    trusted_head,
+    "factory-cell-a",
+    trusted_policy_model_digest,
+    robot,
+    scene,
+    atlas,
+    current,
+    proposals,
+    options,
+)
+```
+
+Any new assessment changes the head; drift quarantines the lifecycle and
+insufficient data moves an active lifecycle back to pending review. Stable
+metrics never reactivate it automatically. Persist and inspect the lifecycle
+as described in
+[policy calibration drift and lifecycle](policy-calibration-lifecycle.md).

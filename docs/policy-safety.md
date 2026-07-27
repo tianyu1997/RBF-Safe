@@ -127,18 +127,29 @@ then invokes the complete gate described above. Raw and effective metadata
 remain aligned in `CalibratedPolicyApplication`. See
 [policy calibration profiles](policy-calibration.md).
 
+RBF-Safe 3.5 can additionally compare operational aggregate outcomes with the
+profile and record `InsufficientData`, `Stable`, or `DriftDetected` in a
+parent-linked `PolicyCalibrationLifecycle`. The guarded calibrated gate
+requires the exact expected lifecycle head, `Active` state, and a latest
+stable assessment. Detected drift automatically quarantines the profile;
+stable data still requires an explicit reviewed activation. See
+[policy calibration drift and lifecycle](policy-calibration-lifecycle.md).
+
 ## Deployment boundary
 
 The base gate assumes that proposal metadata is supplied honestly and, when
 appropriate, calibrated by the caller. The optional calibrated gate validates
-one declared aggregate confidence profile but does not authenticate a policy,
-sensor timestamp, task ID, dataset, outcome label, or uncertainty estimator.
+one declared aggregate confidence profile, and the lifecycle validates one
+sequence of declared aggregate outcome windows, but neither authenticates a
+policy, sensor timestamp, task ID, dataset, outcome label, source record, or
+uncertainty estimator.
 Neither gate models controller dynamics, tracking
 error, moving obstacles, sensor faults, deadlines, or hardware interlocks.
 The existing runtime monitor can observe Atlas membership and deviation after
 a shield decision, but it also remains below execution evidence.
 
 A deployment must independently validate timing, state estimation, actuation,
-emergency stopping, and the mapping from the shield's output trajectory to
-controller commands. Persistent cross-task memory, online policy updates, and
-deployment-profile `RuntimeExecutable` evidence remain future work.
+emergency stopping, monitoring cadence, review authority, and the mapping
+from the shield's output trajectory to controller commands. Online policy
+updates and deployment-profile `RuntimeExecutable` evidence remain future
+work.

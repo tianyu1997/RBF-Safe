@@ -55,6 +55,17 @@ rbfsafe::PolicyProposal proposal(std::uint64_t sequence, double confidence) {
     return {rbfsafe::JointDeltaAction{{0.1}}, std::move(metadata)};
 }
 
+rbfsafe::PolicyCalibrationWindowInput
+calibration_window(std::uint64_t sequence, std::vector<rbfsafe::PolicyCalibrationWindowBinInput> bins,
+                   char digest_character = 'c') {
+    rbfsafe::PolicyCalibrationWindowInput input;
+    input.window_id = "production-window-" + std::to_string(sequence);
+    input.sequence = sequence;
+    input.source_digest = std::string(64, digest_character);
+    input.bins = std::move(bins);
+    return input;
+}
+
 std::string read_text(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
@@ -87,6 +98,16 @@ int main() {
     CHECK(fixed);
     CHECK(fixed.value().id() == "7df9fb165b202f0d6e77dc98e409253f991780992e0b1be4920b690bcb0060c4");
     CHECK(fixed.value().sample_count() == 1'000);
+    auto fixed_lifecycle =
+        PolicyCalibrationLifecycle::load(std::filesystem::path(RBFSAFE_TEST_DATA_DIR) /
+                                             "policy_calibration_lifecycle_schema1" / "lifecycle.json",
+                                         fixed.value());
+    CHECK(fixed_lifecycle);
+    CHECK(fixed_lifecycle.value().deployment_ready());
+    CHECK(fixed_lifecycle.value().current_event_id() ==
+          "9a603a46a7bb23fe2976d0527df35bd886d943503f45e1434145a32126dcdf6a");
+    CHECK(fixed_lifecycle.value().latest_report_id() ==
+          "e6aa1faba1fd8819df5bb2d1b9e3fde26ce9872b825d9321a56e091b7d7fe21b");
 
     auto low_lookup = profile.value().lookup(0.4);
     auto high_lookup = profile.value().lookup(0.9);
@@ -161,6 +182,111 @@ int main() {
     CHECK(corrupted.error().code == StatusCode::CorruptData);
     write_text(path, saved);
 
+    auto stable_drift =
+        assess_policy_calibration_drift(profile.value(), calibration_window(0, {{500, 100}, {500, 400}}));
+    CHECK(stable_drift);
+    CHECK(stable_drift.value().status == PolicyCalibrationDriftStatus::Stable);
+    CHECK(stable_drift.value().reasons.empty());
+    CHECK(stable_drift.value().sample_count == 1'000);
+    CHECK(std::abs(stable_drift.value().total_variation_distance) < 1e-12);
+    CHECK(std::abs(stable_drift.value().expected_calibration_error - 0.05) < 1e-12);
+    CHECK(stable_drift.value().id.size() == 64);
+    CHECK(assess_policy_calibration_drift(profile.value(), calibration_window(0, {{500, 100}, {500, 400}}))
+              .value()
+              .id == stable_drift.value().id);
+
+    auto insufficient_drift =
+        assess_policy_calibration_drift(profile.value(), calibration_window(1, {{10, 2}, {10, 8}}));
+    CHECK(insufficient_drift);
+    CHECK(insufficient_drift.value().status == PolicyCalibrationDriftStatus::InsufficientData);
+    CHECK(insufficient_drift.value().reasons.size() == 2);
+    CHECK(insufficient_drift.value().reasons[0] == PolicyCalibrationDriftReason::InsufficientTotalSamples);
+    CHECK(insufficient_drift.value().reasons[1] == PolicyCalibrationDriftReason::InsufficientBinSamples);
+
+    auto detected_drift =
+        assess_policy_calibration_drift(profile.value(), calibration_window(1, {{900, 90}, {100, 60}}, 'd'));
+    CHECK(detected_drift);
+    CHECK(detected_drift.value().status == PolicyCalibrationDriftStatus::DriftDetected);
+    CHECK(detected_drift.value().total_variation_distance > 0.39);
+    CHECK(detected_drift.value().expected_calibration_error > 0.15);
+    CHECK(detected_drift.value().overall_success_rate_drop > 0.34);
+    CHECK(!detected_drift.value().reasons.empty());
+    auto invalid_window = calibration_window(2, {{1, 2}, {999, 800}});
+    CHECK(!assess_policy_calibration_drift(profile.value(), invalid_window));
+    PolicyCalibrationDriftOptions invalid_drift_options;
+    invalid_drift_options.maximum_total_variation_distance = -0.1;
+    CHECK(!assess_policy_calibration_drift(profile.value(), calibration_window(2, {{500, 100}, {500, 400}}),
+                                           invalid_drift_options));
+    auto excessive_window = calibration_window(2, {{1'000'000'000'000ULL, 1}, {1, 1}});
+    auto excessive_drift = assess_policy_calibration_drift(profile.value(), excessive_window);
+    CHECK(!excessive_drift);
+    CHECK(excessive_drift.error().code == StatusCode::ResourceLimit);
+
+    auto lifecycle = PolicyCalibrationLifecycle::create(profile.value());
+    CHECK(lifecycle);
+    CHECK(lifecycle.value().valid(profile.value()));
+    CHECK(lifecycle.value().state() == PolicyCalibrationLifecycleState::PendingReview);
+    CHECK(lifecycle.value().generation() == 0);
+    CHECK(!lifecycle.value().deployment_ready());
+    CHECK(!lifecycle.value().transition(profile.value(), lifecycle.value().current_event_id(),
+                                        PolicyCalibrationLifecycleState::Active,
+                                        "activate without evidence"));
+    const auto registered_event = lifecycle.value().current_event_id();
+    auto recorded_stable = lifecycle.value().assess(
+        profile.value(), calibration_window(0, {{500, 100}, {500, 400}}), registered_event);
+    CHECK(recorded_stable);
+    CHECK(lifecycle.value().state() == PolicyCalibrationLifecycleState::PendingReview);
+    CHECK(!lifecycle.value().assess(profile.value(), calibration_window(1, {{500, 100}, {500, 400}}),
+                                    registered_event));
+    auto activated =
+        lifecycle.value().transition(profile.value(), lifecycle.value().current_event_id(),
+                                     PolicyCalibrationLifecycleState::Active, "independent review approved");
+    CHECK(activated);
+    CHECK(lifecycle.value().deployment_ready());
+    CHECK(lifecycle.value().summary().assessments == 1);
+    CHECK(lifecycle.value().summary().stable == 1);
+    CHECK(lifecycle.value().summary().transitions == 1);
+    CHECK(lifecycle.value().events()[1].parent_id == lifecycle.value().events()[0].id);
+    CHECK(lifecycle.value().events()[2].parent_id == lifecycle.value().events()[1].id);
+
+    const auto lifecycle_path = root / "lifecycle.json";
+    CHECK(lifecycle.value().save(lifecycle_path, profile.value()));
+    CHECK(!lifecycle.value().save(lifecycle_path, profile.value()));
+    CHECK(lifecycle.value().save(lifecycle_path, profile.value(), SaveOptions{true}));
+    auto loaded_lifecycle = PolicyCalibrationLifecycle::load(lifecycle_path, profile.value());
+    CHECK(loaded_lifecycle);
+    CHECK(loaded_lifecycle.value().valid(profile.value()));
+    CHECK(loaded_lifecycle.value().deployment_ready());
+    CHECK(loaded_lifecycle.value().current_event_id() == lifecycle.value().current_event_id());
+    PolicyCalibrationLifecycleLoadOptions lifecycle_byte_limit;
+    lifecycle_byte_limit.maximum_payload_bytes = 1;
+    CHECK(!PolicyCalibrationLifecycle::load(lifecycle_path, profile.value(), lifecycle_byte_limit));
+    PolicyCalibrationLifecycleLoadOptions lifecycle_report_limit;
+    lifecycle_report_limit.maximum_reports = 0;
+    CHECK(!PolicyCalibrationLifecycle::load(lifecycle_path, profile.value(), lifecycle_report_limit));
+    PolicyCalibrationLifecycleLoadOptions lifecycle_bin_limit;
+    lifecycle_bin_limit.maximum_total_bins = 1;
+    CHECK(!PolicyCalibrationLifecycle::load(lifecycle_path, profile.value(), lifecycle_bin_limit));
+    const std::string saved_lifecycle = read_text(lifecycle_path);
+    std::string altered_lifecycle = saved_lifecycle;
+    const std::string variation_prefix = "\"total_variation_distance\": ";
+    const auto variation = altered_lifecycle.find(variation_prefix);
+    CHECK(variation != std::string::npos);
+    altered_lifecycle[variation + variation_prefix.size()] = '1';
+    write_text(lifecycle_path, altered_lifecycle);
+    auto corrupt_lifecycle = PolicyCalibrationLifecycle::load(lifecycle_path, profile.value());
+    CHECK(!corrupt_lifecycle);
+    CHECK(corrupt_lifecycle.error().code == StatusCode::CorruptData);
+    std::string unknown_lifecycle_schema = saved_lifecycle;
+    const auto lifecycle_schema = unknown_lifecycle_schema.find("\"schema\": 1");
+    CHECK(lifecycle_schema != std::string::npos);
+    unknown_lifecycle_schema.replace(lifecycle_schema, std::string("\"schema\": 1").size(), "\"schema\": 99");
+    write_text(lifecycle_path, unknown_lifecycle_schema);
+    auto incompatible_lifecycle = PolicyCalibrationLifecycle::load(lifecycle_path, profile.value());
+    CHECK(!incompatible_lifecycle);
+    CHECK(incompatible_lifecycle.error().code == StatusCode::IncompatibleFormat);
+    write_text(lifecycle_path, saved_lifecycle);
+
     const SerialRobotModel robot("calibration-1r", {{0.0, 1.0, 0.0, 0.0, JointType::Revolute}}, {{-1.0, 1.0}},
                                  {0.02});
     const SceneSnapshot scene({}, "calibration-empty-v1");
@@ -194,6 +320,47 @@ int main() {
     CHECK(gate.telemetry().batches == 1);
     gate.reset_telemetry();
     CHECK(gate.telemetry().batches == 0);
+
+    auto guarded = gate.check_proposals_guarded(
+        profile.value(), lifecycle.value(), lifecycle.value().current_event_id(), "factory-cell-a",
+        std::string(64, 'a'), robot, scene, built.value().atlas, current, proposals, options);
+    CHECK(guarded);
+    CHECK(guarded.value().lifecycle_event_id == lifecycle.value().current_event_id());
+    CHECK(!gate.check_proposals_guarded(profile.value(), lifecycle.value(), std::string(64, 'f'),
+                                        "factory-cell-a", std::string(64, 'a'), robot, scene,
+                                        built.value().atlas, current, proposals, options));
+
+    auto lifecycle_drift =
+        lifecycle.value().assess(profile.value(), calibration_window(1, {{900, 90}, {100, 60}}, 'd'),
+                                 lifecycle.value().current_event_id());
+    CHECK(lifecycle_drift);
+    CHECK(lifecycle.value().state() == PolicyCalibrationLifecycleState::Quarantined);
+    CHECK(!lifecycle.value().deployment_ready());
+    CHECK(!gate.check_proposals_guarded(
+        profile.value(), lifecycle.value(), lifecycle.value().current_event_id(), "factory-cell-a",
+        std::string(64, 'a'), robot, scene, built.value().atlas, current, proposals, options));
+    CHECK(!lifecycle.value().transition(profile.value(), lifecycle.value().current_event_id(),
+                                        PolicyCalibrationLifecycleState::Active,
+                                        "unsafe direct reactivation"));
+    CHECK(lifecycle.value().transition(profile.value(), lifecycle.value().current_event_id(),
+                                       PolicyCalibrationLifecycleState::PendingReview,
+                                       "start recovery review"));
+    CHECK(!lifecycle.value().transition(profile.value(), lifecycle.value().current_event_id(),
+                                        PolicyCalibrationLifecycleState::Active,
+                                        "drift report is not stable"));
+    CHECK(lifecycle.value().assess(profile.value(), calibration_window(2, {{500, 100}, {500, 400}}, 'e'),
+                                   lifecycle.value().current_event_id()));
+    CHECK(lifecycle.value().transition(profile.value(), lifecycle.value().current_event_id(),
+                                       PolicyCalibrationLifecycleState::Active,
+                                       "recovery independently approved"));
+    CHECK(lifecycle.value().deployment_ready());
+    auto insufficient_record =
+        lifecycle.value().assess(profile.value(), calibration_window(3, {{10, 2}, {10, 8}}, 'f'),
+                                 lifecycle.value().current_event_id());
+    CHECK(insufficient_record);
+    CHECK(lifecycle.value().state() == PolicyCalibrationLifecycleState::PendingReview);
+    CHECK(!lifecycle.value().deployment_ready());
+    CHECK(lifecycle.value().valid(profile.value()));
 
     CHECK(!gate.check_proposals(profile.value(), "wrong-scope", std::string(64, 'a'), robot, scene,
                                 built.value().atlas, current, proposals, options));

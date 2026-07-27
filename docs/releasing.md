@@ -49,6 +49,10 @@ Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
 runtime-executable evidence.
+Run both calibration-lifecycle quickstarts and inspect the fixed lifecycle
+with its exact profile. Verify stable, insufficient, and drift outcomes;
+automatic quarantine; reviewed recovery; parent and expected-head rejection;
+bounded load failures; fixed report/head IDs; and guarded-gate failure closed.
 Build `rbfsafe-release-benchmark`, run its 128-iteration smoke gate and
 8192-iteration soak gate, and confirm zero false-safe point checks and an exact
 match with the committed cross-platform logical digest. Inspect timing and
@@ -72,7 +76,8 @@ memory only as release diagnostics.
 4. Verify release downloads in clean Linux and Windows environments.
 
 Atlas, corridor, region-database, version-store, policy-feedback,
-safety-memory, or safety-memory-store schema changes require an
-independent schema number, fixed-format fixtures, and a documented reader or
-explicit incompatibility error. A library version change must never silently
-reinterpret an existing storage schema.
+safety-memory, safety-memory-store, attestation, calibration-profile, or
+calibration-lifecycle schema changes require an independent schema number,
+fixed-format fixtures, and a documented reader or explicit incompatibility
+error. A library version change must never silently reinterpret an existing
+storage schema.

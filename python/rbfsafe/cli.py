@@ -17,6 +17,7 @@ from . import (
     PolicyFeedbackDatabase,
     PolicyFeedbackLabel,
     PolicyFeedbackQuery,
+    PolicyCalibrationLifecycle,
     PolicyCalibrationProfile,
     Pose3d,
     RegionDatabase,
@@ -39,6 +40,9 @@ from . import (
     memory_artifact_state_name,
     memory_artifact_type_name,
     memory_event_type_name,
+    policy_calibration_drift_reason_name,
+    policy_calibration_drift_status_name,
+    policy_calibration_lifecycle_state_name,
     verify_artifact_file,
 )
 
@@ -140,6 +144,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="raw confidence to map through a policy-calibration profile",
     )
     parser.add_argument(
+        "--calibration-profile",
+        type=Path,
+        help="profile JSON required to validate a policy-calibration lifecycle",
+    )
+    parser.add_argument(
         "--max-memory-results",
         type=int,
         default=100_000,
@@ -223,6 +232,80 @@ def main(argv: list[str] | None = None) -> int:
         args.expected_service_id,
         args.expected_key_id,
     )
+    if (
+        file_document.get("format") == "rbfsafe-policy-calibration-lifecycle"
+        or args.calibration_profile is not None
+    ):
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+            args.policy_confidence,
+            *attestation_arguments,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error("Atlas, memory, fleet, attestation, and query options do not apply to calibration lifecycles")
+        if args.calibration_profile is None:
+            parser.error("--calibration-profile is required for a policy-calibration lifecycle")
+        profile = PolicyCalibrationProfile.load(args.calibration_profile)
+        lifecycle = PolicyCalibrationLifecycle.load(args.atlas, profile)
+        print("RBF-Safe policy-calibration-lifecycle schema=1")
+        print(
+            f"profile={lifecycle.profile_id} state={policy_calibration_lifecycle_state_name(lifecycle.state)} "
+            f"generation={lifecycle.generation}"
+        )
+        print(
+            f"head={lifecycle.current_event_id} latest_report={lifecycle.latest_report_id or '-'}"
+        )
+        print(
+            f"assessments={lifecycle.summary.assessments} stable={lifecycle.summary.stable} "
+            f"insufficient_data={lifecycle.summary.insufficient_data} "
+            f"drift_detected={lifecycle.summary.drift_detected} "
+            f"transitions={lifecycle.summary.transitions}"
+        )
+        if lifecycle.reports:
+            report = lifecycle.latest_report()
+            reasons = ",".join(policy_calibration_drift_reason_name(value) for value in report.reasons)
+            print(
+                f"window={report.window_id} window_sequence={report.window_sequence} "
+                f"status={policy_calibration_drift_status_name(report.status)} "
+                f"samples={report.sample_count}"
+            )
+            print(
+                f"total_variation_distance={report.total_variation_distance} "
+                f"expected_calibration_error={report.expected_calibration_error} "
+                f"overall_success_rate_drop={report.overall_success_rate_drop} "
+                f"maximum_bin_success_rate_drop={report.maximum_bin_success_rate_drop} "
+                f"reasons={reasons or '-'}"
+            )
+        print(f"deployment_ready={str(lifecycle.deployment_ready).lower()}")
+        print("runtime_executable=false")
+        return 0
     if file_document.get("format") == "rbfsafe-policy-calibration-profile":
         unsupported = (
             args.plot,
@@ -248,6 +331,7 @@ def main(argv: list[str] | None = None) -> int:
             args.artifact_type,
             args.memory_revision,
             args.fleet_schedule_version,
+            args.calibration_profile,
             *attestation_arguments,
         )
         if (
@@ -307,6 +391,7 @@ def main(argv: list[str] | None = None) -> int:
             args.memory_revision,
             args.fleet_schedule_version,
             args.policy_confidence,
+            args.calibration_profile,
         )
         if (
             any(value is not None for value in unsupported)

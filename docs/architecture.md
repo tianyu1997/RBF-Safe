@@ -109,6 +109,14 @@ they bind exact model/scope/task/data identities, recompute bin statistics,
 and replace raw confidence only with a value no greater than the raw score or
 its bin's 95% Wilson lower bound before entering the existing policy gate.
 
+The 3.5 extension compares bounded operational outcome windows with that
+baseline, records deterministic drift reports, and maintains an
+expected-head, parent-linked profile lifecycle. The guarded gate fails closed
+unless the exact lifecycle is active and its latest assessment is stable.
+Monitoring thresholds and review transitions remain deployment policy; the
+module does not run inference, collect observations, schedule assessments, or
+authorize execution.
+
 ### Persistent safety memory
 
 `RBFSafe::memory` depends only on the Atlas-level standard value, cancellation,
@@ -235,6 +243,10 @@ components and bind subject digests.
 - Policy-calibration-profile schema 1 is a v3.4 empirical measurement record.
   Its statistics are recomputed and scope-bound, but it neither authenticates
   observations nor raises geometric or runtime evidence.
+- Policy-calibration-lifecycle schema 1 is a v3.5 monitoring and governance
+  record. Loading recomputes every drift assessment and replays the complete
+  parent chain, but the file is not authenticated and active state is not
+  execution evidence.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

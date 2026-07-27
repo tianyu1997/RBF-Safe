@@ -115,9 +115,12 @@ A passing profile says only that recorded held-out observations satisfy the
 configured aggregate gates under the declared outcome and scope. It does not
 prove that a future proposal is correct, that raw uncertainties use valid
 units, that the dataset represents live operation, or that the environment
-has not drifted. Profiles contain no timestamps or automatic expiry in 3.4;
-deployment systems must version datasets, monitor drift, revoke outdated
-profiles, and choose thresholds through an independent safety review.
+has not drifted. Profiles contain no timestamps or automatic expiry.
+RBF-Safe 3.5 adds
+[operational drift reports and a fail-closed lifecycle](policy-calibration-lifecycle.md),
+but deployment systems must still define monitoring cadence, retain source
+records, revoke outdated profiles, and choose thresholds through an
+independent safety review.
 
 The calibrated gate does not authenticate model inference, sensor data,
 timestamps, profile authors, or files. It does not model controller dynamics,

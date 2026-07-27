@@ -58,17 +58,22 @@
   attestations bound to memory lifecycle and exact payload bytes, bounded
   schema-1 sidecars, constant-time verification, fixed fixtures, C++/Python
   APIs, and inspection tooling. Secret management and transport remain external.
-- **v3.4 (current) - Calibrated policy metadata:** exact model/scope/task/data
+- **v3.4 - Calibrated policy metadata:** exact model/scope/task/data
   identity, deterministic reliability bins, recomputed ECE and maximum error,
   conservative 95% Wilson lower-bound confidence, quality gates, bounded
   schema-1 persistence, and C++/Python/inspection tooling. Statistical
   calibration remains below geometric certificate and execution evidence.
+- **v3.5 (current) - Calibration drift lifecycle:** bounded operational
+  confidence/outcome windows; total-variation, calibration-error, and
+  success-drop gates; explicit insufficient/stable/drift reports;
+  parent-linked optimistic-concurrency history; automatic fail-closed
+  quarantine/pending-review transitions; reviewed activation; replayable
+  schema-1 persistence; and exact-head guarded policy gating.
 
 ## Continued product hardening
 
-- **later v3.x:** public-key/remote artifact service adapters, distribution-
-  shift lifecycle controls, and execution evidence only for
-  separately modeled and reviewed deployment profiles.
+- **later v3.x:** public-key/remote artifact service adapters and execution
+  evidence only for separately modeled and reviewed deployment profiles.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 

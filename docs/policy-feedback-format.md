@@ -72,6 +72,12 @@ effective conservative confidence passed to the base policy gate. The aligned
 profile ID in memory. Schema 1 feedback alone does not imply that calibration
 was used and does not persist that raw/effective mapping.
 
+The v3.5 guarded gate additionally binds a lifecycle event ID in its in-memory
+`CalibratedPolicyBatchReport`. Policy-feedback schema 1 remains byte-stable
+and does not persist that head, a drift report, or lifecycle state. A
+deployment requiring lifecycle evidence must retain the validated lifecycle
+and guarded batch report separately.
+
 ## Inspection
 
 The native tool prints aggregate label counts:

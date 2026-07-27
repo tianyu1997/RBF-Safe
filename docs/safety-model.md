@@ -215,6 +215,14 @@ uncertainty units remain deployment responsibilities. State/action
 uncertainty values are named by the profile but are not statistically
 recalibrated in 3.4.
 
+The v3.5 monitor compares aggregate operational bin populations and outcomes
+with the exact profile baseline, then records an insufficient, stable, or
+drift result in an expected-head lifecycle. A guarded gate requires active
+state and the latest stable report. These checks can fail closed when declared
+metrics cross policy thresholds, but cannot detect arbitrary feature,
+perception, causal, environment, or label shift. Active state is reviewed
+governance metadata, not a per-action proof or execution authorization.
+
 `SelectedAccepted` and `SelectedRepaired` feedback records bind the exact
 shield decision and geometric evidence. `EligibleNotSelected`,
 `PolicyRejected`, and `ShieldRejected` are deterministic learning/audit labels,
@@ -258,7 +266,7 @@ metadata to holders of one shared HMAC key. It does not validate payload
 semantics, elevate evidence, authorize reuse, identify an individual signer,
 or protect keys. Metadata inspection without a verify call remains untrusted.
 
-## Explicit exclusions in v3.4
+## Explicit exclusions in v3.5
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -281,10 +289,12 @@ or protect keys. Metadata inspection without a verify call remains untrusted.
   observation timestamps do not model real-time deadlines or authorize motor
   execution.
 - Policy confidence, uncertainty, task/episode identity, observation age, and
-  inference latency remain caller assertions. A calibration profile provides
-  aggregate held-out evidence for confidence only; it does not authenticate
-  inference, detect drift, recalibrate state/action uncertainty, or make
-  persisted feedback an online-learning safety guarantee.
+  inference latency remain caller assertions. A calibration profile and
+  lifecycle provide aggregate held-out and operational evidence for
+  confidence only. The drift metrics do not authenticate inference or source
+  observations, detect arbitrary distribution shift, recalibrate
+  state/action uncertainty, schedule monitoring, identify the reviewer, or
+  make persisted feedback an online-learning safety guarantee.
 - Memory locators and content digests are caller-provided metadata. Loading a
   catalog does not fetch, authenticate, decrypt, or revalidate referenced
   artifacts. Direct `SafetyMemory` object mutation still requires in-process

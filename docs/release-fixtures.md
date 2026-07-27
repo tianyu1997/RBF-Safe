@@ -41,7 +41,9 @@ For each case the benchmark:
 6. gates an accepted and a low-confidence policy proposal and validates their
    aligned feedback labels;
 7. applies a scoped empirical calibration profile and conservatively selects
-   the expected proposal;
+   the expected proposal, records a stable operational assessment, explicitly
+   activates its lifecycle, and repeats selection through the expected-head
+   guarded gate;
 8. registers, directly reuses, and audits an identity-bound safety-memory
    artifact;
 9. authenticates fixed payload bytes against that artifact and an external
@@ -54,7 +56,8 @@ For each case the benchmark:
 The executable fails on any false-safe point check, identity mismatch,
 uncertified path/action, lost coverage, update failure, or missing inheritance.
 Its `logical_digest` covers canonical fixture identities, discrete counts,
-runtime-shield, learning-policy feedback and calibration, deterministic
+runtime-shield, learning-policy feedback, calibration and lifecycle,
+deterministic
 safety-memory identity/reuse, artifact authentication, fleet coordination and
 archive replay, update, and inheritance outcomes while
 excluding wall-clock time, approximate memory, and
@@ -100,3 +103,14 @@ observations. Tests verify the fixed profile ID, contiguous coverage, exact
 model/scope/task/data identity, recomputed ECE and Wilson bounds, bounded
 loading, C++/Python queries, and native/CLI inspection. It is interoperability
 data, not evidence that any deployed policy is calibrated.
+
+`data/policy_calibration_lifecycle_schema1` is the fixed RBF-Safe 3.5
+lifecycle fixture for that profile. It contains one stable synthetic
+operational window followed by explicit activation. Tests verify the fixed
+report and lifecycle-head IDs, parent links, derived drift metrics, transition
+replay, load budgets, exact profile binding, guarded gating, and
+C++/Python/native inspection. Its active state is interoperability data, not
+deployment approval or execution evidence.
+
+The reviewed RBF-Safe 3.5 cross-platform logical digest is
+`7711de380cfb2be6`.

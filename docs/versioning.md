@@ -10,7 +10,9 @@ immutable optimistic-concurrency memory revision store. Version 3.2 adds a
 deterministic versioned fleet-schedule archive. Version 3.3 adds symmetric
 artifact attestations and the `RBFSafe::trust` target. Version 3.4 adds
 identity-bound policy-calibration profiles and conservative calibrated gating
-to `RBFSafe::policy`. Documented public C++
+to `RBFSafe::policy`. Version 3.5 adds operational drift reports, a
+parent-linked calibration lifecycle, and expected-head guarded gating.
+Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
 minor releases. Deprecated APIs remain functional through 3.x and may be
@@ -128,6 +130,13 @@ derived ECE, maximum error, empirical rates, and Wilson bounds are recomputed
 on load. It does not modify policy-feedback schema 1 or authenticate its own
 author.
 
+The v3.5 policy-calibration-lifecycle schema 1 is a separate bounded JSON
+record tied to one exact profile ID. Its reports bind source aggregates and
+thresholds; derived metrics are recomputed on load. Its events form a
+deterministic parent chain with explicit reviewed transitions, and loading
+replays the complete state machine. It does not alter the profile or feedback
+schemas, authenticate observations or reviewers, or raise evidence.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -153,7 +162,8 @@ inherited link dependency is unchanged.
 For identical inputs, options, schema, and library version, region IDs, region
 order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
-hashes, committed memory/store/fleet-archive/attestation/calibration fixtures,
+hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
+calibration-lifecycle fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

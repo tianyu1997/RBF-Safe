@@ -8,8 +8,68 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "usage: rbfsafe-inspect <database-archive-or-profile> [query values ...]\n";
+        std::cerr << "usage: rbfsafe-inspect <database-archive-or-profile> [query values or profile]\n";
         return 2;
+    }
+    if (argc >= 3) {
+        auto lifecycle_profile = rbfsafe::PolicyCalibrationProfile::load(std::filesystem::path(argv[2]));
+        if (lifecycle_profile) {
+            auto lifecycle = rbfsafe::PolicyCalibrationLifecycle::load(std::filesystem::path(argv[1]),
+                                                                       lifecycle_profile.value());
+            if (lifecycle) {
+                if (argc != 3) {
+                    std::cerr << "policy calibration lifecycle accepts exactly one profile path\n";
+                    return 2;
+                }
+                const auto summary = lifecycle.value().summary();
+                std::cout << "RBF-Safe policy calibration lifecycle\n"
+                          << "schema: 1\n"
+                          << "profile: " << lifecycle.value().profile_id() << '\n'
+                          << "state: "
+                          << rbfsafe::policy_calibration_lifecycle_state_name(lifecycle.value().state())
+                          << '\n'
+                          << "generation: " << lifecycle.value().generation() << '\n'
+                          << "head: " << lifecycle.value().current_event_id() << '\n'
+                          << "latest report: "
+                          << (lifecycle.value().latest_report_id().empty()
+                                  ? "-"
+                                  : lifecycle.value().latest_report_id())
+                          << '\n'
+                          << "assessments: " << summary.assessments << '\n'
+                          << "stable: " << summary.stable << '\n'
+                          << "insufficient data: " << summary.insufficient_data << '\n'
+                          << "drift detected: " << summary.drift_detected << '\n'
+                          << "transitions: " << summary.transitions << '\n';
+                if (!lifecycle.value().reports().empty()) {
+                    const auto report = lifecycle.value().latest_report();
+                    std::cout << "window: " << report.value().window_id << '\n'
+                              << "window sequence: " << report.value().window_sequence << '\n'
+                              << "status: "
+                              << rbfsafe::policy_calibration_drift_status_name(report.value().status) << '\n'
+                              << "samples: " << report.value().sample_count << '\n'
+                              << "total variation distance: " << report.value().total_variation_distance
+                              << '\n'
+                              << "expected calibration error: " << report.value().expected_calibration_error
+                              << '\n'
+                              << "overall success rate drop: " << report.value().overall_success_rate_drop
+                              << '\n'
+                              << "maximum bin success rate drop: "
+                              << report.value().maximum_bin_success_rate_drop << '\n'
+                              << "reasons:";
+                    if (report.value().reasons.empty()) {
+                        std::cout << " -";
+                    } else {
+                        for (const auto reason : report.value().reasons)
+                            std::cout << ' ' << rbfsafe::policy_calibration_drift_reason_name(reason);
+                    }
+                    std::cout << '\n';
+                }
+                std::cout << "deployment ready: " << (lifecycle.value().deployment_ready() ? "true" : "false")
+                          << '\n'
+                          << "runtime executable: false\n";
+                return 0;
+            }
+        }
     }
     auto calibration = rbfsafe::PolicyCalibrationProfile::load(std::filesystem::path(argv[1]));
     if (calibration) {

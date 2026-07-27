@@ -6,7 +6,9 @@ adds `RBFSafe::memory`; RBF-Safe 3.1 additively introduces deterministic memory
 identities and `SafetyMemoryStore`; RBF-Safe 3.2 adds `FleetScheduleArchive`
 and its version/load-option records; RBF-Safe 3.3 adds `RBFSafe::trust` and
 artifact-attestation records/functions; RBF-Safe 3.4 additively extends
-`RBFSafe::policy` with calibration profiles and calibrated gating. Public
+`RBFSafe::policy` with calibration profiles and calibrated gating; RBF-Safe
+3.5 adds operational drift reports, profile lifecycle records, persistence,
+and guarded calibrated gating without removing the 3.4 entry point. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
