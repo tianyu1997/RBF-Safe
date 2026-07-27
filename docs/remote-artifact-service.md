@@ -106,6 +106,10 @@ RBF-Safe 3.8 additionally permits a caller-pinned schema-2 predecessor to
 authorize an exact successor and records those transitions in an
 expected-head guarded local history. The transport adapter still owns
 root/head distribution and retention.
+RBF-Safe 3.9 additionally supports schema-3 multi-signer rotation and
+portable current-head checkpoints. These remain local verification artifacts:
+the transport adapter still owns authenticated root/checkpoint distribution
+and selection of the newest accepted checkpoint.
 
 ## Transport adapter responsibilities
 
@@ -141,10 +145,13 @@ places artifact repositories and signing/verification tools alongside, rather
 than inside, application validation. These references inform the boundary;
 RBF-Safe does not claim TUF, SLSA, or NIST conformance.
 
-Threshold trust, certificate chains, remote key discovery, TLS, endpoints,
+Threshold-signature cryptography, certificate chains, remote key discovery,
+TLS, endpoints,
 credentials, and concrete network clients remain outside the library. Public
 roots are authorized only through caller pins; later schema-2 bundles may be
-authorized by replaying signed successors from that root. Accepting any root
+authorized by replaying signed successors from that root, while schema-3
+bundles require their configured independent-signature/service quorum.
+Accepting any root
 solely because its self-declared hash is internally consistent is not
 authentication, and local replay cannot detect whole-directory rollback
-without a separately retained expected head.
+without a separately retained expected head or pinned signed-checkpoint ID.

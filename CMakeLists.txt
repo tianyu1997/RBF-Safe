@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 3.8.0
+    VERSION 3.9.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES C CXX)
@@ -256,6 +256,7 @@ endif()
 
 add_library(rbfsafe_identity
     src/identity.cpp
+    src/identity_checkpoint.cpp
     src/identity_history.cpp
     src/identity_persistence.cpp
     $<TARGET_OBJECTS:rbfsafe_monocypher>)
@@ -465,8 +466,14 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_bundle_schema1)
     install(DIRECTORY data/service_trust_bundle_schema2/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_bundle_schema2)
+    install(DIRECTORY data/service_trust_bundle_schema3/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_bundle_schema3)
     install(DIRECTORY data/service_trust_history_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_history_schema1)
+    install(DIRECTORY data/service_trust_history_schema2/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_history_schema2)
+    install(DIRECTORY data/service_trust_checkpoint_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/service_trust_checkpoint_schema1)
     install(DIRECTORY data/policy_calibration_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
     install(DIRECTORY data/policy_calibration_lifecycle_schema1/

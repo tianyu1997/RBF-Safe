@@ -352,6 +352,61 @@ retain the newest accepted head outside the history rollback domain. The
 directory alone cannot distinguish a valid historical copy from a
 whole-directory rollback.
 
+For a quorum-governed chain, create a schema-3 root, sign the exact successor
+with each independent rotation key, and publish the canonical set:
+
+```python
+policy = rbfsafe.ServiceTrustRotationPolicy()
+policy.minimum_signatures = 2
+policy.require_distinct_services = True
+root = rbfsafe.ServiceTrustBundle.create_with_rotation_policy(
+    1, "", [service_key, governance_key], policy
+)
+successor = rbfsafe.rotate_service_trust_bundle(root, successor_keys)
+service_authorization = rbfsafe.authorize_service_trust_bundle_successor(
+    root, successor, service_key.service_id, service_key.id, service_secret
+)
+governance_authorization = rbfsafe.authorize_service_trust_bundle_successor(
+    root, successor, governance_key.service_id, governance_key.id,
+    governance_secret,
+)
+authorization_set = rbfsafe.assemble_service_trust_bundle_authorizations(
+    root, successor, [governance_authorization, service_authorization]
+)
+history = rbfsafe.ServiceTrustHistory.create(
+    "service-trust-history", root, trusted_root_id
+)
+history.publish(successor, authorization_set, root.id)
+```
+
+Export and later verify a portable signed head checkpoint:
+
+```python
+history = rbfsafe.ServiceTrustHistory.open(
+    "service-trust-history", trusted_root_id, successor.id
+)
+first = rbfsafe.sign_service_trust_checkpoint(
+    history, current_service_key.service_id, current_service_key.id,
+    current_service_secret,
+)
+second = rbfsafe.sign_service_trust_checkpoint(
+    history, governance_key.service_id, governance_key.id, governance_secret
+)
+checkpoint = rbfsafe.assemble_service_trust_checkpoint(
+    history, [second, first]
+)
+checkpoint.save("trust-checkpoint.json")
+
+checkpoint = rbfsafe.ServiceTrustCheckpoint.load("trust-checkpoint.json")
+history = rbfsafe.ServiceTrustHistory.open(
+    "service-trust-history", trusted_root_id, checkpoint,
+    trusted_checkpoint_id,
+)
+```
+
+Retain `trusted_checkpoint_id` outside the same rollback domain. A valid old
+checkpoint does not prove that it is the newest one.
+
 ## 13. Persist fleet-schedule history
 
 Publish canonical reservation reports against the exact memory revision used

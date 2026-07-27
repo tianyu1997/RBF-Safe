@@ -151,6 +151,15 @@ resource, corruption, and caller-anchor behavior across platforms. Both
 fixtures contain public keys/signatures only and are interoperability data,
 not authorized deployment trust.
 
+`data/service_trust_bundle_schema3` is the fixed RBF-Safe 3.9 two-signature,
+distinct-service root. `data/service_trust_history_schema2` contains its
+canonical two-signature successor rotation, and
+`data/service_trust_checkpoint_schema1` binds the exact root, head, sequence,
+and record with the current quorum. Tests verify exact bundle,
+authorization-set, record, checkpoint, root/head, canonical ordering,
+resource, tamper, replay, and caller-anchor behavior across C++ and Python.
+The files contain no private key and are not deployment trust anchors.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -160,15 +169,19 @@ authenticated publication and a valid one-record transfer journal using only
 discrete cross-platform fields.
 
 The reviewed RBF-Safe 3.7 cross-platform logical digest is
-`b1c149647d6e2454`, recorded in
-`data/release-fixtures/logical_digest.txt`. It additionally covers one
+`b1c149647d6e2454`. It additionally covered one
 caller-pinned Ed25519 publication verification per case, exact public
 key/bundle provenance, and a valid two-record schema-2 transfer journal. As in
 earlier releases, timings, approximate memory, and transitive floating-point
 identities are excluded.
 
 The reviewed RBF-Safe 3.8 cross-platform logical digest is
-`405c70e97f412d5c`, recorded in
-`data/release-fixtures/logical_digest.txt`. It additionally covers one signed
+`405c70e97f412d5c`. It additionally covered one signed
 successor authorization and a valid two-record trust-history replay per case,
 using only discrete cross-platform fields.
+
+The reviewed RBF-Safe 3.9 cross-platform logical digest is
+`5b830fba7deebcf8`, recorded in
+`data/release-fixtures/logical_digest.txt`. It additionally covers a
+two-signature distinct-service rotation, schema-2 trust-history replay, and a
+quorum-signed checkpoint per case using only discrete cross-platform fields.

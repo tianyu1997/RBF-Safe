@@ -67,6 +67,15 @@ cancellation, legacy-root rejection, fixed history identities, and both
 inspection paths. Demonstrate whole-directory rollback rejection with the
 newer external head and document that rolling the external head back as well
 is outside local detection.
+Create a schema-3 two-signature distinct-service root, assemble a canonical
+successor authorization set, publish/replay schema-2 history, sign its head
+with the current quorum, and verify a standalone schema-1 checkpoint against
+independently retained root/checkpoint IDs. Verify insufficient, duplicate,
+same-service, wrong-secret, stale-anchor, tamper, ordering, signature-count,
+and byte-limit failures; fixed fixture identities; cross-language byte
+equality; and both CLI verification directions. Document that rolling back
+the history and every external anchor together remains outside local
+detection.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -99,7 +108,8 @@ memory only as release diagnostics.
 
 Atlas, corridor, region-database, version-store, policy-feedback,
 safety-memory, safety-memory-store, attestation, artifact-transfer-journal,
-service-trust-bundle, service-trust-history, calibration-profile, or
+service-trust-bundle, service-trust-history, service-trust-checkpoint,
+calibration-profile, or
 calibration-lifecycle schema
 changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility

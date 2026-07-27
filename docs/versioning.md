@@ -17,7 +17,9 @@ service authentication, and transfer journals. Version 3.7 adds
 `RBFSafe::identity`, caller-pinned Ed25519 service trust, monotonic key
 rotation, and offline transfer verification. Version 3.8 adds explicit
 rotation authority, exact-successor signatures, schema-2 trust bundles, and
-expected-head guarded replayable trust histories.
+expected-head guarded replayable trust histories. Version 3.9 adds immutable
+quorum/distinct-service rotation policy, schema-3 trust bundles, schema-2
+authorization-set histories, and caller-pinned signed trust checkpoints.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
@@ -178,6 +180,25 @@ concurrency and cross-process exclusion. A caller-retained expected head is
 required to detect restoration of the entire directory to an older
 self-consistent state.
 
+The v3.9 service-trust-bundle schema 3 adds an immutable
+`minimum_signatures` and `require_distinct_services` rotation policy. New
+schema-3 roots are created explicitly; `create` retains schema 2 and every
+successor preserves the predecessor schema. The reader accepts schemas 1, 2,
+and 3. No operation upgrades a historical bundle or chain silently.
+
+The v3.9 service-trust-history schema 2 stores complete schema-3 bundles and a
+canonical authorization set for each successor. Replay verifies every unique
+Ed25519 signature plus the bundle's signature/service quorum under an explicit
+per-rotation resource bound. Schema-1 histories remain readable and retain
+their single-authorization record identities.
+
+The v3.9 service-trust-checkpoint schema 1 is an independent bounded JSON
+statement binding an exact root bundle, head bundle, head sequence, and head
+record to a canonical set of current-head signatures. Verification requires
+caller-provided root and checkpoint IDs and a full history replay. The format
+does not discover roots, select the newest checkpoint, or prove wall-clock
+freshness.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -205,7 +226,7 @@ order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
-service-trust-history fixtures,
+service-trust-history/service-trust-checkpoint fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

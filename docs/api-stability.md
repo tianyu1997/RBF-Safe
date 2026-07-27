@@ -18,8 +18,14 @@ additively introduces rotation permission,
 `ServiceTrustBundleAuthorization`, `ServiceTrustHistory`, load/rotation
 records, signed successor functions, and bundle storage-schema inspection.
 The existing key factory gains a trailing defaulted `allow_rotate=false`
-argument, preserving prior calls and prior schema-1 behavior. Public
-headers under `include/rbfsafe`,
+argument, preserving prior calls and prior schema-1 behavior. RBF-Safe 3.9
+additively introduces `ServiceTrustRotationPolicy`, schema-3
+bundle creation, `ServiceTrustBundleAuthorizationSet`, schema-2 history
+records, `ServiceTrustCheckpoint`, bounded checkpoint options, signature/
+assembly/verification functions, and checkpoint-pinned history-open and
+authorization-set publication overloads. Existing schema-2 creation,
+single-authorization publication, and expected-head open behavior remain
+available. Public headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
 historical contracts; `tools/check_api_surface.py` selects the snapshot for the

@@ -70,6 +70,11 @@ void bind_identity(py::module_& module) {
         .def_readwrite("maximum_keys", &ServiceTrustBundleLoadOptions::maximum_keys)
         .def_readwrite("maximum_payload_bytes", &ServiceTrustBundleLoadOptions::maximum_payload_bytes);
 
+    py::class_<ServiceTrustRotationPolicy>(module, "ServiceTrustRotationPolicy")
+        .def(py::init<>())
+        .def_readwrite("minimum_signatures", &ServiceTrustRotationPolicy::minimum_signatures)
+        .def_readwrite("require_distinct_services", &ServiceTrustRotationPolicy::require_distinct_services);
+
     py::class_<ServiceTrustBundle>(module, "ServiceTrustBundle")
         .def_static(
             "create",
@@ -77,11 +82,20 @@ void bind_identity(py::module_& module) {
                 return unwrap(ServiceTrustBundle::create(sequence, std::move(parent_id), std::move(keys)));
             },
             py::arg("sequence"), py::arg("parent_id"), py::arg("keys"))
+        .def_static(
+            "create_with_rotation_policy",
+            [](std::uint64_t sequence, std::string parent_id, std::vector<ServicePublicKey> keys,
+               const ServiceTrustRotationPolicy& rotation_policy) {
+                return unwrap(ServiceTrustBundle::create_with_rotation_policy(
+                    sequence, std::move(parent_id), std::move(keys), rotation_policy));
+            },
+            py::arg("sequence"), py::arg("parent_id"), py::arg("keys"), py::arg("rotation_policy"))
         .def_property_readonly("storage_schema", &ServiceTrustBundle::storage_schema)
         .def_property_readonly("sequence", &ServiceTrustBundle::sequence)
         .def_property_readonly("id", &ServiceTrustBundle::id)
         .def_property_readonly("parent_id", &ServiceTrustBundle::parent_id)
         .def_property_readonly("keys", &ServiceTrustBundle::keys)
+        .def_property_readonly("rotation_policy", &ServiceTrustBundle::rotation_policy)
         .def("valid", &ServiceTrustBundle::valid)
         .def(
             "key",
@@ -112,26 +126,70 @@ void bind_identity(py::module_& module) {
         .def_readonly("algorithm", &ServiceTrustBundleAuthorization::algorithm)
         .def_readonly("authentication_tag", &ServiceTrustBundleAuthorization::authentication_tag);
 
+    py::class_<ServiceTrustBundleAuthorizationSet>(module, "ServiceTrustBundleAuthorizationSet")
+        .def_readonly("id", &ServiceTrustBundleAuthorizationSet::id)
+        .def_readonly("predecessor_bundle_id", &ServiceTrustBundleAuthorizationSet::predecessor_bundle_id)
+        .def_readonly("successor_bundle_id", &ServiceTrustBundleAuthorizationSet::successor_bundle_id)
+        .def_readonly("predecessor_sequence", &ServiceTrustBundleAuthorizationSet::predecessor_sequence)
+        .def_readonly("successor_sequence", &ServiceTrustBundleAuthorizationSet::successor_sequence)
+        .def_readonly("authorizations", &ServiceTrustBundleAuthorizationSet::authorizations);
+
     py::enum_<ServiceTrustRotationEventType>(module, "ServiceTrustRotationEventType")
         .value("ROOT_PINNED", ServiceTrustRotationEventType::RootPinned)
         .value("SUCCESSOR_AUTHORIZED", ServiceTrustRotationEventType::SuccessorAuthorized);
 
     py::class_<ServiceTrustRotationRecord>(module, "ServiceTrustRotationRecord")
+        .def_readonly("storage_schema", &ServiceTrustRotationRecord::storage_schema)
         .def_readonly("sequence", &ServiceTrustRotationRecord::sequence)
         .def_readonly("id", &ServiceTrustRotationRecord::id)
         .def_readonly("parent_id", &ServiceTrustRotationRecord::parent_id)
         .def_readonly("type", &ServiceTrustRotationRecord::type)
         .def_readonly("bundle_id", &ServiceTrustRotationRecord::bundle_id)
-        .def_readonly("authorization", &ServiceTrustRotationRecord::authorization);
+        .def_readonly("authorization", &ServiceTrustRotationRecord::authorization)
+        .def_readonly("authorization_set", &ServiceTrustRotationRecord::authorization_set);
 
     py::class_<ServiceTrustHistoryLoadOptions>(module, "ServiceTrustHistoryLoadOptions")
         .def(py::init<>())
         .def_readwrite("maximum_bundles", &ServiceTrustHistoryLoadOptions::maximum_bundles)
         .def_readwrite("maximum_keys_per_bundle", &ServiceTrustHistoryLoadOptions::maximum_keys_per_bundle)
         .def_readwrite("maximum_total_keys", &ServiceTrustHistoryLoadOptions::maximum_total_keys)
+        .def_readwrite("maximum_signatures_per_rotation",
+                       &ServiceTrustHistoryLoadOptions::maximum_signatures_per_rotation)
         .def_readwrite("maximum_metadata_bytes", &ServiceTrustHistoryLoadOptions::maximum_metadata_bytes)
         .def_readwrite("maximum_bundle_bytes", &ServiceTrustHistoryLoadOptions::maximum_bundle_bytes)
         .def_readwrite("cancellation", &ServiceTrustHistoryLoadOptions::cancellation);
+
+    py::class_<ServiceTrustCheckpointSignature>(module, "ServiceTrustCheckpointSignature")
+        .def_readonly("signer_service_id", &ServiceTrustCheckpointSignature::signer_service_id)
+        .def_readonly("signer_key_id", &ServiceTrustCheckpointSignature::signer_key_id)
+        .def_readonly("algorithm", &ServiceTrustCheckpointSignature::algorithm)
+        .def_readonly("authentication_tag", &ServiceTrustCheckpointSignature::authentication_tag);
+
+    py::class_<ServiceTrustCheckpointLoadOptions>(module, "ServiceTrustCheckpointLoadOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_signatures", &ServiceTrustCheckpointLoadOptions::maximum_signatures)
+        .def_readwrite("maximum_payload_bytes", &ServiceTrustCheckpointLoadOptions::maximum_payload_bytes);
+
+    py::class_<ServiceTrustCheckpoint>(module, "ServiceTrustCheckpoint")
+        .def_readonly("storage_schema", &ServiceTrustCheckpoint::storage_schema)
+        .def_readonly("id", &ServiceTrustCheckpoint::id)
+        .def_readonly("root_bundle_id", &ServiceTrustCheckpoint::root_bundle_id)
+        .def_readonly("head_bundle_id", &ServiceTrustCheckpoint::head_bundle_id)
+        .def_readonly("head_sequence", &ServiceTrustCheckpoint::head_sequence)
+        .def_readonly("head_record_id", &ServiceTrustCheckpoint::head_record_id)
+        .def_readonly("signatures", &ServiceTrustCheckpoint::signatures)
+        .def("valid", &ServiceTrustCheckpoint::valid)
+        .def(
+            "save",
+            [](const ServiceTrustCheckpoint& checkpoint, const std::filesystem::path& path,
+               const SaveOptions& options) { unwrap_void(checkpoint.save(path, options)); },
+            py::arg("path"), py::arg("options") = SaveOptions{})
+        .def_static(
+            "load",
+            [](const std::filesystem::path& path, const ServiceTrustCheckpointLoadOptions& options) {
+                return unwrap(ServiceTrustCheckpoint::load(path, options));
+            },
+            py::arg("path"), py::arg("options") = ServiceTrustCheckpointLoadOptions{});
 
     py::class_<ServiceTrustHistory>(module, "ServiceTrustHistory")
         .def_static(
@@ -150,7 +208,18 @@ void bind_identity(py::module_& module) {
             },
             py::arg("directory"), py::arg("expected_root_bundle_id"), py::arg("expected_head_bundle_id"),
             py::arg("options") = ServiceTrustHistoryLoadOptions{})
+        .def_static(
+            "open",
+            [](const std::filesystem::path& directory, const std::string& expected_root_bundle_id,
+               const ServiceTrustCheckpoint& checkpoint, const std::string& expected_checkpoint_id,
+               const ServiceTrustHistoryLoadOptions& options) {
+                return unwrap(ServiceTrustHistory::open(directory, expected_root_bundle_id, checkpoint,
+                                                        expected_checkpoint_id, options));
+            },
+            py::arg("directory"), py::arg("expected_root_bundle_id"), py::arg("checkpoint"),
+            py::arg("expected_checkpoint_id"), py::arg("options") = ServiceTrustHistoryLoadOptions{})
         .def_property_readonly("directory", &ServiceTrustHistory::directory)
+        .def_property_readonly("storage_schema", &ServiceTrustHistory::storage_schema)
         .def_property_readonly("root_bundle_id", &ServiceTrustHistory::root_bundle_id)
         .def_property_readonly("current_bundle_id", &ServiceTrustHistory::current_bundle_id)
         .def_property_readonly("records", &ServiceTrustHistory::records)
@@ -168,6 +237,16 @@ void bind_identity(py::module_& module) {
                     history.publish(successor, authorization, expected_head_bundle_id, maximum_bundles));
             },
             py::arg("successor"), py::arg("authorization"), py::arg("expected_head_bundle_id"),
+            py::arg("maximum_bundles") = 100'000)
+        .def(
+            "publish",
+            [](ServiceTrustHistory& history, const ServiceTrustBundle& successor,
+               const ServiceTrustBundleAuthorizationSet& authorization_set,
+               const std::string& expected_head_bundle_id, std::size_t maximum_bundles) {
+                return unwrap(
+                    history.publish(successor, authorization_set, expected_head_bundle_id, maximum_bundles));
+            },
+            py::arg("successor"), py::arg("authorization_set"), py::arg("expected_head_bundle_id"),
             py::arg("maximum_bundles") = 100'000);
 
     module.def(
@@ -213,6 +292,7 @@ void bind_identity(py::module_& module) {
         py::arg("allow_fetch") = true, py::arg("allow_publish") = true, py::arg("allow_rotate") = false);
 
     module.def("valid_service_public_key", &valid_service_public_key);
+    module.def("valid_service_trust_rotation_policy", &valid_service_trust_rotation_policy);
 
     module.def(
         "rotate_service_trust_bundle",
@@ -222,6 +302,8 @@ void bind_identity(py::module_& module) {
         py::arg("previous"), py::arg("keys"));
 
     module.def("valid_service_trust_bundle_authorization", &valid_service_trust_bundle_authorization);
+    module.def("valid_service_trust_bundle_authorization_set", &valid_service_trust_bundle_authorization_set);
+    module.def("valid_service_trust_checkpoint_signature", &valid_service_trust_checkpoint_signature);
 
     module.def(
         "authorize_service_trust_bundle_successor",
@@ -243,6 +325,50 @@ void bind_identity(py::module_& module) {
                 rbfsafe::verify_service_trust_bundle_successor(predecessor, successor, authorization));
         },
         py::arg("predecessor"), py::arg("successor"), py::arg("authorization"));
+
+    module.def(
+        "assemble_service_trust_bundle_authorizations",
+        [](const ServiceTrustBundle& predecessor, const ServiceTrustBundle& successor,
+           std::vector<ServiceTrustBundleAuthorization> authorizations) {
+            return unwrap(assemble_service_trust_bundle_authorizations(predecessor, successor,
+                                                                       std::move(authorizations)));
+        },
+        py::arg("predecessor"), py::arg("successor"), py::arg("authorizations"));
+
+    module.def(
+        "verify_service_trust_bundle_successor",
+        [](const ServiceTrustBundle& predecessor, const ServiceTrustBundle& successor,
+           const ServiceTrustBundleAuthorizationSet& authorization_set) {
+            unwrap_void(verify_service_trust_bundle_successor(predecessor, successor, authorization_set));
+        },
+        py::arg("predecessor"), py::arg("successor"), py::arg("authorization_set"));
+
+    module.def(
+        "sign_service_trust_checkpoint",
+        [](const ServiceTrustHistory& history, std::string signer_service_id, std::string signer_key_id,
+           const py::bytes& secret_key) {
+            const SensitiveBytes secret_copy(secret_key);
+            return unwrap(rbfsafe::sign_service_trust_checkpoint(
+                history, std::move(signer_service_id), std::move(signer_key_id), secret_copy.view()));
+        },
+        py::arg("history"), py::arg("signer_service_id"), py::arg("signer_key_id"),
+        py::arg("ed25519_secret_key"));
+
+    module.def(
+        "assemble_service_trust_checkpoint",
+        [](const ServiceTrustHistory& history, std::vector<ServiceTrustCheckpointSignature> signatures) {
+            return unwrap(rbfsafe::assemble_service_trust_checkpoint(history, std::move(signatures)));
+        },
+        py::arg("history"), py::arg("signatures"));
+
+    module.def(
+        "verify_service_trust_checkpoint",
+        [](const ServiceTrustHistory& history, const ServiceTrustCheckpoint& checkpoint,
+           const std::string& expected_checkpoint_id) {
+            unwrap_void(
+                rbfsafe::verify_service_trust_checkpoint(history, checkpoint, expected_checkpoint_id));
+        },
+        py::arg("history"), py::arg("checkpoint"), py::arg("expected_checkpoint_id"));
 
     module.def(
         "trusted_service_public_key",

@@ -295,7 +295,16 @@ authenticate the original root, detect rollback when the external head is
 rolled back with the directory, provide a quorum or transparency service, or
 authorize payload use or robot execution.
 
-## Explicit exclusions in v3.8
+The v3.9 identity layer can require multiple unique rotation-capable keys and,
+optionally, multiple service identities for every exact successor. It can also
+export a quorum-signed root/head/record checkpoint and replay a history against
+the caller's pinned checkpoint ID. This narrows unauthorized-rotation and
+portable-head risks, but a valid old checkpoint remains stale if the caller
+does not retain a newer ID. Quorum is organizational authorization metadata,
+not a geometric certificate, clock, transparency log, deployment proof, or
+execution authorization.
+
+## Explicit exclusions in v3.9
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -331,7 +340,7 @@ authorize payload use or robot execution.
   object mutation still requires in-process serialization;
   `SafetyMemoryStore` serializes publication but does not merge concurrent
   edits or automatically remove a lock left by a crashed writer.
-- Artifact HMAC/private keys, trust-root/head distribution and authorization,
+- Artifact HMAC/private keys, trust-root/head/checkpoint distribution and authorization,
   endpoint/redirect policy, TLS, encryption, concrete network I/O, retry
   semantics, credential access, and secret erasure are deployment
   responsibilities. Public-key verification is not a payload certificate,

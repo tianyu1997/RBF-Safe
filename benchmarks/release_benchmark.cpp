@@ -61,6 +61,8 @@ struct CaseMetrics {
     std::size_t trusted_service_keys = 0;
     std::size_t trust_bundle_authorizations = 0;
     std::size_t trust_history_records = 0;
+    std::size_t trust_checkpoint_signatures = 0;
+    std::size_t trust_checkpoints = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -539,7 +541,22 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
                                          0, rbfsafe::ServiceKeyState::Active, true, true, true);
     if (!service_key)
         return service_key.error();
-    auto trust_bundle = rbfsafe::ServiceTrustBundle::create(1, "", {service_key.value()});
+    std::array<std::byte, rbfsafe::kEd25519SeedBytes> governance_seed{};
+    for (std::size_t index = 0; index < governance_seed.size(); ++index)
+        governance_seed[index] = static_cast<std::byte>(index + 33);
+    auto governance_key_pair = rbfsafe::ed25519_key_pair_from_seed(governance_seed);
+    if (!governance_key_pair)
+        return governance_key_pair.error();
+    auto governance_key = rbfsafe::make_service_public_key(
+        "release-rotation-governance", governance_key_pair.value().public_key, 1, 0,
+        rbfsafe::ServiceKeyState::Active, false, false, true);
+    if (!governance_key)
+        return governance_key.error();
+    rbfsafe::ServiceTrustRotationPolicy rotation_policy;
+    rotation_policy.minimum_signatures = 2;
+    rotation_policy.require_distinct_services = true;
+    auto trust_bundle = rbfsafe::ServiceTrustBundle::create_with_rotation_policy(
+        1, "", {service_key.value(), governance_key.value()}, rotation_policy);
     if (!trust_bundle)
         return trust_bundle.error();
     auto public_request = rbfsafe::prepare_artifact_publish(
@@ -573,7 +590,7 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     metrics.trusted_service_keys = trust_bundle.value().keys().size();
     std::array<std::byte, rbfsafe::kEd25519SeedBytes> successor_seed{};
     for (std::size_t index = 0; index < successor_seed.size(); ++index)
-        successor_seed[index] = static_cast<std::byte>(index + 33);
+        successor_seed[index] = static_cast<std::byte>(index + 65);
     auto successor_key_pair = rbfsafe::ed25519_key_pair_from_seed(successor_seed);
     if (!successor_key_pair)
         return successor_key_pair.error();
@@ -586,15 +603,26 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     retired_service_key.state = rbfsafe::ServiceKeyState::Retired;
     retired_service_key.valid_through_sequence = 1;
     auto successor_bundle = rbfsafe::rotate_service_trust_bundle(
-        trust_bundle.value(), {retired_service_key, successor_key.value()});
+        trust_bundle.value(), {retired_service_key, successor_key.value(), governance_key.value()});
     if (!successor_bundle)
         return successor_bundle.error();
-    auto successor_authorization = rbfsafe::authorize_service_trust_bundle_successor(
+    auto service_authorization = rbfsafe::authorize_service_trust_bundle_successor(
         trust_bundle.value(), successor_bundle.value(), service_key.value().service_id,
         service_key.value().id, service_key_pair.value().secret_key);
-    if (!successor_authorization ||
+    auto governance_authorization = rbfsafe::authorize_service_trust_bundle_successor(
+        trust_bundle.value(), successor_bundle.value(), governance_key.value().service_id,
+        governance_key.value().id, governance_key_pair.value().secret_key);
+    if (!service_authorization || !governance_authorization) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture trust-bundle signatures were inconsistent",
+            fixture.name);
+    }
+    auto successor_authorizations = rbfsafe::assemble_service_trust_bundle_authorizations(
+        trust_bundle.value(), successor_bundle.value(),
+        {governance_authorization.value(), service_authorization.value()});
+    if (!successor_authorizations ||
         !rbfsafe::verify_service_trust_bundle_successor(trust_bundle.value(), successor_bundle.value(),
-                                                        successor_authorization.value())) {
+                                                        successor_authorizations.value())) {
         return rbfsafe::Result<CaseMetrics>::failure(
             rbfsafe::StatusCode::InternalError, "release fixture trust-bundle authorization was inconsistent",
             fixture.name);
@@ -614,7 +642,7 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     if (!trust_history)
         return trust_history.error();
     auto trust_rotation = trust_history.value().publish(
-        successor_bundle.value(), successor_authorization.value(), trust_bundle.value().id());
+        successor_bundle.value(), successor_authorizations.value(), trust_bundle.value().id());
     if (!trust_rotation)
         return trust_rotation.error();
     auto replayed_trust_history = rbfsafe::ServiceTrustHistory::open(
@@ -625,8 +653,30 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
             rbfsafe::StatusCode::InternalError,
             "release fixture service trust-history replay was inconsistent", fixture.name);
     }
-    metrics.trust_bundle_authorizations = 1;
+    auto service_checkpoint_signature = rbfsafe::sign_service_trust_checkpoint(
+        replayed_trust_history.value(), successor_key.value().service_id, successor_key.value().id,
+        successor_key_pair.value().secret_key);
+    auto governance_checkpoint_signature = rbfsafe::sign_service_trust_checkpoint(
+        replayed_trust_history.value(), governance_key.value().service_id, governance_key.value().id,
+        governance_key_pair.value().secret_key);
+    if (!service_checkpoint_signature || !governance_checkpoint_signature) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture trust-checkpoint signatures were inconsistent", fixture.name);
+    }
+    auto checkpoint = rbfsafe::assemble_service_trust_checkpoint(
+        replayed_trust_history.value(),
+        {governance_checkpoint_signature.value(), service_checkpoint_signature.value()});
+    if (!checkpoint || !rbfsafe::verify_service_trust_checkpoint(replayed_trust_history.value(),
+                                                                 checkpoint.value(), checkpoint.value().id)) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture trust checkpoint was inconsistent",
+                                                     fixture.name);
+    }
+    metrics.trust_bundle_authorizations = successor_authorizations.value().authorizations.size();
     metrics.trust_history_records = replayed_trust_history.value().records().size();
+    metrics.trust_checkpoint_signatures = checkpoint.value().signatures.size();
+    metrics.trust_checkpoints = 1;
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -715,10 +765,13 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, "ed25519-public-transfer-offline-verified");
     hash_field(logical_hash, std::to_string(metrics.public_key_transfers));
     hash_field(logical_hash, std::to_string(metrics.trusted_service_keys));
-    hash_field(logical_hash, "ed25519-trust-successor-authorized");
+    hash_field(logical_hash, "ed25519-quorum-trust-successor-authorized");
     hash_field(logical_hash, std::to_string(metrics.trust_bundle_authorizations));
     hash_field(logical_hash, "service-trust-history-replayed");
     hash_field(logical_hash, std::to_string(metrics.trust_history_records));
+    hash_field(logical_hash, "service-trust-checkpoint-verified");
+    hash_field(logical_hash, std::to_string(metrics.trust_checkpoint_signatures));
+    hash_field(logical_hash, std::to_string(metrics.trust_checkpoints));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -752,6 +805,8 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"trusted_service_keys\":" << item.trusted_service_keys
                   << ",\"trust_bundle_authorizations\":" << item.trust_bundle_authorizations
                   << ",\"trust_history_records\":" << item.trust_history_records
+                  << ",\"trust_checkpoint_signatures\":" << item.trust_checkpoint_signatures
+                  << ",\"trust_checkpoints\":" << item.trust_checkpoints
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -776,7 +831,9 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " public_key_transfers=" << item.public_key_transfers
                   << " trusted_service_keys=" << item.trusted_service_keys
                   << " trust_bundle_authorizations=" << item.trust_bundle_authorizations
-                  << " trust_history_records=" << item.trust_history_records << " query_ms=" << item.query_ms
+                  << " trust_history_records=" << item.trust_history_records
+                  << " trust_checkpoint_signatures=" << item.trust_checkpoint_signatures
+                  << " trust_checkpoints=" << item.trust_checkpoints << " query_ms=" << item.query_ms
                   << " update_ms=" << item.update_ms << '\n';
     }
 }

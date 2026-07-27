@@ -9,19 +9,26 @@
 
 namespace {
 
-bool is_service_trust_history(const std::filesystem::path& directory) {
+bool bounded_file_contains(const std::filesystem::path& path, const std::string& marker) {
     std::error_code error;
-    const auto manifest = directory / "manifest.json";
-    const auto bytes = std::filesystem::file_size(manifest, error);
+    const auto bytes = std::filesystem::file_size(path, error);
     if (error || bytes > 65'536)
         return false;
-    std::ifstream input(manifest, std::ios::binary);
+    std::ifstream input(path, std::ios::binary);
     if (!input)
         return false;
     std::string text(static_cast<std::size_t>(bytes), '\0');
     if (!text.empty())
         input.read(text.data(), static_cast<std::streamsize>(text.size()));
-    return input && text.find("\"rbfsafe-service-trust-history\"") != std::string::npos;
+    return input && text.find(marker) != std::string::npos;
+}
+
+bool is_service_trust_history(const std::filesystem::path& directory) {
+    return bounded_file_contains(directory / "manifest.json", "\"rbfsafe-service-trust-history\"");
+}
+
+bool is_service_trust_checkpoint(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-service-trust-checkpoint\"");
 }
 
 } // namespace
@@ -29,21 +36,37 @@ bool is_service_trust_history(const std::filesystem::path& directory) {
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "usage: rbfsafe-inspect <database-archive-or-profile> [query values or profile]\n"
-                  << "       rbfsafe-inspect <trust-history> <expected-root> <expected-head>\n";
+                  << "       rbfsafe-inspect <trust-history> <expected-root> <expected-head>\n"
+                  << "       rbfsafe-inspect <trust-history> <expected-root> <checkpoint> "
+                     "<expected-checkpoint>\n"
+                  << "       rbfsafe-inspect <checkpoint> <trust-history> <expected-root> "
+                     "<expected-checkpoint>\n";
         return 2;
     }
     if (is_service_trust_history(std::filesystem::path(argv[1]))) {
-        if (argc != 4) {
-            std::cerr << "service trust-history inspection requires expected root and head bundle IDs\n";
+        if (argc != 4 && argc != 5) {
+            std::cerr << "service trust-history inspection requires root/head or "
+                         "root/checkpoint/checkpoint-ID arguments\n";
             return 2;
         }
-        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[1]), argv[2], argv[3]);
+        rbfsafe::Result<rbfsafe::ServiceTrustHistory> history =
+            argc == 4
+                ? rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[1]), argv[2], argv[3])
+                : [&]() {
+                      auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[3]));
+                      if (!checkpoint)
+                          return rbfsafe::Result<rbfsafe::ServiceTrustHistory>::failure(
+                              checkpoint.error().code, checkpoint.error().message,
+                              checkpoint.error().context);
+                      return rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[1]), argv[2],
+                                                                checkpoint.value(), argv[4]);
+                  }();
         if (!history) {
             std::cerr << history.error().describe() << '\n';
             return 1;
         }
         std::cout << "RBF-Safe service trust history\n"
-                  << "schema: 1\n"
+                  << "schema: " << history.value().storage_schema() << '\n'
                   << "records: " << history.value().records().size() << '\n'
                   << "root: " << history.value().root_bundle_id() << '\n'
                   << "head: " << history.value().current_bundle_id() << '\n';
@@ -58,9 +81,53 @@ int main(int argc, char** argv) {
                           << "  signer service: " << record.authorization->signer_service_id << '\n'
                           << "  signer key: " << record.authorization->signer_key_id << '\n';
             }
+            if (record.authorization_set) {
+                std::cout << "  authorization set: " << record.authorization_set->id << '\n'
+                          << "  signatures: " << record.authorization_set->authorizations.size() << '\n';
+                for (const auto& authorization : record.authorization_set->authorizations) {
+                    std::cout << "  signer service: " << authorization.signer_service_id << '\n'
+                              << "  signer key: " << authorization.signer_key_id << '\n';
+                }
+            }
         }
         std::cout << "caller pinned: true\n"
                   << "expected head verified: true\n"
+                  << "checkpoint verified: " << (argc == 5 ? "true" : "false") << '\n'
+                  << "runtime executable: false\n";
+        return 0;
+    }
+    if (is_service_trust_checkpoint(std::filesystem::path(argv[1]))) {
+        if (argc != 5) {
+            std::cerr << "service trust-checkpoint inspection requires history, "
+                         "expected root, and expected checkpoint ID\n";
+            return 2;
+        }
+        auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[1]));
+        if (!checkpoint) {
+            std::cerr << checkpoint.error().describe() << '\n';
+            return 1;
+        }
+        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[2]), argv[3],
+                                                          checkpoint.value(), argv[4]);
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe service trust checkpoint\n"
+                  << "schema: " << checkpoint.value().storage_schema << '\n'
+                  << "checkpoint: " << checkpoint.value().id << '\n'
+                  << "root: " << checkpoint.value().root_bundle_id << '\n'
+                  << "head: " << checkpoint.value().head_bundle_id << '\n'
+                  << "sequence: " << checkpoint.value().head_sequence << '\n'
+                  << "record: " << checkpoint.value().head_record_id << '\n'
+                  << "signatures: " << checkpoint.value().signatures.size() << '\n';
+        for (const auto& signature : checkpoint.value().signatures) {
+            std::cout << "signer service: " << signature.signer_service_id << '\n'
+                      << "signer key: " << signature.signer_key_id << '\n';
+        }
+        std::cout << "history schema: " << history.value().storage_schema() << '\n'
+                  << "caller pinned: true\n"
+                  << "checkpoint verified: true\n"
                   << "runtime executable: false\n";
         return 0;
     }
@@ -203,6 +270,11 @@ int main(int argc, char** argv) {
                   << (trust_bundle.value().parent_id().empty() ? "-" : trust_bundle.value().parent_id())
                   << '\n'
                   << "keys: " << trust_bundle.value().keys().size() << '\n';
+        std::cout << "rotation minimum signatures: "
+                  << trust_bundle.value().rotation_policy().minimum_signatures << '\n'
+                  << "rotation distinct services: "
+                  << (trust_bundle.value().rotation_policy().require_distinct_services ? "true" : "false")
+                  << '\n';
         for (const auto& key : trust_bundle.value().keys()) {
             std::cout << "key: " << key.id << '\n'
                       << "  service: " << key.service_id << '\n'

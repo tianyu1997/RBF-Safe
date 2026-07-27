@@ -21,7 +21,8 @@
 namespace rbfsafe {
 namespace {
 
-constexpr std::size_t kHistorySchema = 1;
+constexpr std::size_t kLegacyHistorySchema = 1;
+constexpr std::size_t kCurrentHistorySchema = 2;
 constexpr std::size_t kMaximumIdentifierBytes = 256;
 constexpr std::size_t kMaximumStringBytes = 4096;
 
@@ -117,17 +118,19 @@ Result<std::uint64_t> decimal_field(const internal::Json& object, std::string_vi
     return result;
 }
 
-Result<void> require_schema(const internal::Json& object, std::string_view expected_format) {
+Result<std::size_t> document_schema(const internal::Json& object, std::string_view expected_format) {
     auto format = string_field(object, "format", 128);
     auto schema = integer_field(object, "schema", 1000);
     auto library_version = string_field(object, "library_version", 128);
     if (!format || !schema || !library_version)
-        return Result<void>::failure(StatusCode::CorruptData, "service trust-history document is incomplete");
-    if (format.value() != expected_format || schema.value() != kHistorySchema) {
-        return Result<void>::failure(StatusCode::IncompatibleFormat,
-                                     "unsupported service trust-history schema");
+        return Result<std::size_t>::failure(StatusCode::CorruptData,
+                                            "service trust-history document is incomplete");
+    if (format.value() != expected_format ||
+        (schema.value() != kLegacyHistorySchema && schema.value() != kCurrentHistorySchema)) {
+        return Result<std::size_t>::failure(StatusCode::IncompatibleFormat,
+                                            "unsupported service trust-history schema");
     }
-    return Result<void>::success();
+    return schema.value();
 }
 
 internal::Json authorization_json(const ServiceTrustBundleAuthorization& authorization) {
@@ -183,34 +186,102 @@ Result<ServiceTrustBundleAuthorization> decode_authorization(const internal::Jso
     return result;
 }
 
-internal::Json record_json(const ServiceTrustRotationRecord& record) {
+internal::Json authorization_set_json(const ServiceTrustBundleAuthorizationSet& authorization_set) {
+    internal::Json::Array authorizations;
+    authorizations.reserve(authorization_set.authorizations.size());
+    for (const auto& authorization : authorization_set.authorizations)
+        authorizations.emplace_back(authorization_json(authorization));
     return internal::Json::Object{
-        {"authorization",
-         record.authorization ? authorization_json(*record.authorization) : internal::Json(nullptr)},
+        {"authorizations", std::move(authorizations)},
+        {"format", "rbfsafe-service-trust-bundle-authorization-set"},
+        {"id", authorization_set.id},
+        {"predecessor_bundle_id", authorization_set.predecessor_bundle_id},
+        {"predecessor_sequence", std::to_string(authorization_set.predecessor_sequence)},
+        {"schema", 1},
+        {"successor_bundle_id", authorization_set.successor_bundle_id},
+        {"successor_sequence", std::to_string(authorization_set.successor_sequence)},
+    };
+}
+
+Result<ServiceTrustBundleAuthorizationSet> decode_authorization_set(const internal::Json& object) {
+    auto format = string_field(object, "format", 128);
+    auto schema = integer_field(object, "schema", 1000);
+    auto id = string_field(object, "id", 64);
+    auto predecessor_bundle_id = string_field(object, "predecessor_bundle_id", 64);
+    auto successor_bundle_id = string_field(object, "successor_bundle_id", 64);
+    auto predecessor_sequence = decimal_field(object, "predecessor_sequence");
+    auto successor_sequence = decimal_field(object, "successor_sequence");
+    const auto* authorizations = object.is_object() ? object.find("authorizations") : nullptr;
+    if (!format || !schema || !id || !predecessor_bundle_id || !successor_bundle_id ||
+        !predecessor_sequence || !successor_sequence || authorizations == nullptr ||
+        !authorizations->is_array() || format.value() != "rbfsafe-service-trust-bundle-authorization-set" ||
+        schema.value() != 1) {
+        return Result<ServiceTrustBundleAuthorizationSet>::failure(
+            StatusCode::CorruptData, "service trust-bundle authorization set is incomplete");
+    }
+    ServiceTrustBundleAuthorizationSet result;
+    result.id = std::move(id).value();
+    result.predecessor_bundle_id = std::move(predecessor_bundle_id).value();
+    result.successor_bundle_id = std::move(successor_bundle_id).value();
+    result.predecessor_sequence = predecessor_sequence.value();
+    result.successor_sequence = successor_sequence.value();
+    result.authorizations.reserve(authorizations->as_array().size());
+    for (const auto& item : authorizations->as_array()) {
+        auto authorization = decode_authorization(item);
+        if (!authorization)
+            return authorization.error();
+        result.authorizations.push_back(std::move(authorization).value());
+    }
+    if (!valid_service_trust_bundle_authorization_set(result)) {
+        return Result<ServiceTrustBundleAuthorizationSet>::failure(
+            StatusCode::CorruptData, "service trust-bundle authorization-set identity is invalid", result.id);
+    }
+    return result;
+}
+
+internal::Json record_json(const ServiceTrustRotationRecord& record) {
+    auto object = internal::Json::Object{
         {"bundle_id", record.bundle_id},
         {"format", "rbfsafe-service-trust-rotation-record"},
         {"id", record.id},
         {"library_version", kVersion},
         {"parent_id", record.parent_id},
-        {"schema", static_cast<double>(kHistorySchema)},
+        {"schema", static_cast<double>(record.storage_schema)},
         {"sequence", std::to_string(record.sequence)},
         {"type", static_cast<int>(record.type)},
     };
+    if (record.storage_schema >= 2) {
+        object.emplace("authorization_set", record.authorization_set
+                                                ? authorization_set_json(*record.authorization_set)
+                                                : internal::Json(nullptr));
+    } else {
+        object.emplace("authorization", record.authorization ? authorization_json(*record.authorization)
+                                                             : internal::Json(nullptr));
+    }
+    return object;
 }
 
 bool valid_record_structure(const ServiceTrustRotationRecord& record) {
+    if (record.storage_schema != kLegacyHistorySchema && record.storage_schema != kCurrentHistorySchema)
+        return false;
+    const bool no_authorization = !record.authorization && !record.authorization_set;
     const bool root = record.sequence == 1 && record.type == ServiceTrustRotationEventType::RootPinned &&
-                      record.parent_id.empty() && !record.authorization;
-    const bool successor = record.sequence > 1 &&
-                           record.type == ServiceTrustRotationEventType::SuccessorAuthorized &&
-                           internal::valid_sha256(record.parent_id) && record.authorization.has_value();
-    return (root || successor) && internal::valid_sha256(record.id) &&
+                      record.parent_id.empty() && no_authorization;
+    const bool legacy_successor = record.storage_schema == kLegacyHistorySchema && record.sequence > 1 &&
+                                  record.type == ServiceTrustRotationEventType::SuccessorAuthorized &&
+                                  internal::valid_sha256(record.parent_id) &&
+                                  record.authorization.has_value() && !record.authorization_set;
+    const bool current_successor = record.storage_schema == kCurrentHistorySchema && record.sequence > 1 &&
+                                   record.type == ServiceTrustRotationEventType::SuccessorAuthorized &&
+                                   internal::valid_sha256(record.parent_id) && !record.authorization &&
+                                   record.authorization_set.has_value();
+    return (root || legacy_successor || current_successor) && internal::valid_sha256(record.id) &&
            internal::valid_sha256(record.bundle_id) &&
            internal::service_trust_rotation_record_identity(record) == record.id;
 }
 
 Result<ServiceTrustRotationRecord> decode_record(const internal::Json& document) {
-    auto schema = require_schema(document, "rbfsafe-service-trust-rotation-record");
+    auto schema = document_schema(document, "rbfsafe-service-trust-rotation-record");
     if (!schema)
         return schema.error();
     auto sequence = decimal_field(document, "sequence");
@@ -220,21 +291,31 @@ Result<ServiceTrustRotationRecord> decode_record(const internal::Json& document)
                               static_cast<std::size_t>(ServiceTrustRotationEventType::SuccessorAuthorized));
     auto bundle_id = string_field(document, "bundle_id", 64);
     const auto* authorization = document.is_object() ? document.find("authorization") : nullptr;
-    if (!sequence || !id || !parent_id || !type || !bundle_id || authorization == nullptr) {
+    const auto* authorization_set = document.is_object() ? document.find("authorization_set") : nullptr;
+    if (!sequence || !id || !parent_id || !type || !bundle_id ||
+        (schema.value() == kLegacyHistorySchema && authorization == nullptr) ||
+        (schema.value() == kCurrentHistorySchema && authorization_set == nullptr)) {
         return Result<ServiceTrustRotationRecord>::failure(StatusCode::CorruptData,
                                                            "service trust-rotation record is incomplete");
     }
     ServiceTrustRotationRecord result;
+    result.storage_schema = static_cast<std::uint32_t>(schema.value());
     result.sequence = sequence.value();
     result.id = std::move(id).value();
     result.parent_id = std::move(parent_id).value();
     result.type = static_cast<ServiceTrustRotationEventType>(type.value());
     result.bundle_id = std::move(bundle_id).value();
-    if (!authorization->is_null()) {
+    if (authorization != nullptr && !authorization->is_null()) {
         auto decoded = decode_authorization(*authorization);
         if (!decoded)
             return decoded.error();
         result.authorization = std::move(decoded).value();
+    }
+    if (authorization_set != nullptr && !authorization_set->is_null()) {
+        auto decoded = decode_authorization_set(*authorization_set);
+        if (!decoded)
+            return decoded.error();
+        result.authorization_set = std::move(decoded).value();
     }
     if (!valid_record_structure(result)) {
         return Result<ServiceTrustRotationRecord>::failure(
@@ -255,35 +336,42 @@ std::string bundle_filename(const ServiceTrustBundle& bundle) {
     return stream.str();
 }
 
-internal::Json manifest_payload(const std::string& root_bundle_id) {
+internal::Json manifest_payload(const std::string& root_bundle_id, std::uint32_t storage_schema) {
     return internal::Json::Object{
         {"format", "rbfsafe-service-trust-history"},
         {"root_bundle_id", root_bundle_id},
-        {"schema", static_cast<double>(kHistorySchema)},
+        {"schema", static_cast<double>(storage_schema)},
     };
 }
 
-internal::Json manifest_json(const std::string& root_bundle_id) {
-    auto payload = manifest_payload(root_bundle_id);
+internal::Json manifest_json(const std::string& root_bundle_id, std::uint32_t storage_schema) {
+    auto payload = manifest_payload(root_bundle_id, storage_schema);
     auto object = payload.as_object();
     object.emplace("identity", internal::sha256(payload.dump(false)));
     object.emplace("library_version", kVersion);
     return object;
 }
 
-Result<std::string> decode_manifest(const internal::Json& document) {
-    auto schema = require_schema(document, "rbfsafe-service-trust-history");
+struct DecodedManifest {
+    std::uint32_t storage_schema = 0;
+    std::string root_bundle_id;
+};
+
+Result<DecodedManifest> decode_manifest(const internal::Json& document) {
+    auto schema = document_schema(document, "rbfsafe-service-trust-history");
     if (!schema)
         return schema.error();
     auto root_bundle_id = string_field(document, "root_bundle_id", 64);
     auto identity = string_field(document, "identity", 64);
     if (!root_bundle_id || !identity || !internal::valid_sha256(root_bundle_id.value()) ||
         !internal::valid_sha256(identity.value()) ||
-        identity.value() != internal::sha256(manifest_payload(root_bundle_id.value()).dump(false))) {
-        return Result<std::string>::failure(StatusCode::CorruptData,
-                                            "service trust-history manifest identity is invalid");
+        identity.value() != internal::sha256(manifest_payload(root_bundle_id.value(),
+                                                              static_cast<std::uint32_t>(schema.value()))
+                                                 .dump(false))) {
+        return Result<DecodedManifest>::failure(StatusCode::CorruptData,
+                                                "service trust-history manifest identity is invalid");
     }
-    return root_bundle_id.value();
+    return DecodedManifest{static_cast<std::uint32_t>(schema.value()), std::move(root_bundle_id).value()};
 }
 
 Result<void> write_immutable_file(const std::filesystem::path& destination, const std::string& content) {
@@ -355,8 +443,8 @@ class DirectoryLock {
 
 bool valid_history_options(const ServiceTrustHistoryLoadOptions& options) {
     return options.maximum_bundles > 0 && options.maximum_keys_per_bundle > 0 &&
-           options.maximum_total_keys > 0 && options.maximum_metadata_bytes > 0 &&
-           options.maximum_bundle_bytes > 0;
+           options.maximum_total_keys > 0 && options.maximum_signatures_per_rotation > 0 &&
+           options.maximum_metadata_bytes > 0 && options.maximum_bundle_bytes > 0;
 }
 
 bool real_directory(const std::filesystem::path& path, std::error_code& error) {
@@ -367,27 +455,39 @@ bool real_directory(const std::filesystem::path& path, std::error_code& error) {
 } // namespace
 
 bool ServiceTrustHistory::valid() const {
-    if (bundles_.empty() || bundles_.size() != records_.size() || !internal::valid_sha256(root_bundle_id_) ||
+    if ((storage_schema_ != kLegacyHistorySchema && storage_schema_ != kCurrentHistorySchema) ||
+        bundles_.empty() || bundles_.size() != records_.size() || !internal::valid_sha256(root_bundle_id_) ||
         current_bundle_id_ != bundles_.back().id() || root_bundle_id_ != bundles_.front().id()) {
         return false;
     }
     for (std::size_t index = 0; index < bundles_.size(); ++index) {
         const auto& bundle_value = bundles_[index];
         const auto& record = records_[index];
-        if (!bundle_value.valid() || bundle_value.storage_schema() < 2 ||
+        const auto expected_bundle_schema = storage_schema_ == kLegacyHistorySchema ? 2U : 3U;
+        if (!bundle_value.valid() || bundle_value.storage_schema() != expected_bundle_schema ||
             bundle_value.sequence() != index + 1 || record.sequence != index + 1 ||
-            record.bundle_id != bundle_value.id() || !valid_record_structure(record)) {
+            record.storage_schema != storage_schema_ || record.bundle_id != bundle_value.id() ||
+            !valid_record_structure(record)) {
             return false;
         }
         if (index == 0) {
             if (record.type != ServiceTrustRotationEventType::RootPinned || !record.parent_id.empty() ||
-                record.authorization)
+                record.authorization || record.authorization_set)
                 return false;
-        } else {
+        } else if (storage_schema_ == kLegacyHistorySchema) {
             if (record.type != ServiceTrustRotationEventType::SuccessorAuthorized ||
                 record.parent_id != records_[index - 1].id || !record.authorization ||
+                record.authorization_set ||
                 !verify_service_trust_bundle_successor(bundles_[index - 1], bundle_value,
                                                        *record.authorization)) {
+                return false;
+            }
+        } else {
+            if (record.type != ServiceTrustRotationEventType::SuccessorAuthorized ||
+                record.parent_id != records_[index - 1].id || record.authorization ||
+                !record.authorization_set ||
+                !verify_service_trust_bundle_successor(bundles_[index - 1], bundle_value,
+                                                       *record.authorization_set)) {
                 return false;
             }
         }
@@ -400,8 +500,8 @@ Result<ServiceTrustHistory> ServiceTrustHistory::create(const std::filesystem::p
                                                         const std::string& expected_root_bundle_id) {
     const ServiceTrustHistoryLoadOptions default_options;
     if (directory.empty() || directory == directory.root_path() || !root_bundle.valid() ||
-        root_bundle.storage_schema() < 2 || root_bundle.sequence() != 1 ||
-        !internal::valid_sha256(expected_root_bundle_id)) {
+        (root_bundle.storage_schema() != 2 && root_bundle.storage_schema() != 3) ||
+        root_bundle.sequence() != 1 || !internal::valid_sha256(expected_root_bundle_id)) {
         return Result<ServiceTrustHistory>::failure(StatusCode::InvalidArgument,
                                                     "service trust-history creation input is invalid");
     }
@@ -435,7 +535,11 @@ Result<ServiceTrustHistory> ServiceTrustHistory::create(const std::filesystem::p
         }
     }
 
+    const auto history_schema = root_bundle.storage_schema() >= 3
+                                    ? static_cast<std::uint32_t>(kCurrentHistorySchema)
+                                    : static_cast<std::uint32_t>(kLegacyHistorySchema);
     ServiceTrustRotationRecord root_record;
+    root_record.storage_schema = history_schema;
     root_record.sequence = 1;
     root_record.type = ServiceTrustRotationEventType::RootPinned;
     root_record.bundle_id = root_bundle.id();
@@ -466,8 +570,8 @@ Result<ServiceTrustHistory> ServiceTrustHistory::create(const std::filesystem::p
     auto written = internal::write_text_file(temporary / "records" / record_filename(root_record),
                                              record_json(root_record).dump(true) + "\n");
     if (written) {
-        written = internal::write_text_file(temporary / "manifest.json",
-                                            manifest_json(root_bundle.id()).dump(true) + "\n");
+        written = internal::write_text_file(
+            temporary / "manifest.json", manifest_json(root_bundle.id(), history_schema).dump(true) + "\n");
     }
     if (!written) {
         cleanup();
@@ -482,6 +586,7 @@ Result<ServiceTrustHistory> ServiceTrustHistory::create(const std::filesystem::p
 
     ServiceTrustHistory result;
     result.directory_ = directory;
+    result.storage_schema_ = history_schema;
     result.root_bundle_id_ = root_bundle.id();
     result.current_bundle_id_ = root_bundle.id();
     result.bundles_.push_back(root_bundle);
@@ -513,10 +618,10 @@ Result<ServiceTrustHistory> ServiceTrustHistory::open(const std::filesystem::pat
     auto stored_root = decode_manifest(manifest.value());
     if (!stored_root)
         return stored_root.error();
-    if (stored_root.value() != expected_root_bundle_id) {
+    if (stored_root.value().root_bundle_id != expected_root_bundle_id) {
         return Result<ServiceTrustHistory>::failure(
             StatusCode::IdentityMismatch, "service trust-history root does not match the caller pin",
-            stored_root.value());
+            stored_root.value().root_bundle_id);
     }
 
     const auto records_directory = directory / "records";
@@ -561,6 +666,12 @@ Result<ServiceTrustHistory> ServiceTrustHistory::open(const std::filesystem::pat
             auto record = decode_record(document.value());
             if (!record)
                 return record.error();
+            if (record.value().authorization_set && record.value().authorization_set->authorizations.size() >
+                                                        options.maximum_signatures_per_rotation) {
+                return Result<ServiceTrustHistory>::failure(
+                    StatusCode::ResourceLimit, "service trust-history authorization count exceeds limit",
+                    record.value().id);
+            }
             decoded.emplace_back(filename, std::move(record).value());
         } else if (filename.find(".tmp-") == std::string::npos) {
             return Result<ServiceTrustHistory>::failure(
@@ -583,7 +694,8 @@ Result<ServiceTrustHistory> ServiceTrustHistory::open(const std::filesystem::pat
 
     ServiceTrustHistory result;
     result.directory_ = directory;
-    result.root_bundle_id_ = stored_root.value();
+    result.storage_schema_ = stored_root.value().storage_schema;
+    result.root_bundle_id_ = stored_root.value().root_bundle_id;
     result.options_ = options;
     std::size_t total_keys = 0;
     ServiceTrustBundleLoadOptions bundle_options;
@@ -596,8 +708,9 @@ Result<ServiceTrustHistory> ServiceTrustHistory::open(const std::filesystem::pat
         }
         const auto& filename = decoded[index].first;
         const auto& record = decoded[index].second;
-        if (record.sequence != index + 1 || filename != record_filename(record) ||
-            (index == 0 && (record.bundle_id != stored_root.value() ||
+        if (record.storage_schema != result.storage_schema_ || record.sequence != index + 1 ||
+            filename != record_filename(record) ||
+            (index == 0 && (record.bundle_id != stored_root.value().root_bundle_id ||
                             record.type != ServiceTrustRotationEventType::RootPinned)) ||
             (index > 0 && (record.parent_id != decoded[index - 1].second.id ||
                            record.type != ServiceTrustRotationEventType::SuccessorAuthorized))) {
@@ -618,7 +731,9 @@ Result<ServiceTrustHistory> ServiceTrustHistory::open(const std::filesystem::pat
         auto bundle_value = ServiceTrustBundle::load(bundle_path, bundle_options);
         if (!bundle_value)
             return bundle_value.error();
-        if (bundle_value.value().storage_schema() < 2 || bundle_value.value().sequence() != record.sequence ||
+        const auto expected_bundle_schema = result.storage_schema_ == kLegacyHistorySchema ? 2U : 3U;
+        if (bundle_value.value().storage_schema() != expected_bundle_schema ||
+            bundle_value.value().sequence() != record.sequence ||
             bundle_value.value().id() != record.bundle_id) {
             return Result<ServiceTrustHistory>::failure(StatusCode::CorruptData,
                                                         "service trust-history bundle identity is invalid",
@@ -630,13 +745,20 @@ Result<ServiceTrustHistory> ServiceTrustHistory::open(const std::filesystem::pat
         }
         total_keys += bundle_value.value().keys().size();
         if (index > 0) {
-            if (!record.authorization) {
-                return Result<ServiceTrustHistory>::failure(
-                    StatusCode::CorruptData, "service trust-history successor lacks authorization",
-                    record.id);
-            }
-            auto verified = verify_service_trust_bundle_successor(
-                result.bundles_.back(), bundle_value.value(), *record.authorization);
+            Result<void> verified =
+                result.storage_schema_ == kLegacyHistorySchema
+                    ? (record.authorization
+                           ? verify_service_trust_bundle_successor(
+                                 result.bundles_.back(), bundle_value.value(), *record.authorization)
+                           : Result<void>::failure(StatusCode::CorruptData,
+                                                   "service trust-history successor lacks authorization",
+                                                   record.id))
+                    : (record.authorization_set
+                           ? verify_service_trust_bundle_successor(
+                                 result.bundles_.back(), bundle_value.value(), *record.authorization_set)
+                           : Result<void>::failure(StatusCode::CorruptData,
+                                                   "service trust-history successor lacks authorization set",
+                                                   record.id));
             if (!verified)
                 return verified.error();
         }
@@ -682,7 +804,39 @@ Result<ServiceTrustRotationRecord>
 ServiceTrustHistory::publish(const ServiceTrustBundle& successor,
                              const ServiceTrustBundleAuthorization& authorization,
                              const std::string& expected_head_bundle_id, std::size_t maximum_bundles) {
-    if (!valid() || !successor.valid() || !valid_service_trust_bundle_authorization(authorization) ||
+    if (storage_schema_ == kCurrentHistorySchema) {
+        auto current = current_bundle();
+        if (!current)
+            return current.error();
+        auto authorization_set =
+            assemble_service_trust_bundle_authorizations(current.value(), successor, {authorization});
+        if (!authorization_set)
+            return authorization_set.error();
+        return publish_impl(successor, std::nullopt, std::move(authorization_set).value(),
+                            expected_head_bundle_id, maximum_bundles);
+    }
+    return publish_impl(successor, authorization, std::nullopt, expected_head_bundle_id, maximum_bundles);
+}
+
+Result<ServiceTrustRotationRecord>
+ServiceTrustHistory::publish(const ServiceTrustBundle& successor,
+                             const ServiceTrustBundleAuthorizationSet& authorization_set,
+                             const std::string& expected_head_bundle_id, std::size_t maximum_bundles) {
+    return publish_impl(successor, std::nullopt, authorization_set, expected_head_bundle_id, maximum_bundles);
+}
+
+Result<ServiceTrustRotationRecord>
+ServiceTrustHistory::publish_impl(const ServiceTrustBundle& successor,
+                                  std::optional<ServiceTrustBundleAuthorization> authorization,
+                                  std::optional<ServiceTrustBundleAuthorizationSet> authorization_set,
+                                  const std::string& expected_head_bundle_id, std::size_t maximum_bundles) {
+    const bool valid_legacy_authorization = storage_schema_ == kLegacyHistorySchema && authorization &&
+                                            !authorization_set &&
+                                            valid_service_trust_bundle_authorization(*authorization);
+    const bool valid_current_authorization = storage_schema_ == kCurrentHistorySchema && !authorization &&
+                                             authorization_set &&
+                                             valid_service_trust_bundle_authorization_set(*authorization_set);
+    if (!valid() || !successor.valid() || (!valid_legacy_authorization && !valid_current_authorization) ||
         !internal::valid_sha256(expected_head_bundle_id) || maximum_bundles == 0) {
         return Result<ServiceTrustRotationRecord>::failure(
             StatusCode::InvalidArgument, "service trust-history publication input is invalid");
@@ -709,6 +863,11 @@ ServiceTrustHistory::publish(const ServiceTrustBundle& successor,
         return Result<ServiceTrustRotationRecord>::failure(
             StatusCode::ResourceLimit, "service trust-history successor exceeds configured bundle limits");
     }
+    if (authorization_set &&
+        authorization_set->authorizations.size() > options_.maximum_signatures_per_rotation) {
+        return Result<ServiceTrustRotationRecord>::failure(
+            StatusCode::ResourceLimit, "service trust-history authorization count exceeds configured limit");
+    }
     std::size_t total_keys = 0;
     for (const auto& item : fresh.value().bundles_) {
         if (item.keys().size() > options_.maximum_total_keys - total_keys) {
@@ -721,17 +880,22 @@ ServiceTrustHistory::publish(const ServiceTrustBundle& successor,
         return Result<ServiceTrustRotationRecord>::failure(
             StatusCode::ResourceLimit, "service trust-history total key count exceeds limit");
     }
-    auto verified =
-        verify_service_trust_bundle_successor(fresh.value().bundles_.back(), successor, authorization);
+    Result<void> verified =
+        storage_schema_ == kLegacyHistorySchema
+            ? verify_service_trust_bundle_successor(fresh.value().bundles_.back(), successor, *authorization)
+            : verify_service_trust_bundle_successor(fresh.value().bundles_.back(), successor,
+                                                    *authorization_set);
     if (!verified)
         return verified.error();
 
     ServiceTrustRotationRecord record;
+    record.storage_schema = storage_schema_;
     record.sequence = successor.sequence();
     record.parent_id = fresh.value().records_.back().id;
     record.type = ServiceTrustRotationEventType::SuccessorAuthorized;
     record.bundle_id = successor.id();
-    record.authorization = authorization;
+    record.authorization = std::move(authorization);
+    record.authorization_set = std::move(authorization_set);
     record.id = internal::service_trust_rotation_record_identity(record);
     if (!valid_record_structure(record)) {
         return Result<ServiceTrustRotationRecord>::failure(

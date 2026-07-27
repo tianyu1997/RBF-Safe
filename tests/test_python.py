@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.8.0"
+    assert rbfsafe.__version__ == "3.9.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -1268,6 +1268,38 @@ def test_public_service_identity_and_offline_verification(
         fixed_history.records[1].authorization.id
         == "68debbfc4156e5c829d641e5b9ed4aeab04174454d655d5558783f81fc8711d3"
     )
+    fixed_schema3_bundle = rbfsafe.ServiceTrustBundle.load(
+        data_root / "service_trust_bundle_schema3" / "bundle.json"
+    )
+    assert fixed_schema3_bundle.storage_schema == 3
+    assert (
+        fixed_schema3_bundle.id
+        == "e9126145264ac126845b17db5db782a43a4816d5d4ca3a9d4f9462d874e7b89b"
+    )
+    assert fixed_schema3_bundle.rotation_policy.minimum_signatures == 2
+    assert fixed_schema3_bundle.rotation_policy.require_distinct_services
+    fixed_checkpoint = rbfsafe.ServiceTrustCheckpoint.load(
+        data_root / "service_trust_checkpoint_schema1" / "checkpoint.json"
+    )
+    assert (
+        fixed_checkpoint.id
+        == "9cbf2bfad11354201ec0eb79dd1f11cf78925e4ea917cc3a7e5d15f6307a2e24"
+    )
+    fixed_quorum_history = rbfsafe.ServiceTrustHistory.open(
+        data_root / "service_trust_history_schema2",
+        fixed_schema3_bundle.id,
+        fixed_checkpoint,
+        fixed_checkpoint.id,
+    )
+    assert fixed_quorum_history.storage_schema == 2
+    assert (
+        fixed_quorum_history.current_bundle_id
+        == "d31c074a89a038167c34b1a65934186c0696aff196165dbdac67d0839cd34fb6"
+    )
+    assert (
+        fixed_quorum_history.records[1].authorization_set.id
+        == "ee8d89a646c7b3acb4d94c7f321ad6dcdfc96a2347a62ff1d0c17e8b4df61870"
+    )
     fixed_journal = rbfsafe.ArtifactTransferJournal.load(
         data_root / "artifact_transfer_journal_schema2"
     )
@@ -1329,6 +1361,140 @@ def test_public_service_identity_and_offline_verification(
     journal_output = capsys.readouterr().out
     assert "RBF-Safe artifact-transfer-journal schema=2" in journal_output
     assert f"trust_bundle={bundle.id}" in journal_output
+
+
+def test_quorum_rotation_and_signed_checkpoint(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pair_a = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+    pair_b = rbfsafe.ed25519_key_pair_from_seed(bytes(range(33, 65)))
+    key_a = rbfsafe.make_service_public_key(
+        "rotation-a",
+        pair_a.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        False,
+        True,
+    )
+    key_b = rbfsafe.make_service_public_key(
+        "rotation-b",
+        pair_b.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        False,
+        True,
+    )
+    policy = rbfsafe.ServiceTrustRotationPolicy()
+    policy.minimum_signatures = 2
+    policy.require_distinct_services = True
+    assert rbfsafe.valid_service_trust_rotation_policy(policy)
+    root = rbfsafe.ServiceTrustBundle.create_with_rotation_policy(
+        1, "", [key_b, key_a], policy
+    )
+    assert root.storage_schema == 3
+    assert root.rotation_policy.minimum_signatures == 2
+    successor = rbfsafe.rotate_service_trust_bundle(root, list(root.keys))
+    authorization_a = rbfsafe.authorize_service_trust_bundle_successor(
+        root, successor, key_a.service_id, key_a.id, pair_a.secret_key
+    )
+    authorization_b = rbfsafe.authorize_service_trust_bundle_successor(
+        root, successor, key_b.service_id, key_b.id, pair_b.secret_key
+    )
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.verify_service_trust_bundle_successor(
+            root, successor, authorization_a
+        )
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.assemble_service_trust_bundle_authorizations(
+            root, successor, [authorization_a]
+        )
+    authorization_set = rbfsafe.assemble_service_trust_bundle_authorizations(
+        root, successor, [authorization_b, authorization_a]
+    )
+    assert rbfsafe.valid_service_trust_bundle_authorization_set(authorization_set)
+    assert authorization_set.authorizations[0].signer_service_id == "rotation-a"
+    rbfsafe.verify_service_trust_bundle_successor(
+        root, successor, authorization_set
+    )
+
+    history_path = tmp_path / "quorum-history"
+    history = rbfsafe.ServiceTrustHistory.create(history_path, root, root.id)
+    assert history.storage_schema == 2
+    record = history.publish(successor, authorization_set, root.id)
+    assert record.storage_schema == 2
+    assert record.authorization is None
+    assert len(record.authorization_set.authorizations) == 2
+
+    signature_a = rbfsafe.sign_service_trust_checkpoint(
+        history, key_a.service_id, key_a.id, pair_a.secret_key
+    )
+    signature_b = rbfsafe.sign_service_trust_checkpoint(
+        history, key_b.service_id, key_b.id, pair_b.secret_key
+    )
+    assert rbfsafe.valid_service_trust_checkpoint_signature(signature_a)
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.assemble_service_trust_checkpoint(history, [signature_a])
+    checkpoint = rbfsafe.assemble_service_trust_checkpoint(
+        history, [signature_b, signature_a]
+    )
+    assert checkpoint.valid()
+    assert checkpoint.signatures[0].signer_service_id == "rotation-a"
+    rbfsafe.verify_service_trust_checkpoint(history, checkpoint, checkpoint.id)
+
+    checkpoint_path = tmp_path / "trust-checkpoint.json"
+    checkpoint.save(checkpoint_path)
+    loaded = rbfsafe.ServiceTrustCheckpoint.load(checkpoint_path)
+    assert loaded.id == checkpoint.id
+    reopened = rbfsafe.ServiceTrustHistory.open(
+        history_path, root.id, loaded, loaded.id
+    )
+    assert reopened.current_bundle_id == successor.id
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.ServiceTrustHistory.open(
+            history_path, root.id, loaded, "f" * 64
+        )
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(history_path),
+                "--expected-trust-root",
+                root.id,
+                "--trust-checkpoint",
+                str(checkpoint_path),
+                "--expected-trust-checkpoint",
+                checkpoint.id,
+            ]
+        )
+        == 0
+    )
+    history_output = capsys.readouterr().out
+    assert "service-trust-history schema=2" in history_output
+    assert "authorization_set=" in history_output
+    assert "checkpoint_verified=true" in history_output
+    assert (
+        main(
+            [
+                str(checkpoint_path),
+                "--expected-trust-root",
+                root.id,
+                "--trust-history",
+                str(history_path),
+                "--expected-trust-checkpoint",
+                checkpoint.id,
+            ]
+        )
+        == 0
+    )
+    checkpoint_output = capsys.readouterr().out
+    assert "service-trust-checkpoint schema=1" in checkpoint_output
+    assert "signatures=2" in checkpoint_output
+    assert "checkpoint_verified=true" in checkpoint_output
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
