@@ -93,6 +93,16 @@ or anchors, duplicate/insufficient approvals, overflow, load budgets,
 symlinks, unknown schema, truncation, and tampering. Confirm the session
 remains `Unknown` and non-authorizing and only an exact closed-window command
 returns non-open-ended `RuntimeExecutable`.
+Run the execution-ledger C++/Python examples and fixed fixture through both
+inspectors. Verify expected-head exclusion, strict authorization/completion
+order, duplicate/skip rejection, independently signed controller outcomes,
+late-completion expiration, cancellation while awaiting completion, every
+exact dependency-revocation kind, automatic current-checkpoint reviewer-key
+revocation, checkpoint rollback/fork rejection, observation-time monotonicity,
+offline replay, abandoned temporary tolerance, symlink rejection, unknown
+schema, truncation, tamper, count/byte/signature limits, and cancellation.
+Confirm ledger/summary/audit evidence remains `Unknown`; only the returned
+exact command decision may contain non-open-ended `RuntimeExecutable`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below

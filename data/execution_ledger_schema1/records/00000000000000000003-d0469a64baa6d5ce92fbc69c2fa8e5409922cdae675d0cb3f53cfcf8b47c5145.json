@@ -1,0 +1,43 @@
+{
+  "authorization": {
+    "command_digest": "e0e8b6730ee6194cf0c7d48d2a9310342d6062b242dfa8b553d57635a5b88813",
+    "command_index": "1",
+    "command_sequence_id": "b3a0b42b11eb19031ee6a6ceeffa4c94b896d00f46451452b8b1b6229e346b5c",
+    "dispatch_monotonic_ns": "1050001",
+    "evidence": 4,
+    "id": "abeec6daded08752060325c4faeb027d62f9500ef20995aa3ce393535630fa29",
+    "session_id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+    "valid_from_monotonic_ns": "1050000",
+    "valid_through_monotonic_ns": "1070000"
+  },
+  "completion": null,
+  "detail": "",
+  "format": "rbfsafe-execution-ledger-record",
+  "id": "d0469a64baa6d5ce92fbc69c2fa8e5409922cdae675d0cb3f53cfcf8b47c5145",
+  "identity": "25a552db0d5b0f16177d24732703dc39d28a37b3bf4957e3836a66e891a12477",
+  "ledger_id": "f19c91b8f7788471691ac4d6a09861ee08188c9993e21861ad13e25e9cf99aa5",
+  "library_version": "3.12.0",
+  "observed_monotonic_ns": "1050001",
+  "parent_id": "67f22c0aafba7392506e736af81203141cd79aa3ee83a68bd09573963306a66f",
+  "revocation": null,
+  "schema": 1,
+  "sequence": "3",
+  "session_id": "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df",
+  "trust_checkpoint": {
+    "head_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+    "head_record_id": "591923a4f5de28ff57576864734082cdd015e47c1ee0a42009ce00bc7e036a75",
+    "head_sequence": "1",
+    "id": "3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01",
+    "root_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+    "signatures": [
+      {
+        "algorithm": 1,
+        "authentication_tag": "45bddad9908e3aa26dddbe92b113874ab949ce42a3497387b91b3822ebd7009f4facd61328e3c74af9bd524bdfbff044bc5ab8d7841b9ef1f77a1ea478a0570b",
+        "signer_key_id": "0210bd021b84e3385a2591efabec72310b6988cf32249dcc3c5543cb87921d4c",
+        "signer_service_id": "execution-trust-governance"
+      }
+    ],
+    "storage_schema": 1
+  },
+  "type": 1
+}

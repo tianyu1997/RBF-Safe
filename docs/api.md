@@ -39,10 +39,23 @@ custom `RegionValidator` must attach one valid conservative workspace AABB per
 robot link to every `CertifiedFree` result; schema-2 Atlas construction rejects
 incomplete dependencies. Corridor and Atlas route APIs issue
 `CertifiedConnectivity` only for explicit cell/witness subjects. Safe IK pose
-convergence remains `PointChecked`. In v3.11 only an exact command returned by
-a fully verified `BoundedExecutionSession::authorize_command` can carry
-`RuntimeExecutable`; the session and every upstream artifact remain lower
-evidence.
+convergence remains `PointChecked`. An exact command returned by a fully
+verified `BoundedExecutionSession::authorize_command`, or by the ordered 3.12
+`ExecutionLedger::authorize_command`, can carry `RuntimeExecutable`; the
+session, ledger, summary, audit report, and every upstream artifact remain
+lower evidence.
+
+## Revocation-aware execution ledger
+
+Include `<rbfsafe/execution_ledger.h>` and link `RBFSafe::execution`.
+`ExecutionLedger` persists strict command authorization/completion order with
+an expected record head. Each authorization revalidates a caller-pinned
+current trust checkpoint and the original reviewer keys. Signed controller
+completion, cancellation, closed-session expiration, and exact
+profile/Atlas/scene/endpoint/reviewer/checkpoint revocations are immutable
+records. `audit` replays the session, checkpoints, signatures, record chain,
+and derived terminal state offline. See
+[the schema-1 format and safety contract](execution-ledger-format.md).
 
 ## Reviewed deployment profiles
 

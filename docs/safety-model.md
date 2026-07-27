@@ -321,13 +321,24 @@ It can issue `RuntimeExecutable` only for one exact command/configuration and
 one closed caller-supplied monotonic dispatch window. The session itself
 remains `Unknown`.
 
+The v3.12 ledger can additionally prove that exact command authorizations were
+issued once, in sequence, under stored signed current checkpoints; that each
+next command followed an exact controller-signed completion; and that
+caller-reported cancellation, expiration, and dependency revocation events
+formed a single append-only expected-head history. It can detect an original
+reviewer key becoming inactive in the caller-supplied current trust bundle and
+fail closed by recording a terminal revocation. Ledger state and offline audit
+remain `Unknown`; only one returned exact command authorization is
+`RuntimeExecutable`.
+
 This does not prove that an endpoint key belongs to physical hardware, that
 the clock or observation is trustworthy, that a command was transmitted or
 executed, that tracking remained inside the certified geometry, or that the
-scene/profile/keys were not revoked after session creation. Those are
-application and deployment safety responsibilities.
+scene/profile/keys were not revoked unless the caller supplies authenticated
+current state to the ledger. Those are application and deployment safety
+responsibilities.
 
-## Explicit exclusions in v3.11
+## Explicit exclusions in v3.12
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -343,7 +354,8 @@ application and deployment safety responsibilities.
 - Pose tolerances, MoveIt callback acceptance, and trajectory coverage do not
   certify dynamics, controller tracking, or runtime execution.
 - `contains`, `connected`, Safe IK, MoveIt plugin acceptance, a reviewed
-  profile, and a bounded session are not runtime-execution approvals.
+  profile, a bounded session, ledger state, and ledger audit are not
+  runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic

@@ -105,20 +105,20 @@
   conformant/nonconformant assessments; CLI verification; and fixed
   cross-platform fixtures. All output remains `Unknown` evidence and cannot
   authorize actuation.
-- **v3.11 (current) - Bounded execution sessions:** exact reviewed-profile,
+- **v3.11 - Bounded execution sessions:** exact reviewed-profile,
   trust-checkpoint/head, Atlas, re-audited trajectory/route, command schedule,
   reviewer, controller, and independent runtime-monitor binding; bounded
   schema-1 persistence; C++/Python/CLI tooling; fixed fixtures; and
   `RuntimeExecutable` evidence only for one exact command/configuration inside
   one closed monotonic window. The session itself remains `Unknown` and is
   never an open-ended permit.
-- **v3.12 candidate - Revocation-aware execution ledger:** append-only,
+- **v3.12 (current) - Revocation-aware execution ledger:** append-only,
   expected-head session/command-authorization history; current-checkpoint
   revalidation before each authorization; explicit expiration, cancellation,
   and key/profile/scene revocation records; independently attested controller
   completion observations; and offline audit without adding hardware I/O.
-- **later v3.x:** transparency-backed deployment anchors and independently
-  attested runtime observation sources.
+- **v3.13 candidate:** transparency-backed deployment anchors and
+  independently attested runtime observation sources.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 

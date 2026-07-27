@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.11.0"
+    assert rbfsafe.__version__ == "3.12.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -1916,6 +1916,58 @@ def test_bounded_execution_session(
     )
     assert loaded.id == session.id
 
+    ledger_path = tmp_path / "execution-ledger"
+    ledger = rbfsafe.ExecutionLedger.create(ledger_path, session)
+    dispatch_times = (1_000_000, 1_050_001, 1_100_000)
+    completion_times = (1_000_005, 1_050_005, 1_100_000)
+    for index, configuration in enumerate(configurations):
+        decision = ledger.authorize_command(
+            session,
+            reviewed,
+            history,
+            checkpoint,
+            checkpoint.id,
+            atlas,
+            index,
+            configuration,
+            dispatch_times[index],
+            ledger.current_record_id,
+        )
+        assert decision.valid()
+        assert decision.authorization is not None
+        assert decision.authorizes_execution
+        assert decision.evidence == rbfsafe.EvidenceLevel.RUNTIME_EXECUTABLE
+        completion_input = rbfsafe.ExecutionControllerCompletionInput()
+        completion_input.outcome = rbfsafe.ExecutionCompletionOutcome.COMPLETED
+        completion_input.completed_monotonic_ns = completion_times[index]
+        completion_input.result_digest = str(index + 1) * 64
+        completion = rbfsafe.sign_execution_controller_completion(
+            session,
+            decision.authorization,
+            completion_input,
+            controller_pair.secret_key,
+        )
+        assert completion.valid()
+        rbfsafe.verify_execution_controller_completion(
+            session, decision.authorization, completion
+        )
+        ledger.record_completion(
+            session,
+            reviewed,
+            history,
+            atlas,
+            completion,
+            ledger.current_record_id,
+        )
+    assert ledger.summary.status == rbfsafe.ExecutionLedgerStatus.COMPLETED
+    assert not ledger.summary.authorizes_execution
+    ledger_audit = ledger.audit(session, reviewed, history, atlas)
+    assert ledger_audit.valid()
+    assert ledger_audit.verified_records == 7
+    assert ledger_audit.verified_checkpoints == 3
+    assert ledger_audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not ledger_audit.authorizes_execution
+
     from rbfsafe.cli import main
 
     common = [
@@ -1958,6 +2010,33 @@ def test_bounded_execution_session(
     assert "command_authorized=true" in exact_output
     assert "command_evidence=runtime_executable" in exact_output
     assert "command_open_ended=false" in exact_output
+    assert (
+        main(
+            [
+                str(ledger_path),
+                "--execution-session",
+                str(session_path),
+                "--reviewed-profile",
+                str(reviewed_path),
+                "--execution-atlas",
+                str(atlas_path),
+                "--trust-history",
+                str(history_path),
+                "--trust-checkpoint",
+                str(checkpoint_path),
+                "--expected-trust-root",
+                bundle.id,
+                "--expected-trust-checkpoint",
+                checkpoint.id,
+            ]
+        )
+        == 0
+    )
+    ledger_output = capsys.readouterr().out
+    assert "execution-ledger schema=1" in ledger_output
+    assert "status=completed records=7 authorizations=3 completions=3" in ledger_output
+    assert "audit_evidence=unknown" in ledger_output
+    assert "runtime_executable=false" in ledger_output
 
     fixture_root = (
         Path(__file__).resolve().parents[1]
@@ -1993,6 +2072,27 @@ def test_bounded_execution_session(
         == "62647c557ba9dad576c9ce3035ffe496fe0c224f91432d5b290586c09e6be2df"
     )
     assert not fixed_session.authorizes_execution
+    fixed_ledger = rbfsafe.ExecutionLedger.open(
+        Path(__file__).resolve().parents[1] / "data" / "execution_ledger_schema1",
+        fixed_session,
+        fixed_reviewed,
+        fixed_history,
+        fixed_atlas,
+    )
+    assert (
+        fixed_ledger.id
+        == "f19c91b8f7788471691ac4d6a09861ee08188c9993e21861ad13e25e9cf99aa5"
+    )
+    assert (
+        fixed_ledger.current_record_id
+        == "ef269da4406e26a5aa7621af1ca3095392fe1ca84b2327b86804024ee2a0437b"
+    )
+    assert (
+        fixed_ledger.audit(
+            fixed_session, fixed_reviewed, fixed_history, fixed_atlas
+        ).status
+        == rbfsafe.ExecutionLedgerStatus.COMPLETED
+    )
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

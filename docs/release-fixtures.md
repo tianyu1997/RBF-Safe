@@ -187,6 +187,22 @@ It contains no private key. The session is synthetic `Unknown` evidence, not
 deployment authority; tests obtain `RuntimeExecutable` only for the fixture's
 exact second command inside its stored closed window.
 
+`data/execution_ledger_schema1` is the fixed RBF-Safe 3.12 completed ledger
+for that exact bounded-session fixture. Its ledger ID and final record ID are
+respectively
+`f19c91b8f7788471691ac4d6a09861ee08188c9993e21861ad13e25e9cf99aa5`
+and
+`ef269da4406e26a5aa7621af1ca3095392fe1ca84b2327b86804024ee2a0437b`.
+The seven immutable records contain one root, three exact command
+authorizations with signed trust checkpoints, and three controller-signed
+successful completions. Tests replay the exact session, Atlas, profile,
+history, checkpoints, authorizations, completion signatures, parent chain,
+resource limits, C++/Python/native inspection, and cross-platform schema-1
+loading. It contains no private key, trustworthy-clock claim, controller
+tracking evidence, or deployment authority. The ledger and audit are
+`Unknown`; only each historical exact authorization was
+`RuntimeExecutable` inside its closed window.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -225,3 +241,11 @@ The reviewed RBF-Safe 3.11 cross-platform logical digest is recorded in
 additionally covers a complete bounded execution session and one exact
 closed-window command authorization per case. Sessions remain non-authorizing
 `Unknown` evidence.
+
+The reviewed RBF-Safe 3.12 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `50d8f3d1d579721a`. It
+additionally covers one completed expected-head execution ledger per case,
+including two ordered exact authorizations, two controller-signed completions,
+and two current-checkpoint revalidations. Only deterministic discrete counts
+enter the digest; ledger/audit state remains non-authorizing `Unknown`
+evidence.

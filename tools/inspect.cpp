@@ -41,6 +41,10 @@ bool is_bounded_execution_session(const std::filesystem::path& path) {
     return bounded_file_contains(path, "\"rbfsafe-bounded-execution-session\"", 67'108'864);
 }
 
+bool is_execution_ledger(const std::filesystem::path& path) {
+    return bounded_file_contains(path / "manifest.json", "\"rbfsafe-execution-ledger\"");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -55,8 +59,74 @@ int main(int argc, char** argv) {
                      "<expected-root> <checkpoint> <expected-checkpoint>\n"
                   << "       rbfsafe-inspect <bounded-execution-session> <reviewed-profile> "
                      "<atlas> <trust-history> <expected-root> <checkpoint> "
+                     "<expected-checkpoint>\n"
+                  << "       rbfsafe-inspect <execution-ledger> <bounded-execution-session> "
+                     "<reviewed-profile> <atlas> <trust-history> <expected-root> <checkpoint> "
                      "<expected-checkpoint>\n";
         return 2;
+    }
+    if (is_execution_ledger(std::filesystem::path(argv[1]))) {
+        if (argc != 9) {
+            std::cerr << "execution-ledger inspection requires bounded session, reviewed profile, "
+                         "Atlas, trust history, expected root, checkpoint, and expected checkpoint ID\n";
+            return 2;
+        }
+        auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[7]));
+        if (!checkpoint) {
+            std::cerr << checkpoint.error().describe() << '\n';
+            return 1;
+        }
+        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[5]), argv[6],
+                                                          checkpoint.value(), argv[8]);
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        auto reviewed = rbfsafe::ReviewedDeploymentProfile::load(
+            std::filesystem::path(argv[3]), history.value(), checkpoint.value(), argv[8]);
+        if (!reviewed) {
+            std::cerr << reviewed.error().describe() << '\n';
+            return 1;
+        }
+        auto atlas = rbfsafe::SafeAtlas::load(std::filesystem::path(argv[4]));
+        if (!atlas) {
+            std::cerr << atlas.error().describe() << '\n';
+            return 1;
+        }
+        auto session = rbfsafe::BoundedExecutionSession::load(std::filesystem::path(argv[2]),
+                                                              reviewed.value(), history.value(),
+                                                              checkpoint.value(), argv[8], atlas.value());
+        if (!session) {
+            std::cerr << session.error().describe() << '\n';
+            return 1;
+        }
+        auto ledger = rbfsafe::ExecutionLedger::open(std::filesystem::path(argv[1]), session.value(),
+                                                     reviewed.value(), history.value(), atlas.value());
+        if (!ledger) {
+            std::cerr << ledger.error().describe() << '\n';
+            return 1;
+        }
+        auto audit = ledger.value().audit(session.value(), reviewed.value(), history.value(), atlas.value());
+        if (!audit) {
+            std::cerr << audit.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe execution ledger\n"
+                  << "schema: 1\n"
+                  << "ledger: " << ledger.value().id() << '\n'
+                  << "session: " << ledger.value().session_id() << '\n'
+                  << "head: " << ledger.value().current_record_id() << '\n'
+                  << "status: " << rbfsafe::execution_ledger_status_name(audit.value().status) << '\n'
+                  << "records: " << audit.value().verified_records << '\n'
+                  << "authorizations: " << audit.value().authorization_count << '\n'
+                  << "completions: " << audit.value().completion_count << '\n'
+                  << "verified checkpoints: " << audit.value().verified_checkpoints << '\n'
+                  << "latest checkpoint: "
+                  << (audit.value().latest_checkpoint_id.empty() ? "-" : audit.value().latest_checkpoint_id)
+                  << '\n'
+                  << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_bounded_execution_session(std::filesystem::path(argv[1]))) {
         if (argc != 8) {

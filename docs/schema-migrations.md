@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.11 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.12 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.11 |
+| Format | Read | Write | Migration in 3.12 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -26,6 +26,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Service trust checkpoint | 1 | 1 | New signed anchor; no head or root is inferred from older artifacts |
 | Reviewed deployment profile | 1 | 1 | New signed governance artifact; no deployment ID or review text is upgraded implicitly |
 | Bounded execution session | 1 | 1 | New exact-session artifact; no profile, trajectory, acknowledgement, clock, or execution authority is inferred |
+| Execution ledger | 1 | 1 | New append-only exact-session history; no command progress, revocation, completion, or current checkpoint is inferred |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -62,7 +63,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.11 remain available throughout 3.x.
+- Readers for schemas supported by 3.12 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -170,3 +171,19 @@ limits, required review roles, checkpoint binding, and Ed25519 approval set.
 Create and approve a new profile against an explicitly pinned checkpoint;
 calibration lifecycle text, safety-memory deployment IDs, and trust bundles
 remain unchanged.
+
+Bounded-execution-session schema 1 is specified in
+[Bounded execution sessions](bounded-execution-session-format.md). No earlier
+artifact binds the exact certified command sequence, reviewed profile,
+controller/monitor endpoints, execution-review quorum, signed acknowledgements,
+and closed monotonic session window. Create and approve a new session; no
+profile, route, runtime snapshot, or historical planner output is upgraded
+implicitly.
+
+Execution-ledger schema 1 is specified in
+[Revocation-aware execution ledger](execution-ledger-format.md). A bounded
+session alone has no durable command order, completion history, or current
+checkpoint record. Create a new ledger for that exact validated session and
+append only caller-observed events. No migration invents historical dispatch,
+completion, cancellation, expiration, revocation, checkpoint freshness, or
+physical execution evidence.

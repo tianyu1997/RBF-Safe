@@ -614,3 +614,59 @@ window; the application remains responsible for transmission, tracking,
 device identity, revocation checks, emergency stops, and independent runtime
 monitoring. See
 [bounded execution sessions](bounded-execution-session-format.md).
+
+## 17. Record ordered execution authorization
+
+The bounded-session quickstart also creates a completed `ledger` directory.
+The Python example replays the same synthetic session into another new ledger:
+
+```bash
+python examples/execution_ledger_quickstart.py \
+  session-example new-ledger
+```
+
+For each command, retain the current record ID and pin the newest accepted
+signed trust checkpoint out of band:
+
+```python
+ledger = rbfsafe.ExecutionLedger.create("new-ledger", session)
+decision = ledger.authorize_command(
+    session,
+    reviewed,
+    current_history,
+    current_checkpoint,
+    trusted_current_checkpoint_id,
+    atlas,
+    command.index,
+    command.configuration,
+    caller_monotonic_dispatch_ns,
+    ledger.current_record_id,
+)
+if decision.authorization is None:
+    fail_closed()
+
+completion_input = rbfsafe.ExecutionControllerCompletionInput()
+completion_input.outcome = rbfsafe.ExecutionCompletionOutcome.COMPLETED
+completion_input.completed_monotonic_ns = caller_monotonic_completion_ns
+completion_input.result_digest = caller_result_sha256
+completion = rbfsafe.sign_execution_controller_completion(
+    session,
+    decision.authorization,
+    completion_input,
+    controller_secret_key,
+)
+ledger.record_completion(
+    session,
+    reviewed,
+    current_history,
+    atlas,
+    completion,
+    ledger.current_record_id,
+)
+```
+
+A stale record head, invalid current checkpoint, inactive original reviewer,
+duplicate/out-of-order command, or missing controller completion fails closed.
+The ledger and `ledger.audit(...)` remain `Unknown` and do not prove physical
+execution. See
+[revocation-aware execution ledger](execution-ledger-format.md).

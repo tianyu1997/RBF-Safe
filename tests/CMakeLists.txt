@@ -32,8 +32,20 @@ rbfsafe_add_test(rbfsafe_test_remote test_remote.cpp)
 rbfsafe_add_test(rbfsafe_test_identity test_identity.cpp)
 rbfsafe_add_test(rbfsafe_test_deployment test_deployment.cpp)
 rbfsafe_add_test(rbfsafe_test_execution test_execution.cpp)
+rbfsafe_add_test(rbfsafe_test_execution_ledger test_execution_ledger.cpp)
 
 if(TARGET rbfsafe_inspect)
+    add_test(
+        NAME rbfsafe_execution_ledger_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/execution_ledger_schema1
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/session.json
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/profile.json
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/atlas
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/trust-history
+            3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/checkpoint.json
+            3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01)
     add_test(
         NAME rbfsafe_execution_fixture_inspect
         COMMAND rbfsafe_inspect

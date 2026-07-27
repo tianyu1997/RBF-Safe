@@ -61,12 +61,13 @@ expired session returns no authorization. A successful
 index, supplied dispatch time, closed validity interval, and
 `RuntimeExecutable` evidence. `open_ended()` is always false.
 
-Authorization evaluation is deliberately stateless. It does not record
-command progress, require earlier commands to have been dispatched, or prevent
-the same exact command from being evaluated more than once inside its window.
-The application must enforce single dispatch and ordered progress; a future
-revocation-aware execution ledger is planned to make those decisions
-persistent.
+Authorization evaluation on the session remains deliberately stateless. It
+does not record command progress, require earlier commands to have been
+dispatched, or prevent the same exact command from being evaluated more than
+once inside its window. RBF-Safe 3.12 adds `ExecutionLedger` for callers that
+need persistent single-dispatch ordering, current-checkpoint revalidation,
+signed controller completion, cancellation, expiration, and revocation
+history. See [Revocation-aware execution ledger](execution-ledger-format.md).
 
 The monotonic timestamp domain is supplied by the caller. The observation and
 dispatch values must come from the same trustworthy monotonic clock domain.
@@ -125,9 +126,10 @@ them reports metadata only and creates no command authorization.
 
 RBF-Safe does not send commands, manage actuators, authenticate physical
 devices, attest sensor provenance, measure tracking error, model dynamics,
-guarantee real-time scheduling, synchronize clocks, detect post-creation key
-revocation, track command progress, prevent replay within a command window, or
-monitor scene changes. Applications must fail closed on any
+guarantee real-time scheduling, synchronize clocks, automatically discover
+post-creation key revocation, or monitor scene changes. Direct session
+authorization also does not track progress or prevent replay; use the 3.12
+ledger when those properties are required. Applications must fail closed on any
 changed Atlas, profile, trust anchor, endpoint key, command byte, runtime
 state, clock domain, or expired window and must independently enforce
 controller, monitor, transport, hardware, and emergency-stop policy.
