@@ -22,7 +22,8 @@ Versioning for library releases and versions its on-disk schemas separately.
 - C++, Python, citation, MoveIt package, and downstream requirements advance
   together to 3.5.0. Existing 3.x APIs and storage readers remain available.
 - The release benchmark now exercises an active, stable calibration lifecycle
-  and binds its drift report and parent-linked head into the logical digest.
+  and binds its discrete stable/active outcomes into the logical digest while
+  excluding all transitive floating-point-derived identities.
 
 ## [3.4.0] - 2026-07-23
 

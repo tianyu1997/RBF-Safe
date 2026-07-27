@@ -61,7 +61,10 @@ deterministic
 safety-memory identity/reuse, artifact authentication, fleet coordination and
 archive replay, update, and inheritance outcomes while
 excluding wall-clock time, approximate memory, and
-floating-point-derived certificate IDs. CI compares it with the committed
+floating-point-derived identities, including certificate, calibration,
+memory, attestation, fleet-version, drift-report, and lifecycle-event IDs.
+Their dedicated fixed-format tests verify identity stability independently.
+CI compares the logical outcomes with the committed
 expected digest on every platform instead of applying a machine-dependent
 timing threshold.
 
@@ -113,4 +116,4 @@ C++/Python/native inspection. Its active state is interoperability data, not
 deployment approval or execution evidence.
 
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
-`7711de380cfb2be6`.
+`7fd992c40260981c`.
