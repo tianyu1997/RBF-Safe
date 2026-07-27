@@ -86,6 +86,7 @@ jobs:
         run: >-
           cmake -S . -B build-sanitize -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang
           -DCMAKE_CXX_COMPILER=clang++
           -DRBFSAFE_BUILD_TESTS=ON
           -DRBFSAFE_BUILD_BENCHMARKS=ON
