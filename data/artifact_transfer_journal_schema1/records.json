@@ -1,0 +1,29 @@
+{
+  "format": "rbfsafe-artifact-transfer-records",
+  "records": [
+    {
+      "id": "28a05f88667cf3c46fe2748cc9aff0e4a7aaebd3d267d649d708077536ac74bd",
+      "parent_id": "",
+      "sequence": "1",
+      "transfer": {
+        "artifact_content_digest": "4753e499617943c6b3dfa197752908e793797df2a669c7696ab3e53e534df4bd",
+        "artifact_generation": "1",
+        "artifact_id": "a3ceddd57703af4603663a53062ce1c68876410d85b90fc1a989b06fa5853d0a",
+        "artifact_state": 0,
+        "attestation_id": "447c75983d81f4116c87c90b3420e999403a96059ea092eb80c81f3a07e3db48",
+        "authentication": 1,
+        "id": "c060045892043c6bc9d10a9ddc1a8b223c568fc9a67f00e26715dc2427068718",
+        "media_type": "application/vnd.rbfsafe.atlas",
+        "memory_id": "9f4d9492503ad540db5a7e18ee254496f47ef9775e9e43a7bfa73c42668008c1",
+        "operation": 1,
+        "payload_bytes": "24",
+        "payload_digest": "4753e499617943c6b3dfa197752908e793797df2a669c7696ab3e53e534df4bd",
+        "request_id": "c93d70d3fa1442f2418688603e85871f088c29af0386cac11ed15decf2a3dbf4",
+        "response_id": "4b834295b35eb829c12082bfc96bb12d00d27b2c5f52ed47a0abe6e484500361",
+        "service_id": "artifact-service",
+        "service_sequence": "101"
+      }
+    }
+  ],
+  "schema": 1
+}

@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 
 from . import (
+    ArtifactTransferJournal,
     AtlasUpdater,
     AtlasVersionStore,
     FleetScheduleArchive,
@@ -34,6 +35,8 @@ from . import (
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
     artifact_authentication_algorithm_name,
+    artifact_transfer_authentication_name,
+    artifact_transfer_operation_name,
     fleet_schedule_status_name,
     load_artifact_attestation,
     policy_feedback_label_name,
@@ -456,6 +459,65 @@ def main(argv: list[str] | None = None) -> int:
         store_manifest = {}
     feedback_filters = (args.policy_id, args.task_id, args.episode_id, args.feedback_label)
     memory_filters = (args.deployment_id, args.memory_state, args.artifact_type, args.memory_revision)
+    if manifest.get("format") == "rbfsafe-artifact-transfer-journal":
+        unsupported = (
+            args.plot,
+            args.query,
+            args.trajectory,
+            args.robot,
+            args.scene,
+            args.ik_target,
+            args.seed,
+            args.previous_scene,
+            args.next_scene,
+            args.update_output,
+            args.repair_samples,
+            args.store_version,
+            args.publish_atlas,
+            args.rollback_version,
+            args.policy_id,
+            args.task_id,
+            args.episode_id,
+            args.feedback_label,
+            args.deployment_id,
+            args.memory_state,
+            args.artifact_type,
+            args.memory_revision,
+            args.fleet_schedule_version,
+        )
+        if (
+            any(value is not None for value in unsupported)
+            or args.include_portals
+            or args.include_tubes
+            or args.include_memory_events
+        ):
+            parser.error(
+                "Atlas, memory, fleet, policy, and query options do not apply "
+                "to artifact transfer journals"
+            )
+        journal = ArtifactTransferJournal.load(args.atlas)
+        print("RBF-Safe artifact-transfer-journal schema=1")
+        print(
+            f"records={len(journal.records)} current={journal.current_record_id or '-'} "
+            f"identity={journal.identity}"
+        )
+        if journal.records:
+            record = journal.records[-1]
+            transfer = record.transfer
+            print(
+                f"latest={record.id} sequence={record.sequence} parent={record.parent_id or '-'} "
+                f"operation={artifact_transfer_operation_name(transfer.operation)}"
+            )
+            print(
+                f"transfer={transfer.id} service={transfer.service_id} "
+                f"artifact={transfer.artifact_id} generation={transfer.artifact_generation}"
+            )
+            print(
+                f"payload={transfer.payload_digest} bytes={transfer.payload_bytes} "
+                f"authentication={artifact_transfer_authentication_name(transfer.authentication)}"
+            )
+        print("runtime_executable=false")
+        return 0
     if manifest.get("format") == "rbfsafe-fleet-schedule-archive":
         unsupported = (
             args.plot,

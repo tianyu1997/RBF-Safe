@@ -14,4 +14,5 @@ no source, build, runtime, or data-format dependency on it.
 | HiPaC, portal and OBB code | Re-derived in v0.4 | New OBB enclosure proofs, witness portals, and subject-bound certificates; no legacy planner code |
 | Safe IK concepts and MoveIt bridge | Re-derived in v0.5 | New region-projected solver, Atlas route evidence, and current public MoveIt 2 plugin interfaces |
 | Scene versions, invalidation, and repair concepts | Re-derived in v0.6 | New obstacle-ID deltas, subject-bound lineage, link-envelope dependencies, local LECT repair, and immutable version store |
+| Remote artifact service and transfer audit | New in v3.6 | Transport-neutral exact-byte/lifecycle contract and request-bound authentication; no RapidBoxForest network, cache, or journal code migrated |
 | Experiments, manuscript and generated outputs | Excluded | Remain in RapidBoxForest |

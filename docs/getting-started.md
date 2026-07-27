@@ -251,7 +251,50 @@ HMAC verification proves knowledge of a shared key; it is not a public-key
 signature, non-repudiation, execution approval, or new safety evidence. See
 [authenticated artifact attestations](artifact-attestation.md).
 
-## 11. Persist fleet-schedule history
+## 11. Verify a remote artifact exchange
+
+Remote-transfer records use the exact byte SHA-256, so register a dedicated
+artifact entry when an existing memory record uses a logical content identity:
+
+```python
+import hashlib
+
+payload = Path("artifacts/shelf-atlas.bin").read_bytes()
+remote_input = rbfsafe.MemoryArtifactInput()
+remote_input.type = rbfsafe.MemoryArtifactType.SAFE_ATLAS
+remote_input.deployment_id = "arm-a"
+remote_input.robot_digest = robot.digest
+remote_input.scene_digest = scene.digest
+remote_input.task_id = "shelf-pick-transfer"
+remote_input.content_digest = hashlib.sha256(payload).hexdigest()
+remote_input.locator = "artifacts/shelf-atlas.bin"
+remote_input.evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+remote_artifact = memory.register_artifact(remote_input)
+
+request = rbfsafe.prepare_artifact_publish(
+    memory, remote_artifact.id, payload, "artifact-service", 1,
+    "application/vnd.rbfsafe.atlas",
+)
+# A transport sends request + payload. The service returns and authenticates:
+receipt = rbfsafe.make_artifact_publish_receipt(request, 101)
+receipt = rbfsafe.authenticate_artifact_publish_receipt(
+    receipt, "rotation-2026-07", key
+)
+verified = rbfsafe.verify_artifact_publish(
+    memory, request, receipt, payload, "rotation-2026-07", key
+)
+
+journal = rbfsafe.ArtifactTransferJournal()
+journal.append(verified, "")
+journal.save("artifact-transfer-journal")
+```
+
+The HTTP/message-bus/object-store adapter and key provisioning remain outside
+RBF-Safe. Read the
+[remote artifact service contract](remote-artifact-service.md) before using
+this boundary.
+
+## 12. Persist fleet-schedule history
 
 Publish canonical reservation reports against the exact memory revision used
 to validate their source artifacts:
@@ -270,7 +313,7 @@ Preserve that memory revision if the live catalog is later changed. The
 archive status remains a declared-envelope coordination result, not an
 execution certificate. See [versioned fleet schedules](fleet-schedule-archive.md).
 
-## 12. Apply calibrated policy confidence
+## 13. Apply calibrated policy confidence
 
 Create a profile from reviewed held-out aggregate counts, persist it, then
 require the independently configured model and scope identity at use time:

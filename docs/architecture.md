@@ -8,7 +8,7 @@ RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
           |-> RBFSafe::update
-          |-> RBFSafe::memory -> RBFSafe::trust
+          |-> RBFSafe::memory -> RBFSafe::trust -> RBFSafe::remote
           |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy (+ calibration)
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
@@ -149,6 +149,20 @@ identity, HMAC-SHA256, bounded sidecar I/O, and verification. Shared keys,
 transport, access control, and payload interpretation remain outside the
 module. A successful tag check never changes certificate evidence.
 
+### Remote artifact service boundary
+
+`RBFSafe::remote` depends on the memory and trust layers. It owns deterministic
+fetch/publish request and response values, exact current-memory/lifecycle/byte
+verification, request-bound service HMAC attestations, and the independent
+artifact-transfer-journal schema. It does not parse locators, perform network
+I/O, select endpoints, store keys, retry, or interpret payload formats.
+
+The split is deliberate: transport adapters turn standard-value request and
+response records into HTTPS, message-bus, object-store, or offline exchanges;
+the core verifies the same identities regardless of transport. A verified
+transfer remains metadata below `RuntimeExecutable` and payloads still pass
+through their own validating reader.
+
 ### Python and tools
 
 pybind11 mirrors stable high-level operations and maps error categories to
@@ -247,6 +261,11 @@ components and bind subject digests.
   record. Loading recomputes every drift assessment and replays the complete
   parent chain, but the file is not authenticated and active state is not
   execution evidence.
+- Artifact-transfer-journal schema 1 is a v3.6 compact audit index. Remote
+  verification binds the exact request, response, current memory, artifact
+  lifecycle, service sequence, and payload bytes before append; journal
+  loading verifies integrity and chain continuity but does not re-authenticate
+  a service or retain payloads, tags, or keys.
 - The major-version API-surface snapshot is a source-review gate, not a binary ABI
   description. The release benchmark consumes public APIs and deterministic
   synthetic fixtures; timing and memory estimates are diagnostic and are not

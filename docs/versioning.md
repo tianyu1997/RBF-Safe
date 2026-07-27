@@ -11,7 +11,9 @@ deterministic versioned fleet-schedule archive. Version 3.3 adds symmetric
 artifact attestations and the `RBFSafe::trust` target. Version 3.4 adds
 identity-bound policy-calibration profiles and conservative calibrated gating
 to `RBFSafe::policy`. Version 3.5 adds operational drift reports, a
-parent-linked calibration lifecycle, and expected-head guarded gating.
+parent-linked calibration lifecycle, and expected-head guarded gating. Version
+3.6 adds the transport-neutral `RBFSafe::remote` contract, request-bound
+service authentication, and transfer journals.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
@@ -137,6 +139,13 @@ deterministic parent chain with explicit reviewed transitions, and loading
 replays the complete state machine. It does not alter the profile or feedback
 schemas, authenticate observations or reviewers, or raise evidence.
 
+The v3.6 artifact-transfer-journal schema 1 is an independent bounded
+directory. It stores an append-only identity chain of compact verified
+transfer metadata and omits payloads, authentication tags, and keys. The
+remote verification operation binds exact current memory/lifecycle, request,
+response, service, byte, and HMAC identities before append. Loading the
+journal checks integrity and history, not remote authenticity.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -163,7 +172,7 @@ For identical inputs, options, schema, and library version, region IDs, region
 order, graph structure, certificates, updates, version IDs, and payload bytes
 are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
-calibration-lifecycle fixtures,
+calibration-lifecycle/artifact-transfer-journal fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

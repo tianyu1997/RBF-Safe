@@ -266,7 +266,17 @@ metadata to holders of one shared HMAC key. It does not validate payload
 semantics, elevate evidence, authorize reuse, identify an individual signer,
 or protect keys. Metadata inspection without a verify call remains untrusted.
 
-## Explicit exclusions in v3.5
+The v3.6 remote layer additionally binds a local request and a service
+response/receipt, exact whole-memory identity, lifecycle generation/state,
+payload digest/count, media type, and service sequence. Its transfer HMAC
+prevents a payload-only proof from being presented as acknowledgement of a
+different request. A successful check still proves neither payload semantics
+nor execution safety. Explicit `None` authentication detects accidental
+corruption only; a journal validates its local identity chain but cannot
+independently re-authenticate a service because it intentionally omits
+payloads, tags, and keys.
+
+## Explicit exclusions in v3.6
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -295,15 +305,19 @@ or protect keys. Metadata inspection without a verify call remains untrusted.
   observations, detect arbitrary distribution shift, recalibrate
   state/action uncertainty, schedule monitoring, identify the reviewer, or
   make persisted feedback an online-learning safety guarantee.
-- Memory locators and content digests are caller-provided metadata. Loading a
-  catalog does not fetch, authenticate, decrypt, or revalidate referenced
-  artifacts. Direct `SafetyMemory` object mutation still requires in-process
-  serialization; `SafetyMemoryStore` serializes publication but does not merge
-  concurrent edits or automatically remove a lock left by a crashed writer.
-- Artifact HMAC keys, key rotation, access control, transport security,
-  encryption, remote retrieval, and secret erasure are deployment
-  responsibilities. Shared-key verification is not a public-key signature,
-  non-repudiation, payload certificate, or execution authorization.
+- Memory locators and content digests are caller-provided metadata. The remote
+  API requires its opt-in `content_digest` to equal the exact payload SHA-256,
+  but neither the memory catalog nor transfer journal fetches, decrypts,
+  parses, or semantically revalidates an artifact. Direct `SafetyMemory`
+  object mutation still requires in-process serialization;
+  `SafetyMemoryStore` serializes publication but does not merge concurrent
+  edits or automatically remove a lock left by a crashed writer.
+- Artifact HMAC keys, key rotation, access control, endpoint/redirect policy,
+  TLS, encryption, concrete network I/O, retry semantics, and secret erasure
+  are deployment responsibilities. Shared-key verification is not a
+  public-key signature, non-repudiation, payload certificate, or execution
+  authorization. An explicitly unauthenticated transfer is not safe against
+  malicious substitution.
 - Fleet member envelopes and reservation occupancy are caller-supplied
   conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller

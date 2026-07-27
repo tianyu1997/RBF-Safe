@@ -82,5 +82,6 @@ void bind_policy(py::module_& module);
 void bind_calibration(py::module_& module);
 void bind_memory(py::module_& module);
 void bind_trust(py::module_& module);
+void bind_remote(py::module_& module);
 
 } // namespace rbfsafe::python_binding

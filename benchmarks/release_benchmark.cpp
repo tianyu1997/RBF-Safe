@@ -53,6 +53,8 @@ struct CaseMetrics {
     std::size_t fleet_schedule_checks = 0;
     std::size_t fleet_schedule_versions = 0;
     std::size_t artifact_attestations = 0;
+    std::size_t artifact_transfers = 0;
+    std::size_t artifact_transfer_records = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -443,7 +445,6 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
         memory.record_reuse(memory_artifact.value().id, reuse_query, "release benchmark reuse");
     if (!reuse_recorded)
         return reuse_recorded.error();
-    metrics.memory_artifacts = memory.summary().artifacts;
     metrics.memory_reuses = memory.summary().recorded_reuses;
 
     const std::string authenticated_payload = "release fixture authenticated artifact\n";
@@ -463,6 +464,49 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
                                                      fixture.name);
     }
     metrics.artifact_attestations = 1;
+
+    rbfsafe::MemoryArtifactInput remote_input;
+    remote_input.type = rbfsafe::MemoryArtifactType::SafeAtlas;
+    remote_input.deployment_id = fixture.name + "-robot";
+    remote_input.robot_digest = robot.value().digest();
+    remote_input.scene_digest = scene.value().digest();
+    remote_input.task_id = fixture.name + "-remote-transfer";
+    remote_input.content_digest = "4753e499617943c6b3dfa197752908e793797df2a669c7696ab3e53e534df4bd";
+    remote_input.locator = "fixtures/" + fixture.name + "/remote-atlas";
+    remote_input.evidence = rbfsafe::EvidenceLevel::CertifiedRegion;
+    remote_input.tags = {"release", "remote"};
+    auto remote_artifact = memory.register_artifact(std::move(remote_input));
+    if (!remote_artifact)
+        return remote_artifact.error();
+    const std::string remote_payload = "immutable atlas payload\n";
+    const auto remote_bytes = std::as_bytes(std::span(remote_payload.data(), remote_payload.size()));
+    auto publish_request =
+        rbfsafe::prepare_artifact_publish(memory, remote_artifact.value().id, remote_bytes,
+                                          "release-artifact-service", 1, "application/vnd.rbfsafe.atlas");
+    if (!publish_request)
+        return publish_request.error();
+    auto unsigned_receipt = rbfsafe::make_artifact_publish_receipt(publish_request.value(), 2);
+    if (!unsigned_receipt)
+        return unsigned_receipt.error();
+    auto publish_receipt = rbfsafe::authenticate_artifact_publish_receipt(
+        unsigned_receipt.value(), "release-test-key", authentication_key);
+    if (!publish_receipt)
+        return publish_receipt.error();
+    auto verified_transfer =
+        rbfsafe::verify_artifact_publish(memory, publish_request.value(), publish_receipt.value(),
+                                         remote_bytes, "release-test-key", authentication_key);
+    if (!verified_transfer)
+        return verified_transfer.error();
+    rbfsafe::ArtifactTransferJournal transfer_journal;
+    auto transfer_record = transfer_journal.append(verified_transfer.value(), "");
+    if (!transfer_record || !transfer_journal.valid() || transfer_journal.records().size() != 1) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture remote artifact transfer was inconsistent",
+            fixture.name);
+    }
+    metrics.artifact_transfers = 1;
+    metrics.artifact_transfer_records = transfer_journal.records().size();
+    metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
     auto fleet =
@@ -543,6 +587,10 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.memory_reuses));
     hash_field(logical_hash, "artifact-attestation-verified");
     hash_field(logical_hash, std::to_string(metrics.artifact_attestations));
+    hash_field(logical_hash, "remote-artifact-publish-request-response-authenticated");
+    hash_field(logical_hash, std::to_string(metrics.artifact_transfers));
+    hash_field(logical_hash, "artifact-transfer-journal-valid");
+    hash_field(logical_hash, std::to_string(metrics.artifact_transfer_records));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -570,6 +618,8 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"policy_calibration_lifecycles\":" << item.policy_calibration_lifecycles
                   << ",\"fleet_schedule_versions\":" << item.fleet_schedule_versions
                   << ",\"artifact_attestations\":" << item.artifact_attestations
+                  << ",\"artifact_transfers\":" << item.artifact_transfers
+                  << ",\"artifact_transfer_records\":" << item.artifact_transfer_records
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -589,6 +639,8 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " policy_calibration_lifecycles=" << item.policy_calibration_lifecycles
                   << " fleet_schedule_versions=" << item.fleet_schedule_versions
                   << " artifact_attestations=" << item.artifact_attestations << " build_ms=" << item.build_ms
+                  << " artifact_transfers=" << item.artifact_transfers
+                  << " artifact_transfer_records=" << item.artifact_transfer_records
                   << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
     }
 }

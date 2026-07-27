@@ -45,6 +45,13 @@ wrong-key/service/payload/lifecycle rejection, payload and metadata budgets,
 cancellation, atomic overwrite behavior, fixed fixture identities, and
 metadata-only versus authenticated CLI output. Confirm no secret key appears
 in an installed artifact or committed non-fixture file.
+Run both remote-artifact quickstarts; verify exact-byte digest requirements,
+current-memory/generation/state checks, request/response replay rejection,
+wrong and missing keys, explicit unauthenticated mode, byte/cancellation
+limits, expected journal head, corruption/schema/load-budget failures, fixed
+fixture identities, and native/Python journal inspection. Confirm that no
+transport path, key, payload, or authentication tag is persisted in the
+compact journal.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -76,8 +83,8 @@ memory only as release diagnostics.
 4. Verify release downloads in clean Linux and Windows environments.
 
 Atlas, corridor, region-database, version-store, policy-feedback,
-safety-memory, safety-memory-store, attestation, calibration-profile, or
-calibration-lifecycle schema changes require an independent schema number,
+safety-memory, safety-memory-store, attestation, artifact-transfer-journal,
+calibration-profile, or calibration-lifecycle schema changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
 error. A library version change must never silently reinterpret an existing
 storage schema.

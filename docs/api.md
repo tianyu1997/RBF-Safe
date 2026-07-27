@@ -380,6 +380,32 @@ structure and deterministic identity only; authentication occurs exclusively
 in a verify call with an external key. See
 [authenticated artifact attestations](artifact-attestation.md).
 
+## Remote artifact transfers
+
+Include `<rbfsafe/remote.h>` and link `RBFSafe::remote`.
+`prepare_artifact_fetch` and `prepare_artifact_publish` capture the exact
+whole-memory identity, artifact lifecycle, service, locator, media type,
+resource cap, and expected authentication policy in deterministic requests.
+For this API, the artifact content digest must equal SHA-256 of the exact
+payload bytes.
+
+Service adapters construct a response or receipt with
+`make_artifact_fetch_response` or `make_artifact_publish_receipt`, then apply
+`authenticate_artifact_fetch_response` or
+`authenticate_artifact_publish_receipt`. The transfer attestation HMAC binds
+the request ID, response/receipt ID, operation, service/key identity, artifact,
+payload digest/count, and service sequence. Clients select the expected key
+from trusted configuration and call `verify_artifact_fetch` or
+`verify_artifact_publish`; the verify call rechecks the current memory and
+exact bytes before returning `VerifiedArtifactTransfer`.
+
+`ArtifactTransferJournal::append` requires an expected head and stores compact
+verified-transfer metadata. `save`/`load` use a bounded checksummed schema-1
+directory. Neither a verified transfer nor a journal record parses payload
+semantics or raises evidence. See the
+[remote artifact service contract](remote-artifact-service.md) and
+[journal format](artifact-transfer-journal-format.md).
+
 ## Error model
 
 All expected C++ failures use `Result<T>` with one of `InvalidArgument`,

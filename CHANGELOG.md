@@ -3,6 +3,28 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.6.0] - 2026-07-27
+
+### Added
+
+- Public `RBFSafe::remote` target with deterministic transport-neutral artifact
+  fetch and publish contracts bound to exact safety-memory identity, artifact
+  generation/state, service, locator, media type, payload length, and SHA-256.
+- Request/response-bound HMAC-SHA256 service attestations that prevent an
+  ordinary payload proof from being replayed as acknowledgement of a different
+  remote operation; explicit unauthenticated mode remains visibly weaker.
+- Verified transfer records and expected-head append-only journals with
+  bounded checksummed schema-1 persistence, fixed fixtures, C++/Python APIs,
+  native/Python inspection, and runnable examples.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.6.0. Existing 3.x APIs and storage readers remain available.
+- Remote-transfer-compatible memory artifacts must use the exact payload-byte
+  SHA-256 as `content_digest`; the general memory catalog retains its prior
+  opaque-digest semantics outside this opt-in API.
+
 ## [3.5.0] - 2026-07-27
 
 ### Added

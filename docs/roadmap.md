@@ -63,17 +63,26 @@
   conservative 95% Wilson lower-bound confidence, quality gates, bounded
   schema-1 persistence, and C++/Python/inspection tooling. Statistical
   calibration remains below geometric certificate and execution evidence.
-- **v3.5 (current) - Calibration drift lifecycle:** bounded operational
+- **v3.5 - Calibration drift lifecycle:** bounded operational
   confidence/outcome windows; total-variation, calibration-error, and
   success-drop gates; explicit insufficient/stable/drift reports;
   parent-linked optimistic-concurrency history; automatic fail-closed
   quarantine/pending-review transitions; reviewed activation; replayable
   schema-1 persistence; and exact-head guarded policy gating.
+- **v3.6 (current) - Remote artifact service contract:** deterministic,
+  transport-neutral fetch/publication requests; exact whole-memory, lifecycle,
+  byte-length and SHA-256 binding; request/response-bound HMAC service
+  attestations; explicit unauthenticated mode; verified-transfer metadata;
+  expected-head audit journals; bounded schema-1 persistence; and
+  C++/Python/inspection tooling.
 
 ## Continued product hardening
 
-- **later v3.x:** public-key/remote artifact service adapters and execution
-  evidence only for separately modeled and reviewed deployment profiles.
+- **v3.7 candidate:** public-key service identities, algorithm/key rotation,
+  trust bundles, and offline verification while preserving the v3.6 transfer
+  contract.
+- **later v3.x:** execution evidence only for separately modeled and reviewed
+  deployment profiles.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 

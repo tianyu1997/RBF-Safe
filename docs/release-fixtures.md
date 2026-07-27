@@ -48,9 +48,12 @@ For each case the benchmark:
    artifact;
 9. authenticates fixed payload bytes against that artifact and an external
    test key;
-10. validates a source-bound single-robot fleet reservation, publishes its
+10. publishes a second exact-byte artifact through a request/receipt-bound
+    authenticated remote exchange and appends its verified transfer to a
+    journal;
+11. validates a source-bound single-robot fleet reservation, publishes its
     schedule archive, and replays the stored report; and
-11. advances the scene version, then checks conservative certificate inheritance
+12. advances the scene version, then checks conservative certificate inheritance
    and retained endpoint coverage.
 
 The executable fails on any false-safe point check, identity mismatch,
@@ -58,8 +61,8 @@ uncertified path/action, lost coverage, update failure, or missing inheritance.
 Its `logical_digest` covers canonical fixture identities, discrete counts,
 runtime-shield, learning-policy feedback, calibration and lifecycle,
 deterministic
-safety-memory identity/reuse, artifact authentication, fleet coordination and
-archive replay, update, and inheritance outcomes while
+safety-memory identity/reuse, artifact authentication, remote transfer/journal,
+fleet coordination and archive replay, update, and inheritance outcomes while
 excluding wall-clock time, approximate memory, and
 floating-point-derived identities, including certificate, calibration,
 memory, attestation, fleet-version, drift-report, and lifecycle-event IDs.
@@ -115,5 +118,18 @@ replay, load budgets, exact profile binding, guarded gating, and
 C++/Python/native inspection. Its active state is interoperability data, not
 deployment approval or execution evidence.
 
+`data/artifact_transfer_journal_schema1` is the fixed RBF-Safe 3.6 transfer
+journal fixture. It contains one authenticated synthetic publication bound to
+an exact 24-byte payload, whole-memory identity, request/receipt IDs, service
+sequence, and transfer-attestation ID. Tests verify its fixed journal/transfer
+IDs, checksum, parent chain, load budgets, C++/Python/native inspection, and
+cross-platform schema-1 loading. It contains no key, authentication tag, or
+deployable safety evidence.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
+
+The reviewed RBF-Safe 3.6 cross-platform logical digest is
+`88881d57663cfeaa`. It additionally covers an exact-byte, request-bound
+authenticated publication and a valid one-record transfer journal using only
+discrete cross-platform fields.

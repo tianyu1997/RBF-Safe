@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -8,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.5.0"
+    assert rbfsafe.__version__ == "3.6.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -1010,6 +1011,94 @@ def test_authenticated_artifact_attestation(
         == 0
     )
     assert "verified=true" in capsys.readouterr().out
+
+
+def test_remote_artifact_transfer_and_journal(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = b"immutable atlas payload\n"
+    item = rbfsafe.MemoryArtifactInput()
+    item.type = rbfsafe.MemoryArtifactType.SAFE_ATLAS
+    item.deployment_id = "arm-a"
+    item.robot_digest = "a" * 64
+    item.scene_digest = "b" * 64
+    item.task_id = "shelf-pick"
+    item.content_digest = hashlib.sha256(payload).hexdigest()
+    item.locator = "artifacts/shelf-atlas"
+    item.evidence = rbfsafe.EvidenceLevel.CERTIFIED_REGION
+    memory = rbfsafe.SafetyMemory()
+    artifact = memory.register_artifact(item)
+    key = bytes(range(1, 33))
+
+    publish = rbfsafe.prepare_artifact_publish(
+        memory,
+        artifact.id,
+        payload,
+        "artifact-service",
+        10,
+        "application/vnd.rbfsafe.atlas",
+    )
+    receipt = rbfsafe.make_artifact_publish_receipt(publish, 101)
+    receipt = rbfsafe.authenticate_artifact_publish_receipt(
+        receipt, "service-key-1", key
+    )
+    verified_publish = rbfsafe.verify_artifact_publish(
+        memory, publish, receipt, payload, "service-key-1", key
+    )
+    assert verified_publish.operation == rbfsafe.ArtifactTransferOperation.PUBLISH
+    assert (
+        verified_publish.authentication
+        == rbfsafe.ArtifactTransferAuthentication.HMAC_SHA256
+    )
+
+    fetch = rbfsafe.prepare_artifact_fetch(
+        memory,
+        artifact.id,
+        "artifact-service",
+        11,
+        "application/vnd.rbfsafe.atlas",
+    )
+    response = rbfsafe.make_artifact_fetch_response(fetch, payload, 102)
+    response = rbfsafe.authenticate_artifact_fetch_response(
+        response, "service-key-1", key
+    )
+    verified_fetch = rbfsafe.verify_artifact_fetch(
+        memory, fetch, response, payload, "service-key-1", key
+    )
+    assert verified_fetch.operation == rbfsafe.ArtifactTransferOperation.FETCH
+    assert rbfsafe.valid_verified_artifact_transfer(verified_fetch)
+
+    journal = rbfsafe.ArtifactTransferJournal()
+    first = journal.append(verified_publish, "")
+    second = journal.append(verified_fetch, journal.current_record_id)
+    assert first.sequence == 1
+    assert second.sequence == 2
+    assert second.parent_id == first.id
+    destination = tmp_path / "transfer-journal"
+    journal.save(destination)
+    loaded = rbfsafe.ArtifactTransferJournal.load(destination)
+    assert loaded.identity == journal.identity
+    assert len(loaded.records) == 2
+    assert (
+        rbfsafe.artifact_transfer_operation_name(
+            loaded.records[-1].transfer.operation
+        )
+        == "fetch"
+    )
+    from rbfsafe.cli import main
+
+    assert main([str(destination)]) == 0
+    output = capsys.readouterr().out
+    assert "RBF-Safe artifact-transfer-journal schema=1" in output
+    assert "records=2" in output
+    assert "operation=fetch" in output
+    assert "authentication=hmac_sha256" in output
+    assert "runtime_executable=false" in output
+
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.verify_artifact_fetch(
+            memory, fetch, response, b"altered", "service-key-1", key
+        )
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -2,9 +2,9 @@
 
 ## Supported versions
 
-Until v1.0, security and correctness fixes are provided for the latest tagged
-minor release. Users should reproduce a report against the current `main`
-branch when practical.
+Security and correctness fixes are provided for the latest tagged 3.x minor
+release. Users should reproduce a report against the current `main` branch
+when practical.
 
 ## Private reporting
 
@@ -20,6 +20,9 @@ Include, when available:
 - RBF-Safe version or commit SHA and platform;
 - robot and scene inputs, configuration-space box, and `BuildOptions`;
 - the unexpected certificate, Atlas, or malformed input;
+- for transfer issues, the redacted request/response IDs, lifecycle state,
+  byte counts, service sequence, and authentication mode, but never secret
+  keys;
 - a minimal reproducer and whether the result is deterministic;
 - expected impact and any known deployed use.
 

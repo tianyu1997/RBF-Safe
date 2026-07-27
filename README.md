@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.5
+geometric safety certificates in robot configuration space. Version 3.6
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -54,6 +54,9 @@ Versioned fleet-schedule archives preserve exact memory-bound reservation
 analyses in a deterministic, checksummed history.
 The trust layer authenticates external artifact bytes and exact memory
 lifecycle metadata with caller-managed HMAC-SHA256 keys.
+The remote-artifact layer adds deterministic fetch/publication contracts,
+request-bound service attestations, exact byte/lifecycle verification, and a
+bounded append-only transfer journal while leaving network transport external.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -112,16 +115,19 @@ certificate.
   schedule archives.
 - Public `RBFSafe::trust` symmetric artifact attestations, bounded sidecar
   loading, exact service/key/payload/lifecycle binding, and atomic persistence.
+- Public `RBFSafe::remote` transport-neutral fetch/publish requests, complete
+  exchange HMAC attestations, exact payload/lifecycle checks, resource and
+  cancellation gates, and checksummed schema-1 transfer journals.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated policy inference and metadata,
-continuous-time fleet occupancy proofs, authenticated artifact services,
+continuous-time fleet occupancy proofs, concrete network artifact clients,
 execution guarantees, and legacy RapidBoxForest cache compatibility remain
-outside v3.5. Public-key signatures, TLS, key storage, and network retrieval
-also remain application responsibilities.
+outside v3.6. Public-key signatures, TLS, endpoint/credential policy, key
+storage, and network I/O also remain application responsibilities.
 
 ## Quick start
 
@@ -249,6 +255,7 @@ rbfsafe-inspect policy-feedback --policy-id vla-primary
 rbfsafe-inspect safety-memory --deployment-id arm-a --include-memory-events
 rbfsafe-inspect fleet-schedules --fleet-schedule-version <version-id>
 rbfsafe-inspect artifact.attestation.json  # metadata only; verified=false
+rbfsafe-inspect artifact-transfer-journal
 rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
   --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
 ```
@@ -276,6 +283,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Transactional safety-memory store](docs/safety-memory-store.md)
 - [Versioned fleet-schedule archives](docs/fleet-schedule-archive.md)
 - [Authenticated artifact attestations](docs/artifact-attestation.md)
+- [Remote artifact service contract](docs/remote-artifact-service.md)
+- [Artifact transfer journal schema v1](docs/artifact-transfer-journal-format.md)
 - [OBB corridors, portals, and HiPaC](docs/corridors.md)
 - [Safe IK](docs/safe-ik.md)
 - [MoveIt 2 integration](docs/moveit2.md)

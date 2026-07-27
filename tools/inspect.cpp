@@ -279,6 +279,36 @@ int main(int argc, char** argv) {
             }
             return 0;
         }
+        auto transfer_journal = rbfsafe::ArtifactTransferJournal::load(std::filesystem::path(argv[1]));
+        if (transfer_journal) {
+            if (argc > 2) {
+                std::cerr << "configuration queries do not apply to artifact transfer journals\n";
+                return 2;
+            }
+            std::cout << "RBF-Safe artifact transfer journal\n"
+                      << "schema: 1\n"
+                      << "records: " << transfer_journal.value().records().size() << '\n'
+                      << "current: " << transfer_journal.value().current_record_id() << '\n'
+                      << "identity: " << transfer_journal.value().identity() << '\n';
+            if (!transfer_journal.value().records().empty()) {
+                const auto& record = transfer_journal.value().records().back();
+                std::cout << "latest: " << record.id << '\n'
+                          << "sequence: " << record.sequence << '\n'
+                          << "parent: " << record.parent_id << '\n'
+                          << "operation: "
+                          << rbfsafe::artifact_transfer_operation_name(record.transfer.operation) << '\n'
+                          << "transfer: " << record.transfer.id << '\n'
+                          << "service: " << record.transfer.service_id << '\n'
+                          << "artifact: " << record.transfer.artifact_id << '\n'
+                          << "payload: " << record.transfer.payload_digest << '\n'
+                          << "bytes: " << record.transfer.payload_bytes << '\n'
+                          << "authentication: "
+                          << rbfsafe::artifact_transfer_authentication_name(record.transfer.authentication)
+                          << '\n';
+            }
+            std::cout << "runtime executable: false\n";
+            return 0;
+        }
         auto corridor = rbfsafe::HipacCorridor::load(std::filesystem::path(argv[1]));
         if (!corridor) {
             std::cerr << "Atlas load failed: " << atlas.error().describe() << '\n'
@@ -287,6 +317,8 @@ int main(int argc, char** argv) {
                       << "safety memory load failed: " << memory.error().describe() << '\n'
                       << "safety memory store load failed: " << memory_store.error().describe() << '\n'
                       << "fleet schedule archive load failed: " << schedule_archive.error().describe() << '\n'
+                      << "artifact transfer journal load failed: " << transfer_journal.error().describe()
+                      << '\n'
                       << "corridor load failed: " << corridor.error().describe() << '\n';
             return 1;
         }

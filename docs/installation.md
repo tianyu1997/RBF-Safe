@@ -58,8 +58,8 @@ Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
 targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
 `RBFSafe::update`, `RBFSafe::corridor`, `RBFSafe::ik`, and
 `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`,
-`RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, and
-`RBFSafe::trust` are
+`RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`,
+`RBFSafe::trust`, and `RBFSafe::remote` are
 available when the aggregate target is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
@@ -88,6 +88,11 @@ stores. It depends only on RBF-Safe core targets and is included by
 are never stored by RBF-Safe. Loading an attestation validates its schema and
 deterministic identity; only explicit verification authenticates it.
 
+`RBFSafe::remote` prepares and verifies transport-neutral fetch/publication
+exchanges and persists compact transfer journals. It adds no HTTP, TLS, or
+cloud SDK dependency. Network adapters, endpoints, credentials, and keys
+remain application-owned.
+
 `RBFSafe::policy` also provides policy-calibration profiles and calibrated
 gating. In 3.5 it additionally provides aggregate operational drift
 assessment, a persistent profile lifecycle, and expected-head guarded gating.
@@ -97,6 +102,8 @@ inference, observation collection, review, and dataset governance.
 
 With examples enabled, run `rbfsafe_calibration_lifecycle_quickstart` to
 exercise assessment, activation, persistence, reload, and guarded gating.
+Run `rbfsafe_remote_artifact_quickstart <new-journal-directory>` to exercise a
+request-bound authenticated publication and journal round trip.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

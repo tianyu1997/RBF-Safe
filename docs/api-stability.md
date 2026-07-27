@@ -8,7 +8,9 @@ and its version/load-option records; RBF-Safe 3.3 adds `RBFSafe::trust` and
 artifact-attestation records/functions; RBF-Safe 3.4 additively extends
 `RBFSafe::policy` with calibration profiles and calibrated gating; RBF-Safe
 3.5 adds operational drift reports, profile lifecycle records, persistence,
-and guarded calibrated gating without removing the 3.4 entry point. Public
+and guarded calibrated gating without removing the 3.4 entry point. RBF-Safe
+3.6 adds `RBFSafe::remote`, transport request/response values, service
+attestations, verified transfers, and transfer journals. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
@@ -52,7 +54,7 @@ The following installed target names are stable in 3.x:
 - `RBFSafe::update`, `RBFSafe::ik`, `RBFSafe::corridor`;
 - `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`;
 - `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, `RBFSafe::trust`,
-  and aggregate `RBFSafe::rbfsafe`; and
+  `RBFSafe::remote`, and aggregate `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 
 Every public C++ failure that is part of normal control flow remains a

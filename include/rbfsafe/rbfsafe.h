@@ -14,6 +14,7 @@
 #include <rbfsafe/planning.h>
 #include <rbfsafe/policy.h>
 #include <rbfsafe/region_database.h>
+#include <rbfsafe/remote.h>
 #include <rbfsafe/result.h>
 #include <rbfsafe/safe_ik.h>
 #include <rbfsafe/scene_delta.h>
