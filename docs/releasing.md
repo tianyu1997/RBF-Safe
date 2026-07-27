@@ -84,6 +84,15 @@ unknown schema, truncation and tamper rejection, fixed fixture identities,
 cross-language byte equality, and native/Python inspection. Exercise every
 runtime identity/timing/monitor/transport/artifact violation and confirm all
 assessments remain `Unknown` with `runtime_executable=false`.
+Run the bounded-execution-session quickstart and fixed fixture through C++,
+Python, and CLI readers. Reverify the exact Atlas trajectory/route,
+profile/checkpoint/head, reviewer quorum, controller acknowledgement, armed
+monitor observation, freshness, and time arithmetic. Reject wrong
+configuration/index/time, disarmed or nonconformant observations, wrong keys
+or anchors, duplicate/insufficient approvals, overflow, load budgets,
+symlinks, unknown schema, truncation, and tampering. Confirm the session
+remains `Unknown` and non-authorizing and only an exact closed-window command
+returns non-open-ended `RuntimeExecutable`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below

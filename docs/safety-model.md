@@ -313,7 +313,21 @@ commands, or that the checkpoint is newest unless the caller retains that
 anchor. Review and conformance remain `Unknown` evidence and never authorize
 actuation.
 
-## Explicit exclusions in v3.10
+The v3.11 execution layer can prove that one exact certified command sequence
+was rebound to that reviewed profile, reapproved by its exact reviewer
+identities, accepted by an explicit controller key, and armed by an
+independent monitor key carrying a conformant caller-supplied runtime snapshot.
+It can issue `RuntimeExecutable` only for one exact command/configuration and
+one closed caller-supplied monotonic dispatch window. The session itself
+remains `Unknown`.
+
+This does not prove that an endpoint key belongs to physical hardware, that
+the clock or observation is trustworthy, that a command was transmitted or
+executed, that tracking remained inside the certified geometry, or that the
+scene/profile/keys were not revoked after session creation. Those are
+application and deployment safety responsibilities.
+
+## Explicit exclusions in v3.11
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -328,8 +342,8 @@ actuation.
   Portal intersections and continuous-time portals are not.
 - Pose tolerances, MoveIt callback acceptance, and trajectory coverage do not
   certify dynamics, controller tracking, or runtime execution.
-- `contains`, `connected`, Safe IK, and MoveIt plugin acceptance are not
-  runtime-execution approvals.
+- `contains`, `connected`, Safe IK, MoveIt plugin acceptance, a reviewed
+  profile, and a bounded session are not runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic
@@ -363,6 +377,15 @@ actuation.
   caller-governed declarations. A valid signature proves approval of exact
   bytes, not physical correctness, current freshness, hardware attestation,
   controller compliance, or permission to actuate.
+- An `ExecutionCommandAuthorization` is valid only for its exact stored
+  command bytes and closed monotonic interval. It does not send the command,
+  survive clock-domain changes, permit neighboring configurations, authorize
+  later commands, or remain valid after a dependency is changed or revoked.
+  Authorization evaluation is stateless: it neither proves ordered progress
+  nor prevents repeated evaluation or command replay inside the same window.
+  Controller/monitor endpoint keys and runtime fields are caller inputs;
+  RBF-Safe does not provision devices, attest sensors, read clocks, check
+  tracking, enforce real-time scheduling, or operate an emergency stop.
 - Fleet member envelopes and reservation occupancy are caller-supplied
   conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
   multi-robot geometry, distributed consensus, clock guarantees, or controller

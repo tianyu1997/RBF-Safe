@@ -11,6 +11,7 @@ from . import (
     ArtifactTransferJournal,
     AtlasUpdater,
     AtlasVersionStore,
+    BoundedExecutionSession,
     FleetScheduleArchive,
     HipacCorridor,
     MemoryArtifactState,
@@ -51,6 +52,7 @@ from . import (
     policy_calibration_drift_status_name,
     policy_calibration_lifecycle_state_name,
     deployment_review_role_name,
+    execution_monitor_state_name,
     service_key_state_name,
     service_trust_rotation_event_type_name,
     verify_artifact_file,
@@ -181,6 +183,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="profile JSON required to validate a policy-calibration lifecycle",
     )
     parser.add_argument(
+        "--reviewed-profile",
+        type=Path,
+        help="reviewed deployment profile required to verify an execution session",
+    )
+    parser.add_argument(
+        "--execution-atlas",
+        type=Path,
+        help="SafeAtlas directory required to replay an execution session",
+    )
+    parser.add_argument(
+        "--execution-command-index",
+        type=int,
+        help="exact command index to evaluate in a bounded execution session",
+    )
+    parser.add_argument(
+        "--execution-configuration",
+        nargs="+",
+        type=float,
+        metavar="Q",
+        help="exact command configuration to evaluate",
+    )
+    parser.add_argument(
+        "--dispatch-monotonic-ns",
+        type=int,
+        help="caller-supplied monotonic dispatch time for exact command evaluation",
+    )
+    parser.add_argument(
         "--max-memory-results",
         type=int,
         default=100_000,
@@ -251,12 +280,121 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     file_document: dict[str, object] = {}
     try:
-        if args.atlas.is_file() and args.atlas.stat().st_size <= 1_048_576:
+        if args.atlas.is_file() and args.atlas.stat().st_size <= 67_108_864:
             candidate = json.loads(args.atlas.read_text(encoding="utf-8"))
             if isinstance(candidate, dict):
                 file_document = candidate
     except (OSError, UnicodeError, json.JSONDecodeError):
         pass
+    if file_document.get("format") == "rbfsafe-bounded-execution-session":
+        required = (
+            args.reviewed_profile,
+            args.execution_atlas,
+            args.trust_history,
+            args.trust_checkpoint,
+            args.expected_trust_root,
+            args.expected_trust_checkpoint,
+        )
+        if any(value is None for value in required):
+            parser.error(
+                "execution-session inspection requires --reviewed-profile, "
+                "--execution-atlas, --trust-history, --trust-checkpoint, "
+                "--expected-trust-root, and --expected-trust-checkpoint"
+            )
+        checkpoint = ServiceTrustCheckpoint.load(args.trust_checkpoint)
+        history = ServiceTrustHistory.open(
+            args.trust_history,
+            args.expected_trust_root,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        reviewed = ReviewedDeploymentProfile.load(
+            args.reviewed_profile,
+            history,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        atlas = SafeAtlas.load(args.execution_atlas)
+        session = BoundedExecutionSession.load(
+            args.atlas,
+            reviewed,
+            history,
+            checkpoint,
+            args.expected_trust_checkpoint,
+            atlas,
+        )
+        print(
+            f"RBF-Safe bounded-execution-session schema=1 "
+            f"commands={len(session.command_sequence.commands)} "
+            f"approvals={len(session.approval_set.approvals)}"
+        )
+        print(f"session_id={session.id}")
+        print(f"request_id={session.request.id}")
+        print(f"reviewed_profile={session.request.reviewed_profile_id}")
+        print(f"atlas={session.request.atlas_id}")
+        print(
+            f"controller={session.request.controller.service_id} "
+            f"monitor={session.request.runtime_monitor.service_id}"
+        )
+        print(
+            "monitor_state="
+            + execution_monitor_state_name(
+                session.monitor_acknowledgement.observation.monitor_state
+            )
+        )
+        print(
+            f"valid_from_monotonic_ns={session.valid_from_monotonic_ns} "
+            f"start_deadline_monotonic_ns={session.start_deadline_monotonic_ns} "
+            f"valid_through_monotonic_ns={session.valid_through_monotonic_ns}"
+        )
+        print("session_evidence=unknown")
+        print(
+            "session_authorizes_execution="
+            + str(session.authorizes_execution).lower()
+        )
+        exact_arguments = (
+            args.execution_command_index,
+            args.execution_configuration,
+            args.dispatch_monotonic_ns,
+        )
+        if any(value is not None for value in exact_arguments):
+            if not all(value is not None for value in exact_arguments):
+                parser.error(
+                    "--execution-command-index, --execution-configuration, "
+                    "and --dispatch-monotonic-ns must be used together"
+                )
+            if (
+                args.execution_command_index < 0
+                or args.dispatch_monotonic_ns <= 0
+                or len(args.execution_configuration)
+                != session.command_sequence.dimension
+                or not all(
+                    math.isfinite(value)
+                    for value in args.execution_configuration
+                )
+            ):
+                parser.error("exact execution command input is invalid")
+            authorization = session.authorize_command(
+                args.execution_command_index,
+                args.execution_configuration,
+                args.dispatch_monotonic_ns,
+            )
+            print(
+                "command_authorized="
+                + str(authorization is not None).lower()
+            )
+            if authorization is not None:
+                print(f"command_authorization={authorization.id}")
+                print("command_evidence=runtime_executable")
+                print(
+                    "command_open_ended="
+                    + str(authorization.open_ended).lower()
+                )
+        else:
+            print(
+                "command_authorization_requires_exact_runtime_input=true"
+            )
+        return 0
     attestation_arguments = (
         args.artifact_payload,
         args.attestation_memory,

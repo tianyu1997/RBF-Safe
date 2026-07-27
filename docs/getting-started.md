@@ -554,3 +554,63 @@ insufficient data moves an active lifecycle back to pending review. Stable
 metrics never reactivate it automatically. Persist and inspect the lifecycle
 as described in
 [policy calibration drift and lifecycle](policy-calibration-lifecycle.md).
+
+## 16. Verify a bounded execution session
+
+The complete C++ quickstart creates a synthetic Atlas, public trust history,
+reviewed profile, command sequence, controller/monitor acknowledgements, and
+session in a new directory:
+
+```bash
+cmake -S . -B build -DRBFSAFE_BUILD_EXAMPLES=ON
+cmake --build build --config Release \
+  --target rbfsafe_bounded_execution_session_quickstart
+./build/rbfsafe_bounded_execution_session_quickstart session-example
+```
+
+To load an existing session, callers must supply every external anchor:
+
+```python
+checkpoint = rbfsafe.ServiceTrustCheckpoint.load("checkpoint.json")
+history = rbfsafe.ServiceTrustHistory.open(
+    "trust-history",
+    trusted_root_id,
+    checkpoint,
+    trusted_checkpoint_id,
+)
+reviewed = rbfsafe.ReviewedDeploymentProfile.load(
+    "profile.json",
+    history,
+    checkpoint,
+    trusted_checkpoint_id,
+)
+atlas = rbfsafe.SafeAtlas.load("atlas")
+session = rbfsafe.BoundedExecutionSession.load(
+    "session.json",
+    reviewed,
+    history,
+    checkpoint,
+    trusted_checkpoint_id,
+    atlas,
+)
+
+assert session.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+assert not session.authorizes_execution
+
+authorization = session.authorize_command(
+    command_index,
+    exact_configuration,
+    caller_monotonic_dispatch_ns,
+)
+if authorization is None:
+    fail_closed()
+assert authorization.evidence == rbfsafe.EvidenceLevel.RUNTIME_EXECUTABLE
+assert not authorization.open_ended
+```
+
+The observation and dispatch times must use the same trustworthy monotonic
+clock domain. The returned value covers only that exact command and closed
+window; the application remains responsible for transmission, tracking,
+device identity, revocation checks, emergency stops, and independent runtime
+monitoring. See
+[bounded execution sessions](bounded-execution-session-format.md).

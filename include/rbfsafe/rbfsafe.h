@@ -6,6 +6,7 @@
 #include <rbfsafe/corridor.h>
 #include <rbfsafe/deployment.h>
 #include <rbfsafe/dynamic.h>
+#include <rbfsafe/execution.h>
 #include <rbfsafe/geometry.h>
 #include <rbfsafe/higher_order.h>
 #include <rbfsafe/identity.h>

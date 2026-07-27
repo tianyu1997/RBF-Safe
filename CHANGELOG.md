@@ -3,6 +3,35 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.11.0] - 2026-07-27
+
+### Added
+
+- Public `RBFSafe::execution` target with deterministic command sequences
+  bound to an exact Atlas, continuous trajectory audit, region sequence, and
+  connectivity certificate.
+- Bounded execution requests tied to one reviewed deployment profile and
+  exact trust root/checkpoint/head, explicit controller and runtime-monitor
+  Ed25519 endpoint keys, fresh nonce, and command/start/duration limits.
+- Role-aware execution-session approvals by the exact deployment reviewers,
+  separate signed controller acceptance, and independently signed armed
+  runtime observations with caller-supplied monotonic time.
+- Exact per-command authorization that returns `RuntimeExecutable` only for
+  the signed index/configuration inside one closed latency/session window.
+  Sessions themselves remain `Unknown` and never authorize execution.
+- Bounded atomic schema-1 persistence with complete trust/profile/Atlas
+  replay, C++/Python APIs, CLI verification and exact-command inspection,
+  runnable quickstart, and a fixed public cross-platform fixture.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.11.0. Existing 3.x targets and storage readers remain
+  available and unchanged.
+- The release benchmark now verifies one complete bounded session and exact
+  command authorization per named case and binds only discrete outcomes and
+  counts into the cross-platform logical digest.
+
 ## [3.10.0] - 2026-07-27
 
 ### Added

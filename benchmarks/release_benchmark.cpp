@@ -67,6 +67,10 @@ struct CaseMetrics {
     std::size_t deployment_profile_approvals = 0;
     std::size_t deployment_profile_assessments = 0;
     std::size_t conformant_deployment_profiles = 0;
+    std::size_t execution_sessions = 0;
+    std::size_t execution_session_approvals = 0;
+    std::size_t execution_endpoint_acknowledgements = 0;
+    std::size_t runtime_executable_commands = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -751,6 +755,107 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     metrics.deployment_profile_approvals = deployment_approvals.value().approvals.size();
     metrics.deployment_profile_assessments = 1;
     metrics.conformant_deployment_profiles = 1;
+
+    auto execution_sequence =
+        rbfsafe::ExecutionCommandSequence::create(atlas, {fixture.start, fixture.goal}, {0, 1'000'000});
+    if (!execution_sequence)
+        return execution_sequence.error();
+    std::array<std::byte, rbfsafe::kEd25519SeedBytes> controller_seed{};
+    std::array<std::byte, rbfsafe::kEd25519SeedBytes> monitor_seed{};
+    for (std::size_t index = 0; index < controller_seed.size(); ++index) {
+        controller_seed[index] = static_cast<std::byte>(index + 97);
+        monitor_seed[index] = static_cast<std::byte>(index + 129);
+    }
+    auto controller_key_pair = rbfsafe::ed25519_key_pair_from_seed(controller_seed);
+    auto monitor_key_pair = rbfsafe::ed25519_key_pair_from_seed(monitor_seed);
+    if (!controller_key_pair || !monitor_key_pair) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture execution endpoint keys were inconsistent",
+            fixture.name);
+    }
+    auto controller_endpoint = rbfsafe::make_execution_endpoint_key(
+        fixture.name + "-controller", rbfsafe::ExecutionEndpointRole::Controller,
+        controller_key_pair.value().public_key);
+    auto monitor_endpoint = rbfsafe::make_execution_endpoint_key(
+        fixture.name + "-runtime-monitor", rbfsafe::ExecutionEndpointRole::RuntimeMonitor,
+        monitor_key_pair.value().public_key);
+    if (!controller_endpoint || !monitor_endpoint) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture execution endpoint identities were inconsistent", fixture.name);
+    }
+    rbfsafe::ExecutionSessionRequestInput execution_request_input;
+    execution_request_input.session_nonce = atlas.version_info().id;
+    execution_request_input.controller = controller_endpoint.value();
+    execution_request_input.runtime_monitor = monitor_endpoint.value();
+    execution_request_input.limits.maximum_start_delay_ns = 1'000'000;
+    execution_request_input.limits.maximum_duration_ns = 2'000'000;
+    execution_request_input.limits.maximum_commands = 2;
+    auto execution_request = rbfsafe::ExecutionSessionRequest::create(
+        reviewed_deployment.value(), execution_sequence.value(), execution_request_input);
+    if (!execution_request)
+        return execution_request.error();
+    auto execution_safety_approval = rbfsafe::sign_execution_session_approval(
+        execution_request.value(), safety_approval.value(), successor_key_pair.value().secret_key);
+    auto execution_controls_approval = rbfsafe::sign_execution_session_approval(
+        execution_request.value(), controls_approval.value(), governance_key_pair.value().secret_key);
+    if (!execution_safety_approval || !execution_controls_approval) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture execution review signatures were inconsistent", fixture.name);
+    }
+    auto execution_approvals = rbfsafe::assemble_execution_session_approvals(
+        execution_request.value(), reviewed_deployment.value(),
+        {execution_controls_approval.value(), execution_safety_approval.value()});
+    auto controller_acknowledgement = rbfsafe::sign_execution_controller_acknowledgement(
+        execution_request.value(), controller_key_pair.value().secret_key);
+    if (!execution_approvals || !controller_acknowledgement) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture execution request approval was inconsistent",
+            fixture.name);
+    }
+    rbfsafe::ExecutionRuntimeObservationInput runtime_observation_input;
+    runtime_observation_input.runtime = deployment_snapshot;
+    runtime_observation_input.observation_sequence = 1;
+    runtime_observation_input.observed_monotonic_ns = 1'000'000'000;
+    runtime_observation_input.monitor_state = rbfsafe::ExecutionMonitorState::ArmedCertifiedSequence;
+    auto runtime_observation =
+        rbfsafe::ExecutionRuntimeObservation::create(execution_request.value(), runtime_observation_input);
+    if (!runtime_observation)
+        return runtime_observation.error();
+    auto monitor_acknowledgement = rbfsafe::sign_execution_monitor_acknowledgement(
+        execution_request.value(), runtime_observation.value(), monitor_key_pair.value().secret_key);
+    if (!monitor_acknowledgement)
+        return monitor_acknowledgement.error();
+    auto execution_session = rbfsafe::BoundedExecutionSession::create(
+        execution_request.value(), execution_sequence.value(), execution_approvals.value(),
+        controller_acknowledgement.value(), monitor_acknowledgement.value(), reviewed_deployment.value(),
+        successor_bundle.value(), atlas);
+    if (!execution_session || execution_session.value().authorizes_execution() ||
+        execution_session.value().evidence() != rbfsafe::EvidenceLevel::Unknown) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture bounded execution session was inconsistent",
+            fixture.name);
+    }
+    auto command_authorization = execution_session.value().authorize_command(1, fixture.goal, 1'001'000'000);
+    if (!command_authorization || !command_authorization.value() || !command_authorization.value()->valid() ||
+        command_authorization.value()->evidence != rbfsafe::EvidenceLevel::RuntimeExecutable ||
+        command_authorization.value()->open_ended()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture exact execution command was not authorized",
+            fixture.name);
+    }
+    auto wrong_execution_command =
+        execution_session.value().authorize_command(1, fixture.start, 1'001'000'000);
+    if (!wrong_execution_command || wrong_execution_command.value()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture changed execution command was not rejected",
+            fixture.name);
+    }
+    metrics.execution_sessions = 1;
+    metrics.execution_session_approvals = execution_approvals.value().approvals.size();
+    metrics.execution_endpoint_acknowledgements = 2;
+    metrics.runtime_executable_commands = 1;
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -854,6 +959,12 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.deployment_profile_approvals));
     hash_field(logical_hash, std::to_string(metrics.deployment_profile_assessments));
     hash_field(logical_hash, std::to_string(metrics.conformant_deployment_profiles));
+    hash_field(logical_hash, "bounded-execution-session-verified-but-non-authorizing");
+    hash_field(logical_hash, std::to_string(metrics.execution_sessions));
+    hash_field(logical_hash, std::to_string(metrics.execution_session_approvals));
+    hash_field(logical_hash, std::to_string(metrics.execution_endpoint_acknowledgements));
+    hash_field(logical_hash, "exact-command-runtime-executable-closed-window");
+    hash_field(logical_hash, std::to_string(metrics.runtime_executable_commands));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -893,6 +1004,10 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"deployment_profile_approvals\":" << item.deployment_profile_approvals
                   << ",\"deployment_profile_assessments\":" << item.deployment_profile_assessments
                   << ",\"conformant_deployment_profiles\":" << item.conformant_deployment_profiles
+                  << ",\"execution_sessions\":" << item.execution_sessions
+                  << ",\"execution_session_approvals\":" << item.execution_session_approvals
+                  << ",\"execution_endpoint_acknowledgements\":" << item.execution_endpoint_acknowledgements
+                  << ",\"runtime_executable_commands\":" << item.runtime_executable_commands
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -924,6 +1039,10 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " deployment_profile_approvals=" << item.deployment_profile_approvals
                   << " deployment_profile_assessments=" << item.deployment_profile_assessments
                   << " conformant_deployment_profiles=" << item.conformant_deployment_profiles
+                  << " execution_sessions=" << item.execution_sessions
+                  << " execution_session_approvals=" << item.execution_session_approvals
+                  << " execution_endpoint_acknowledgements=" << item.execution_endpoint_acknowledgements
+                  << " runtime_executable_commands=" << item.runtime_executable_commands
                   << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
     }
 }
