@@ -493,6 +493,246 @@ decode_report(const Json& value, const ContinuousFleetOccupancyBundleLoadOptions
     return result;
 }
 
+Result<TimedWorkspaceAabb> decode_timed_workspace_aabb(const Json& value) {
+    if (!exact_object(value, 2)) {
+        return Result<TimedWorkspaceAabb>::failure(StatusCode::CorruptData,
+                                                   "moving-obstacle waypoint object is invalid");
+    }
+    auto tick = decimal_field(value, "tick");
+    const auto* bounds_json = value.find("bounds");
+    if (!tick || bounds_json == nullptr) {
+        return Result<TimedWorkspaceAabb>::failure(StatusCode::CorruptData,
+                                                   "moving-obstacle waypoint is incomplete");
+    }
+    auto bounds = decode_workspace_aabb(*bounds_json);
+    if (!bounds)
+        return bounds.error();
+    return TimedWorkspaceAabb{tick.value(), bounds.value()};
+}
+
+Result<MovingObstacleOccupancySlice> decode_moving_obstacle_slice(const Json& value) {
+    if (!exact_object(value, 5)) {
+        return Result<MovingObstacleOccupancySlice>::failure(
+            StatusCode::CorruptData, "moving-obstacle occupancy slice object is invalid");
+    }
+    auto id = string_field(value, "id");
+    auto segment = size_field(value, "trajectory_segment_index");
+    auto begin = decimal_field(value, "begin_tick");
+    auto end = decimal_field(value, "end_tick");
+    const auto* bounds_json = value.find("swept_bounds");
+    if (!id || !segment || !begin || !end || bounds_json == nullptr) {
+        return Result<MovingObstacleOccupancySlice>::failure(StatusCode::CorruptData,
+                                                             "moving-obstacle occupancy slice is incomplete");
+    }
+    auto bounds = decode_workspace_aabb(*bounds_json);
+    if (!bounds)
+        return bounds.error();
+    MovingObstacleOccupancySlice result;
+    result.id = std::move(id).value();
+    result.trajectory_segment_index = segment.value();
+    result.begin_tick = begin.value();
+    result.end_tick = end.value();
+    result.swept_bounds = bounds.value();
+    return result;
+}
+
+Result<MovingObstacleOccupancy>
+decode_moving_obstacle_occupancy(const Json& value,
+                                 const ContinuousRobotSceneOccupancyBundleLoadOptions& options,
+                                 std::size_t& total_waypoints, std::size_t& total_slices) {
+    if (!exact_object(value, 10)) {
+        return Result<MovingObstacleOccupancy>::failure(StatusCode::CorruptData,
+                                                        "moving-obstacle occupancy object is invalid");
+    }
+    auto storage = decimal_field(value, "storage_schema");
+    auto id = string_field(value, "id");
+    auto timeline = string_field(value, "timeline_id");
+    auto frame = string_field(value, "workspace_frame_id");
+    auto obstacle = string_field(value, "obstacle_id");
+    auto algorithm = string_field(value, "algorithm");
+    auto algorithm_version = string_field(value, "algorithm_version");
+    auto padding = number_field(value, "obstacle_padding", true);
+    auto trajectory_json = array_field(value, "trajectory", options.maximum_obstacle_input_waypoints);
+    auto slices_json = array_field(value, "slices", options.maximum_obstacle_slices);
+    if (!trajectory_json)
+        return trajectory_json.error();
+    if (!slices_json)
+        return slices_json.error();
+    if (!storage || !id || !timeline || !frame || !obstacle || !algorithm || !algorithm_version || !padding ||
+        !trajectory_json || !slices_json) {
+        return Result<MovingObstacleOccupancy>::failure(StatusCode::CorruptData,
+                                                        "moving-obstacle occupancy is incomplete");
+    }
+    if (storage.value() != 1) {
+        return Result<MovingObstacleOccupancy>::failure(StatusCode::IncompatibleFormat,
+                                                        "moving-obstacle occupancy schema is not supported");
+    }
+    if (trajectory_json.value()->size() < 2 || slices_json.value()->empty()) {
+        return Result<MovingObstacleOccupancy>::failure(
+            StatusCode::CorruptData, "moving-obstacle occupancy has no replayable content");
+    }
+    if (trajectory_json.value()->size() > options.maximum_obstacle_input_waypoints - total_waypoints ||
+        slices_json.value()->size() > options.maximum_obstacle_slices - total_slices) {
+        return Result<MovingObstacleOccupancy>::failure(
+            StatusCode::ResourceLimit, "moving-obstacle records exceed configured aggregate limits");
+    }
+
+    MovingObstacleOccupancy result;
+    result.storage_schema = static_cast<std::uint32_t>(storage.value());
+    result.id = std::move(id).value();
+    result.timeline_id = std::move(timeline).value();
+    result.workspace_frame_id = std::move(frame).value();
+    result.obstacle_id = std::move(obstacle).value();
+    result.algorithm = std::move(algorithm).value();
+    result.algorithm_version = std::move(algorithm_version).value();
+    result.obstacle_padding = padding.value();
+    result.trajectory.reserve(trajectory_json.value()->size());
+    for (const auto& item : *trajectory_json.value()) {
+        if (options.cancellation.cancelled()) {
+            return Result<MovingObstacleOccupancy>::failure(
+                StatusCode::Cancelled, "continuous robot-scene bundle load was cancelled");
+        }
+        auto waypoint = decode_timed_workspace_aabb(item);
+        if (!waypoint)
+            return waypoint.error();
+        result.trajectory.push_back(waypoint.value());
+    }
+    result.slices.reserve(slices_json.value()->size());
+    for (const auto& item : *slices_json.value()) {
+        if (options.cancellation.cancelled()) {
+            return Result<MovingObstacleOccupancy>::failure(
+                StatusCode::Cancelled, "continuous robot-scene bundle load was cancelled");
+        }
+        auto slice = decode_moving_obstacle_slice(item);
+        if (!slice)
+            return slice.error();
+        result.slices.push_back(std::move(slice).value());
+    }
+    total_waypoints += result.trajectory.size();
+    total_slices += result.slices.size();
+    if (!result.valid()) {
+        return Result<MovingObstacleOccupancy>::failure(
+            StatusCode::IdentityMismatch, "moving-obstacle occupancy identity is invalid", result.id);
+    }
+    return result;
+}
+
+Result<ContinuousRobotSceneOccupancyConflict> decode_robot_scene_conflict(const Json& value) {
+    if (!exact_object(value, 10)) {
+        return Result<ContinuousRobotSceneOccupancyConflict>::failure(
+            StatusCode::CorruptData, "continuous robot-scene conflict object is invalid");
+    }
+    auto robot_occupancy = string_field(value, "robot_occupancy_id");
+    auto obstacle_occupancy = string_field(value, "obstacle_occupancy_id");
+    auto robot_slice = string_field(value, "robot_slice_id");
+    auto obstacle_slice = string_field(value, "obstacle_slice_id");
+    auto robot_link = size_field(value, "robot_link_index");
+    auto begin = decimal_field(value, "overlap_begin_tick");
+    auto end = decimal_field(value, "overlap_end_tick");
+    auto reason =
+        enum_field(value, "reason",
+                   static_cast<std::size_t>(ContinuousOccupancyConflictReason::SeparationMarginViolated));
+    auto clearance = number_field(value, "clearance_lower_bound", true);
+    auto margin = number_field(value, "required_margin", true);
+    if (!robot_occupancy || !obstacle_occupancy || !robot_slice || !obstacle_slice || !robot_link || !begin ||
+        !end || !reason || !clearance || !margin) {
+        return Result<ContinuousRobotSceneOccupancyConflict>::failure(
+            StatusCode::CorruptData, "continuous robot-scene conflict is incomplete");
+    }
+    ContinuousRobotSceneOccupancyConflict result;
+    result.robot_occupancy_id = std::move(robot_occupancy).value();
+    result.obstacle_occupancy_id = std::move(obstacle_occupancy).value();
+    result.robot_slice_id = std::move(robot_slice).value();
+    result.obstacle_slice_id = std::move(obstacle_slice).value();
+    result.robot_link_index = robot_link.value();
+    result.overlap_begin_tick = begin.value();
+    result.overlap_end_tick = end.value();
+    result.reason = static_cast<ContinuousOccupancyConflictReason>(reason.value());
+    result.clearance_lower_bound = clearance.value();
+    result.required_margin = margin.value();
+    return result;
+}
+
+Result<ContinuousRobotSceneOccupancyReport>
+decode_robot_scene_report(const Json& value, const ContinuousRobotSceneOccupancyBundleLoadOptions& options) {
+    if (!exact_object(value, 12)) {
+        return Result<ContinuousRobotSceneOccupancyReport>::failure(
+            StatusCode::CorruptData, "continuous robot-scene report object is invalid");
+    }
+    auto id = string_field(value, "id");
+    auto timeline = string_field(value, "timeline_id");
+    auto frame = string_field(value, "workspace_frame_id");
+    auto begin = decimal_field(value, "begin_tick");
+    auto end = decimal_field(value, "end_tick");
+    auto status = enum_field(
+        value, "status", static_cast<std::size_t>(ContinuousRobotSceneOccupancyStatus::PotentialConflict));
+    auto separation = number_field(value, "minimum_separation", true);
+    auto robot_ids = array_field(value, "robot_occupancy_ids", options.maximum_robot_occupancies);
+    auto obstacle_ids = array_field(value, "obstacle_occupancy_ids", options.maximum_obstacle_occupancies);
+    auto conflicts = array_field(value, "conflicts", options.maximum_conflicts);
+    auto slice_evaluations = size_field(value, "slice_pair_evaluations");
+    auto link_evaluations = size_field(value, "link_evaluations");
+    if (!robot_ids)
+        return robot_ids.error();
+    if (!obstacle_ids)
+        return obstacle_ids.error();
+    if (!conflicts)
+        return conflicts.error();
+    if (!id || !timeline || !frame || !begin || !end || !status || !separation || !robot_ids ||
+        !obstacle_ids || !conflicts || !slice_evaluations || !link_evaluations) {
+        return Result<ContinuousRobotSceneOccupancyReport>::failure(
+            StatusCode::CorruptData, "continuous robot-scene report is incomplete");
+    }
+    if (slice_evaluations.value() > options.maximum_slice_pair_evaluations ||
+        link_evaluations.value() > options.maximum_link_evaluations) {
+        return Result<ContinuousRobotSceneOccupancyReport>::failure(
+            StatusCode::ResourceLimit, "continuous robot-scene report exceeds evaluation limits");
+    }
+
+    ContinuousRobotSceneOccupancyReport result;
+    result.id = std::move(id).value();
+    result.timeline_id = std::move(timeline).value();
+    result.workspace_frame_id = std::move(frame).value();
+    result.begin_tick = begin.value();
+    result.end_tick = end.value();
+    result.status = static_cast<ContinuousRobotSceneOccupancyStatus>(status.value());
+    result.minimum_separation = separation.value();
+    result.slice_pair_evaluations = slice_evaluations.value();
+    result.link_evaluations = link_evaluations.value();
+    result.robot_occupancy_ids.reserve(robot_ids.value()->size());
+    for (const auto& item : *robot_ids.value()) {
+        if (!item.is_string() || item.as_string().size() > kMaximumStorageStringBytes) {
+            return Result<ContinuousRobotSceneOccupancyReport>::failure(
+                StatusCode::CorruptData, "continuous robot-scene robot identifier is invalid");
+        }
+        result.robot_occupancy_ids.push_back(item.as_string());
+    }
+    result.obstacle_occupancy_ids.reserve(obstacle_ids.value()->size());
+    for (const auto& item : *obstacle_ids.value()) {
+        if (!item.is_string() || item.as_string().size() > kMaximumStorageStringBytes) {
+            return Result<ContinuousRobotSceneOccupancyReport>::failure(
+                StatusCode::CorruptData, "continuous robot-scene obstacle identifier is invalid");
+        }
+        result.obstacle_occupancy_ids.push_back(item.as_string());
+    }
+    result.conflicts.reserve(conflicts.value()->size());
+    for (const auto& item : *conflicts.value()) {
+        if (options.cancellation.cancelled()) {
+            return Result<ContinuousRobotSceneOccupancyReport>::failure(
+                StatusCode::Cancelled, "continuous robot-scene bundle load was cancelled");
+        }
+        auto conflict = decode_robot_scene_conflict(item);
+        if (!conflict)
+            return conflict.error();
+        result.conflicts.push_back(std::move(conflict).value());
+    }
+    if (!result.valid()) {
+        return Result<ContinuousRobotSceneOccupancyReport>::failure(
+            StatusCode::IdentityMismatch, "continuous robot-scene report identity is invalid", result.id);
+    }
+    return result;
+}
+
 Result<void> publish_file(const std::filesystem::path& temporary, const std::filesystem::path& destination,
                           bool destination_exists) {
     std::error_code error;
@@ -530,6 +770,17 @@ Json bundle_document(const ContinuousFleetOccupancyBundle& bundle) {
     return Json::Object{
         {"checksum", internal::sha256(payload.dump(false))},
         {"format", "rbfsafe-continuous-fleet-occupancy-bundle"},
+        {"library_version", kVersion},
+        {"payload", payload},
+        {"schema", static_cast<int>(bundle.storage_schema())},
+    };
+}
+
+Json robot_scene_bundle_document(const ContinuousRobotSceneOccupancyBundle& bundle) {
+    const auto payload = internal::continuous_robot_scene_occupancy_bundle_payload_json(bundle, true);
+    return Json::Object{
+        {"checksum", internal::sha256(payload.dump(false))},
+        {"format", "rbfsafe-continuous-robot-scene-occupancy-bundle"},
         {"library_version", kVersion},
         {"payload", payload},
         {"schema", static_cast<int>(bundle.storage_schema())},
@@ -751,6 +1002,270 @@ load_continuous_fleet_occupancy_bundle(std::span<const std::byte> bytes,
     if (!result.valid() || internal::continuous_fleet_occupancy_bundle_identity(result) != result.id_) {
         return Result<ContinuousFleetOccupancyBundle>::failure(
             StatusCode::IdentityMismatch, "continuous occupancy bundle identity is invalid", result.id_);
+    }
+    return result;
+}
+
+Result<void> save_continuous_robot_scene_occupancy_bundle(const ContinuousRobotSceneOccupancyBundle& bundle,
+                                                          const std::filesystem::path& path,
+                                                          const SaveOptions& options) {
+    if (!bundle.valid() || path.empty()) {
+        return Result<void>::failure(StatusCode::InvalidArgument,
+                                     "continuous robot-scene bundle or destination is invalid");
+    }
+    std::error_code error;
+    const bool destination_exists = std::filesystem::exists(path, error);
+    if (error) {
+        return Result<void>::failure(StatusCode::IoError,
+                                     "failed to inspect continuous robot-scene bundle destination",
+                                     path.string());
+    }
+    if (destination_exists) {
+        const auto status = std::filesystem::symlink_status(path, error);
+        if (error || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+            return Result<void>::failure(
+                StatusCode::IoError, "continuous robot-scene destination is indirect or not a regular file",
+                path.string());
+        }
+        if (!options.overwrite) {
+            return Result<void>::failure(StatusCode::IoError,
+                                         "continuous robot-scene destination already exists", path.string());
+        }
+    }
+    const auto parent = path.parent_path().empty() ? std::filesystem::path(".") : path.parent_path();
+    if (!std::filesystem::exists(parent, error) || !std::filesystem::is_directory(parent, error) || error) {
+        return Result<void>::failure(
+            StatusCode::IoError, "continuous robot-scene destination parent is unavailable", parent.string());
+    }
+    const auto temporary = unique_sibling(path, ".tmp-");
+    const auto document = robot_scene_bundle_document(bundle).dump(true) + "\n";
+    auto written = internal::write_text_file(temporary, document);
+    if (!written) {
+        std::filesystem::remove(temporary, error);
+        return written.error();
+    }
+
+    ContinuousRobotSceneOccupancyBundleLoadOptions verify;
+    verify.maximum_robot_occupancies = std::max<std::size_t>(1, bundle.robot_occupancies().size());
+    verify.maximum_obstacle_occupancies = std::max<std::size_t>(1, bundle.obstacle_occupancies().size());
+    verify.maximum_robot_input_waypoints = 1;
+    verify.maximum_obstacle_input_waypoints = 1;
+    verify.maximum_dimension = 1;
+    verify.maximum_robot_slices = 1;
+    verify.maximum_obstacle_slices = 1;
+    verify.maximum_link_envelopes = 1;
+    for (const auto& occupancy : bundle.robot_occupancies()) {
+        verify.maximum_robot_input_waypoints += occupancy.trajectory.size();
+        verify.maximum_dimension =
+            std::max(verify.maximum_dimension, occupancy.trajectory.front().configuration.size());
+        verify.maximum_robot_slices += occupancy.slices.size();
+        for (const auto& slice : occupancy.slices)
+            verify.maximum_link_envelopes += slice.link_envelopes.size();
+    }
+    for (const auto& occupancy : bundle.obstacle_occupancies()) {
+        verify.maximum_obstacle_input_waypoints += occupancy.trajectory.size();
+        verify.maximum_obstacle_slices += occupancy.slices.size();
+    }
+    verify.maximum_conflicts = std::max<std::size_t>(1, bundle.report().conflicts.size());
+    verify.maximum_slice_pair_evaluations = std::max<std::size_t>(1, bundle.report().slice_pair_evaluations);
+    verify.maximum_link_evaluations = std::max<std::size_t>(1, bundle.report().link_evaluations);
+    verify.maximum_payload_bytes = std::max<std::uintmax_t>(document.size(), 1);
+    auto loaded = load_continuous_robot_scene_occupancy_bundle(temporary, verify);
+    if (!loaded || loaded.value().id() != bundle.id()) {
+        std::filesystem::remove(temporary, error);
+        if (!loaded)
+            return loaded.error();
+        return Result<void>::failure(StatusCode::CorruptData,
+                                     "staged continuous robot-scene bundle identity changed");
+    }
+    auto published = publish_file(temporary, path, destination_exists);
+    if (!published)
+        std::filesystem::remove(temporary, error);
+    return published;
+}
+
+Result<ContinuousRobotSceneOccupancyBundle>
+load_continuous_robot_scene_occupancy_bundle(const std::filesystem::path& path,
+                                             const ContinuousRobotSceneOccupancyBundleLoadOptions& options) {
+    if (path.empty() || options.maximum_robot_occupancies == 0 || options.maximum_obstacle_occupancies == 0 ||
+        options.maximum_robot_input_waypoints < 2 || options.maximum_obstacle_input_waypoints < 2 ||
+        options.maximum_dimension == 0 || options.maximum_robot_slices == 0 ||
+        options.maximum_obstacle_slices == 0 || options.maximum_link_envelopes == 0 ||
+        options.maximum_conflicts == 0 || options.maximum_slice_pair_evaluations == 0 ||
+        options.maximum_link_evaluations == 0 || options.maximum_payload_bytes == 0) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::InvalidArgument, "continuous robot-scene path or load options are invalid");
+    }
+    if (options.cancellation.cancelled()) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::Cancelled, "continuous robot-scene bundle load was cancelled");
+    }
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(path, error);
+    if (error || status.type() == std::filesystem::file_type::not_found) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::IoError, "failed to inspect continuous robot-scene bundle", path.string());
+    }
+    if (std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::CorruptData,
+            "continuous robot-scene bundle is missing, indirect, or not a regular file", path.string());
+    }
+    auto bytes = internal::read_binary_file(path, options.maximum_payload_bytes);
+    if (!bytes)
+        return bytes.error();
+    return load_continuous_robot_scene_occupancy_bundle(bytes.value(), options);
+}
+
+Result<ContinuousRobotSceneOccupancyBundle>
+load_continuous_robot_scene_occupancy_bundle(std::span<const std::byte> bytes,
+                                             const ContinuousRobotSceneOccupancyBundleLoadOptions& options) {
+    if (options.maximum_robot_occupancies == 0 || options.maximum_obstacle_occupancies == 0 ||
+        options.maximum_robot_input_waypoints < 2 || options.maximum_obstacle_input_waypoints < 2 ||
+        options.maximum_dimension == 0 || options.maximum_robot_slices == 0 ||
+        options.maximum_obstacle_slices == 0 || options.maximum_link_envelopes == 0 ||
+        options.maximum_conflicts == 0 || options.maximum_slice_pair_evaluations == 0 ||
+        options.maximum_link_evaluations == 0 || options.maximum_payload_bytes == 0) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::InvalidArgument, "continuous robot-scene load options are invalid");
+    }
+    if (bytes.size() > options.maximum_payload_bytes) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::ResourceLimit, "continuous robot-scene bundle exceeds byte limit");
+    }
+    if (options.cancellation.cancelled()) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::Cancelled, "continuous robot-scene bundle load was cancelled");
+    }
+    const std::string_view text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    auto document = Json::parse(text);
+    if (!document)
+        return document.error();
+    if (!exact_object(document.value(), 5)) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::CorruptData, "continuous robot-scene document fields are invalid");
+    }
+    auto format = string_field(document.value(), "format");
+    auto schema = enum_field(document.value(), "schema", std::numeric_limits<std::uint32_t>::max());
+    auto checksum = string_field(document.value(), "checksum");
+    auto library_version = string_field(document.value(), "library_version");
+    const auto* payload = document.value().find("payload");
+    if (!format || !schema || !checksum || !library_version || payload == nullptr ||
+        !exact_object(*payload, 5)) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::CorruptData, "continuous robot-scene document is incomplete");
+    }
+    if (format.value() != "rbfsafe-continuous-robot-scene-occupancy-bundle") {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::IncompatibleFormat, "continuous robot-scene format is not recognized",
+            format.value());
+    }
+    if (schema.value() != 1) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::IncompatibleFormat, "continuous robot-scene schema is not supported");
+    }
+    if (!internal::valid_sha256(checksum.value()) ||
+        checksum.value() != internal::sha256(payload->dump(false))) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::CorruptData, "continuous robot-scene bundle checksum mismatch");
+    }
+    auto storage = decimal_field(*payload, "storage_schema");
+    auto stored_id = string_field(*payload, "id");
+    auto robots_json = array_field(*payload, "robot_occupancies", options.maximum_robot_occupancies);
+    auto obstacles_json = array_field(*payload, "obstacle_occupancies", options.maximum_obstacle_occupancies);
+    const auto* report_json = payload->find("report");
+    if (!robots_json)
+        return robots_json.error();
+    if (!obstacles_json)
+        return obstacles_json.error();
+    if (!storage || !stored_id || !robots_json || !obstacles_json || report_json == nullptr) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::CorruptData, "continuous robot-scene bundle payload is incomplete");
+    }
+    if (storage.value() != 1 || storage.value() != schema.value()) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::IncompatibleFormat,
+            "continuous robot-scene document and storage schemas are incompatible");
+    }
+    if (robots_json.value()->empty() || obstacles_json.value()->empty()) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::CorruptData, "continuous robot-scene bundle has no robots or obstacles");
+    }
+
+    ContinuousFleetOccupancyBundleLoadOptions robot_options;
+    robot_options.maximum_occupancies = options.maximum_robot_occupancies;
+    robot_options.maximum_input_waypoints = options.maximum_robot_input_waypoints;
+    robot_options.maximum_dimension = options.maximum_dimension;
+    robot_options.maximum_slices = options.maximum_robot_slices;
+    robot_options.maximum_link_envelopes = options.maximum_link_envelopes;
+    robot_options.maximum_conflicts = options.maximum_conflicts;
+    robot_options.maximum_slice_pair_evaluations = options.maximum_slice_pair_evaluations;
+    robot_options.maximum_link_pair_evaluations = options.maximum_link_evaluations;
+    robot_options.maximum_payload_bytes = options.maximum_payload_bytes;
+    robot_options.cancellation = options.cancellation;
+
+    std::size_t total_robot_waypoints = 0;
+    std::size_t total_robot_slices = 0;
+    std::size_t total_link_envelopes = 0;
+    std::vector<RobotTrajectoryOccupancy> robots;
+    robots.reserve(robots_json.value()->size());
+    for (const auto& item : *robots_json.value()) {
+        if (options.cancellation.cancelled()) {
+            return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+                StatusCode::Cancelled, "continuous robot-scene bundle load was cancelled");
+        }
+        auto occupancy = decode_occupancy(item, robot_options, total_robot_waypoints, total_robot_slices,
+                                          total_link_envelopes);
+        if (!occupancy)
+            return occupancy.error();
+        robots.push_back(std::move(occupancy).value());
+    }
+
+    std::size_t total_obstacle_waypoints = 0;
+    std::size_t total_obstacle_slices = 0;
+    std::vector<MovingObstacleOccupancy> obstacles;
+    obstacles.reserve(obstacles_json.value()->size());
+    for (const auto& item : *obstacles_json.value()) {
+        if (options.cancellation.cancelled()) {
+            return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+                StatusCode::Cancelled, "continuous robot-scene bundle load was cancelled");
+        }
+        auto occupancy =
+            decode_moving_obstacle_occupancy(item, options, total_obstacle_waypoints, total_obstacle_slices);
+        if (!occupancy)
+            return occupancy.error();
+        obstacles.push_back(std::move(occupancy).value());
+    }
+    auto report = decode_robot_scene_report(*report_json, options);
+    if (!report)
+        return report.error();
+
+    ContinuousRobotSceneOccupancyOptions replay_options;
+    replay_options.minimum_separation = report.value().minimum_separation;
+    replay_options.maximum_robot_occupancies = options.maximum_robot_occupancies;
+    replay_options.maximum_obstacle_occupancies = options.maximum_obstacle_occupancies;
+    replay_options.maximum_conflicts = options.maximum_conflicts;
+    replay_options.maximum_slice_pair_evaluations = options.maximum_slice_pair_evaluations;
+    replay_options.maximum_link_evaluations = options.maximum_link_evaluations;
+    replay_options.cancellation = options.cancellation;
+    auto replayed = analyze_continuous_robot_scene_occupancy(robots, obstacles, replay_options);
+    if (!replayed)
+        return replayed.error();
+    if (replayed.value().id != report.value().id) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::IdentityMismatch, "continuous robot-scene report does not match replayed analysis",
+            report.value().id);
+    }
+
+    ContinuousRobotSceneOccupancyBundle result;
+    result.storage_schema_ = static_cast<std::uint32_t>(storage.value());
+    result.id_ = std::move(stored_id).value();
+    result.robot_occupancies_ = std::move(robots);
+    result.obstacle_occupancies_ = std::move(obstacles);
+    result.report_ = std::move(report).value();
+    if (!result.valid() || internal::continuous_robot_scene_occupancy_bundle_identity(result) != result.id_) {
+        return Result<ContinuousRobotSceneOccupancyBundle>::failure(
+            StatusCode::IdentityMismatch, "continuous robot-scene bundle identity is invalid", result.id_);
     }
     return result;
 }

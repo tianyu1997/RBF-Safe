@@ -51,6 +51,10 @@ Version 4.3 additively adds caller-pinned immutable occupancy publication
 histories, exact stored-payload replay, expected-head append, deterministic
 prefix/fork audit, and an independent schema-1 history directory while
 retaining every 4.2 publication file and API.
+Version 4.4 additively adds deterministic moving workspace-AABB occupancy,
+bounded robot-scene swept-envelope analysis and conflict witnesses, exact
+moving-obstacle replay, and an independent schema-1 robot-scene bundle while
+retaining every 4.3 history, publication, and fleet-occupancy API and format.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 4.x line. Additive API changes may appear in

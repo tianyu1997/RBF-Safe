@@ -65,6 +65,10 @@ bool is_continuous_fleet_occupancy_bundle(const std::filesystem::path& path) {
     return bounded_file_contains(path, "\"rbfsafe-continuous-fleet-occupancy-bundle\"", 268'435'456);
 }
 
+bool is_continuous_robot_scene_occupancy_bundle(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-continuous-robot-scene-occupancy-bundle\"", 536'870'912);
+}
+
 bool is_occupancy_publication(const std::filesystem::path& path) {
     return bounded_file_contains(path, "\"rbfsafe-continuous-fleet-occupancy-publication\"", 1'048'576);
 }
@@ -132,6 +136,7 @@ int main(int argc, char** argv) {
                   << "       rbfsafe-inspect <occupancy-publication-history> <expected-stream> "
                      "<expected-publisher> <expected-trust-bundle> <expected-root> <expected-head> "
                      "<evaluation-tick-or-dash> [comparison-history comparison-head]\n"
+                  << "       rbfsafe-inspect <continuous-robot-scene-occupancy-bundle>\n"
                   << "       rbfsafe-inspect <continuous-fleet-occupancy-bundle>\n";
         return 2;
     }
@@ -258,6 +263,59 @@ int main(int argc, char** argv) {
                   << "payload bytes: " << publication.value().payload_bytes << '\n'
                   << "signature verified: true\n"
                   << "payload verified: true\n"
+                  << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
+    }
+    if (is_continuous_robot_scene_occupancy_bundle(std::filesystem::path(argv[1]))) {
+        if (argc != 2) {
+            std::cerr << "continuous robot-scene occupancy inspection accepts only the bundle path\n";
+            return 2;
+        }
+        auto bundle = rbfsafe::ContinuousRobotSceneOccupancyBundle::load(std::filesystem::path(argv[1]));
+        if (!bundle) {
+            std::cerr << bundle.error().describe() << '\n';
+            return 1;
+        }
+        std::size_t robot_slices = 0;
+        std::size_t obstacle_slices = 0;
+        for (const auto& occupancy : bundle.value().robot_occupancies())
+            robot_slices += occupancy.slices.size();
+        for (const auto& occupancy : bundle.value().obstacle_occupancies()) {
+            obstacle_slices += occupancy.slices.size();
+            auto verified = rbfsafe::verify_moving_obstacle_occupancy(occupancy);
+            if (!verified) {
+                std::cerr << verified.error().describe() << '\n';
+                return 1;
+            }
+        }
+        const auto& report = bundle.value().report();
+        std::cout << "RBF-Safe continuous robot-scene occupancy bundle\n"
+                  << "schema: " << bundle.value().storage_schema() << '\n'
+                  << "bundle: " << bundle.value().id() << '\n'
+                  << "timeline: " << report.timeline_id << '\n'
+                  << "workspace frame: " << report.workspace_frame_id << '\n'
+                  << "ticks: [" << report.begin_tick << ',' << report.end_tick << "]\n"
+                  << "status: " << rbfsafe::continuous_robot_scene_occupancy_status_name(report.status)
+                  << '\n'
+                  << "robots: " << bundle.value().robot_occupancies().size() << '\n'
+                  << "robot slices: " << robot_slices << '\n'
+                  << "obstacles: " << bundle.value().obstacle_occupancies().size() << '\n'
+                  << "obstacle slices: " << obstacle_slices << '\n'
+                  << "conflicts: " << report.conflicts.size() << '\n'
+                  << "minimum separation: " << report.minimum_separation << '\n'
+                  << "slice pair evaluations: " << report.slice_pair_evaluations << '\n'
+                  << "link evaluations: " << report.link_evaluations << '\n';
+        for (const auto& conflict : report.conflicts) {
+            std::cout << "conflict: robot=" << conflict.robot_occupancy_id
+                      << " obstacle=" << conflict.obstacle_occupancy_id << " ticks=["
+                      << conflict.overlap_begin_tick << ',' << conflict.overlap_end_tick
+                      << "] link=" << conflict.robot_link_index
+                      << " reason=" << rbfsafe::continuous_occupancy_conflict_reason_name(conflict.reason)
+                      << " clearance_lower_bound=" << conflict.clearance_lower_bound << '\n';
+        }
+        std::cout << "robot replay verified: false\n"
+                  << "obstacle replay verified: true\n"
                   << "evidence: unknown\n"
                   << "runtime executable: false\n";
         return 0;

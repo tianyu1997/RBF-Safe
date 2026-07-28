@@ -780,7 +780,44 @@ freedom, clock synchronization, moving-frame behavior, controller tracking,
 dynamics, or execution.
 See [continuous-time fleet occupancy](continuous-fleet-occupancy.md).
 
-## 20. Authenticate an occupancy publication
+## 20. Compare a robot with moving obstacles
+
+Build deterministic swept bounds from timestamped workspace AABBs, then
+compare them with a robot occupancy covering the exact same timeline, frame,
+and complete tick window:
+
+```python
+def box(lower_x, upper_x):
+    return rbfsafe.WorkspaceAabb(
+        [lower_x, -0.25, -0.25],
+        [upper_x, 0.25, 0.25],
+    )
+
+obstacle = rbfsafe.build_moving_obstacle_occupancy(
+    "cell-clock-v1",
+    "cell-world",
+    "cart-a",
+    [
+        rbfsafe.TimedWorkspaceAabb(0, box(5.0, 5.5)),
+        rbfsafe.TimedWorkspaceAabb(16, box(6.0, 6.5)),
+        rbfsafe.TimedWorkspaceAabb(32, box(5.0, 5.5)),
+    ],
+)
+options = rbfsafe.ContinuousRobotSceneOccupancyOptions()
+options.minimum_separation = 0.25
+bundle = rbfsafe.ContinuousRobotSceneOccupancyBundle.create(
+    [first], [obstacle], options
+)
+bundle.save("robot-scene-occupancy.json")
+```
+
+Replay every loaded moving obstacle and every robot against its exact model.
+Even `CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES` remains `Unknown` and
+non-authorizing: obstacle waypoints are caller assumptions, not trusted
+perception or prediction. See
+[continuous moving-obstacle occupancy](continuous-moving-obstacles.md).
+
+## 21. Authenticate an occupancy publication
 
 Use one publication-capable key from an explicitly trusted public bundle to
 bind the exact serialized occupancy bytes to a monotonic stream and closed
@@ -838,7 +875,7 @@ the externally retained head. Never derive the expected parent from the
 untrusted successor itself. See
 [authenticated occupancy publication](authenticated-occupancy-publication.md).
 
-## 21. Persist and audit an occupancy publication history
+## 22. Persist and audit an occupancy publication history
 
 RBF-Safe 4.3 stores one immutable, caller-pinned stream under one exact public
 trust snapshot. Create the history from an already signed root publication,

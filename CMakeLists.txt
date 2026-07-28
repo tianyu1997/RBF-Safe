@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 4.3.0
+    VERSION 4.4.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES C CXX)
@@ -82,6 +82,7 @@ target_link_libraries(rbfsafe_atlas PUBLIC rbfsafe_geometry rbfsafe_lect)
 rbfsafe_configure_target(rbfsafe_atlas)
 
 add_library(rbfsafe_occupancy
+    src/moving_obstacle_occupancy.cpp
     src/occupancy.cpp
     src/occupancy_persistence.cpp)
 add_library(RBFSafe::occupancy ALIAS rbfsafe_occupancy)
@@ -478,6 +479,12 @@ if(RBFSAFE_BUILD_EXAMPLES)
     target_link_libraries(rbfsafe_continuous_occupancy_quickstart
         PRIVATE RBFSafe::occupancy)
     rbfsafe_configure_target(rbfsafe_continuous_occupancy_quickstart)
+    add_executable(rbfsafe_continuous_robot_scene_occupancy_quickstart
+        examples/continuous_robot_scene_occupancy_quickstart.cpp)
+    target_link_libraries(rbfsafe_continuous_robot_scene_occupancy_quickstart
+        PRIVATE RBFSafe::occupancy)
+    rbfsafe_configure_target(
+        rbfsafe_continuous_robot_scene_occupancy_quickstart)
     add_executable(rbfsafe_occupancy_publication_quickstart
         examples/occupancy_publication_quickstart.cpp)
     target_link_libraries(rbfsafe_occupancy_publication_quickstart
@@ -609,6 +616,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/continuous_fleet_occupancy_schema1)
     install(DIRECTORY data/continuous_fleet_occupancy_schema2/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/continuous_fleet_occupancy_schema2)
+    install(DIRECTORY data/continuous_robot_scene_occupancy_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/continuous_robot_scene_occupancy_schema1)
     install(DIRECTORY data/occupancy_publication_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/occupancy_publication_schema1)
     install(DIRECTORY data/occupancy_publication_history_schema1/

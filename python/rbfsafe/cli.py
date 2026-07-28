@@ -14,6 +14,8 @@ from . import (
     BoundedExecutionSession,
     ContinuousFleetOccupancyBundle,
     ContinuousFleetOccupancyOptions,
+    ContinuousRobotSceneOccupancyBundle,
+    ContinuousRobotSceneOccupancyOptions,
     ExecutionLedger,
     FleetScheduleArchive,
     HipacCorridor,
@@ -52,8 +54,11 @@ from . import (
     artifact_transfer_authentication_name,
     artifact_transfer_operation_name,
     analyze_continuous_fleet_occupancy,
+    analyze_continuous_robot_scene_occupancy,
     audit_occupancy_publication_histories,
     continuous_fleet_occupancy_status_name,
+    continuous_occupancy_conflict_reason_name,
+    continuous_robot_scene_occupancy_status_name,
     fleet_schedule_status_name,
     load_artifact_attestation,
     policy_feedback_label_name,
@@ -77,6 +82,7 @@ from . import (
     transparency_gossip_status_name,
     verify_artifact_file,
     verify_continuous_fleet_occupancy_publication,
+    verify_moving_obstacle_occupancy,
     verify_robot_trajectory_occupancy,
 )
 
@@ -400,6 +406,21 @@ def _print_safety_memory(memory: SafetyMemory, args: argparse.Namespace, parser:
             )
 
 
+def _reject_unrelated_options(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    allowed: set[str],
+    artifact_name: str,
+) -> None:
+    for action in parser._actions:
+        if action.dest in allowed or action.dest == "help":
+            continue
+        if getattr(args, action.dest, action.default) != action.default:
+            parser.error(
+                f"{action.option_strings[0]} does not apply to {artifact_name}"
+            )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -499,6 +520,111 @@ def main(argv: list[str] | None = None) -> int:
         )
         print("signature_verified=true")
         print("payload_verified=true")
+        print("evidence=unknown")
+        print("authorizes_execution=false")
+        return 0
+    if (
+        file_document.get("format")
+        == "rbfsafe-continuous-robot-scene-occupancy-bundle"
+    ):
+        _reject_unrelated_options(
+            parser,
+            args,
+            {"atlas", "occupancy_robot", "occupancy_minimum_separation"},
+            "a continuous robot-scene occupancy bundle",
+        )
+        bundle = ContinuousRobotSceneOccupancyBundle.load(args.atlas)
+        report = bundle.report
+        if args.occupancy_minimum_separation is not None:
+            if (
+                not math.isfinite(args.occupancy_minimum_separation)
+                or args.occupancy_minimum_separation < 0.0
+            ):
+                parser.error(
+                    "--occupancy-minimum-separation must be finite and non-negative"
+                )
+            options = ContinuousRobotSceneOccupancyOptions()
+            options.minimum_separation = args.occupancy_minimum_separation
+            report = analyze_continuous_robot_scene_occupancy(
+                bundle.robot_occupancies,
+                bundle.obstacle_occupancies,
+                options,
+            )
+
+        robot_paths: dict[str, Path] = {}
+        for specification in args.occupancy_robot:
+            if "=" not in specification:
+                parser.error(
+                    "--occupancy-robot must use DEPLOYMENT=ROBOT_JSON"
+                )
+            deployment, robot_path = specification.split("=", 1)
+            if not deployment or not robot_path or deployment in robot_paths:
+                parser.error(
+                    "--occupancy-robot deployment and path must be non-empty and unique"
+                )
+            robot_paths[deployment] = Path(robot_path)
+        verified_deployments: set[str] = set()
+        if robot_paths:
+            expected_deployments = {
+                occupancy.deployment_id
+                for occupancy in bundle.robot_occupancies
+            }
+            if set(robot_paths) != expected_deployments:
+                parser.error(
+                    "--occupancy-robot must provide exactly one model for every deployment"
+                )
+            for occupancy in bundle.robot_occupancies:
+                robot = SerialRobotModel.from_json(
+                    robot_paths[occupancy.deployment_id]
+                )
+                verify_robot_trajectory_occupancy(robot, occupancy)
+                verified_deployments.add(occupancy.deployment_id)
+        for occupancy in bundle.obstacle_occupancies:
+            verify_moving_obstacle_occupancy(occupancy)
+
+        print(
+            "RBF-Safe continuous-robot-scene-occupancy-bundle "
+            f"schema={bundle.storage_schema}"
+        )
+        print(f"bundle_id={bundle.id}")
+        print(
+            f"timeline={report.timeline_id} "
+            f"workspace_frame={report.workspace_frame_id} "
+            f"ticks=[{report.begin_tick},{report.end_tick}]"
+        )
+        print(
+            "status="
+            + continuous_robot_scene_occupancy_status_name(report.status)
+        )
+        print(
+            f"robots={len(bundle.robot_occupancies)} "
+            f"robot_slices={sum(len(item.slices) for item in bundle.robot_occupancies)} "
+            f"obstacles={len(bundle.obstacle_occupancies)} "
+            f"obstacle_slices={sum(len(item.slices) for item in bundle.obstacle_occupancies)} "
+            f"conflicts={len(report.conflicts)}"
+        )
+        print(
+            f"minimum_separation={report.minimum_separation} "
+            f"slice_pair_evaluations={report.slice_pair_evaluations} "
+            f"link_evaluations={report.link_evaluations}"
+        )
+        for conflict in report.conflicts:
+            print(
+                f"conflict robot={conflict.robot_occupancy_id} "
+                f"obstacle={conflict.obstacle_occupancy_id} "
+                f"ticks=[{conflict.overlap_begin_tick},{conflict.overlap_end_tick}] "
+                f"link={conflict.robot_link_index} "
+                f"reason={continuous_occupancy_conflict_reason_name(conflict.reason)} "
+                f"clearance_lower_bound={conflict.clearance_lower_bound}"
+            )
+        print(
+            "robot_replay_verified="
+            + str(
+                len(verified_deployments)
+                == len(bundle.robot_occupancies)
+            ).lower()
+        )
+        print("obstacle_replay_verified=true")
         print("evidence=unknown")
         print("authorizes_execution=false")
         return 0

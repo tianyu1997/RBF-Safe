@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 4.2
+geometric safety certificates in robot configuration space. Version 4.4
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -101,6 +101,12 @@ Its local history stores exact payload/publication bytes behind immutable
 records, rejects stale writers under a caller-retained head, replays the full
 chain, and compares independently observed histories for extension or fork.
 Authenticated publications and histories remain non-authorizing.
+The moving-obstacle occupancy layer additionally turns timestamped
+piecewise-linear workspace AABBs into outward-rounded swept unions, requires
+complete timeline/frame/window agreement with robot occupancies, and reports
+deterministic robot-link versus obstacle conflicts under hard work limits.
+Those caller-supplied obstacle bounds remain untrusted assumptions and never
+authorize execution.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -191,8 +197,9 @@ certificate.
   bundles, fixed fixtures, and C++/Python/inspection tools.
 - Public `RBFSafe::occupancy` timestamped trajectories, deterministic
   subdivision, bounded deployment-frame transforms, IFK-AA swept-link AABBs,
-  bounded fleet separation analysis, exact robot replay, schema-1/schema-2
-  persistence, and C++/Python/inspection tools.
+  bounded fleet and moving-obstacle separation analysis, exact robot/obstacle
+  replay, independent checksummed persistence, and C++/Python/inspection
+  tools.
 - Public `RBFSafe::coordination` exact-byte occupancy publications, active
   publish-key Ed25519 authentication, caller-pinned trust/stream/parent/tick
   verification, monotonic succession checks, expected-head immutable local
@@ -204,11 +211,11 @@ certificate.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
-continuous-time obstacle motion, authenticated policy inference and metadata,
+trusted obstacle perception/prediction, authenticated policy inference and metadata,
 moving/time-varying fleet frames, network fleet coordination or consensus,
 concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v4.3. TLS, endpoint/credential policy, trustworthy local clocks,
+remain outside v4.4. TLS, endpoint/credential policy, trustworthy local clocks,
 tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
 transport/discovery services, vendor evidence acquisition and adapter
 validation, private-key storage, and network I/O remain application
@@ -404,6 +411,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Verifiable provenance bundle schema 1](docs/verifiable-provenance-format.md)
 - [Continuous-time fleet occupancy](docs/continuous-fleet-occupancy.md)
 - [Continuous fleet occupancy schemas 1 and 2](docs/continuous-fleet-occupancy-format.md)
+- [Continuous moving-obstacle occupancy](docs/continuous-moving-obstacles.md)
+- [Continuous robot-scene occupancy schema 1](docs/continuous-robot-scene-occupancy-format.md)
 - [Authenticated occupancy publication](docs/authenticated-occupancy-publication.md)
 - [Authenticated occupancy publication schema 1](docs/authenticated-occupancy-publication-format.md)
 - [Occupancy publication histories](docs/occupancy-publication-history.md)

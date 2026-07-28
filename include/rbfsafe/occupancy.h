@@ -20,6 +20,11 @@ struct TimedConfiguration {
     Configuration configuration;
 };
 
+struct TimedWorkspaceAabb {
+    std::uint64_t tick = 0;
+    WorkspaceAabb bounds;
+};
+
 struct DeploymentFrameBounds {
     DeploymentFrameBounds() = default;
 
@@ -98,6 +103,52 @@ Result<void> verify_robot_trajectory_occupancy(const SerialRobotModel& robot,
                                                const RobotTrajectoryOccupancy& occupancy,
                                                const ContinuousOccupancyReplayOptions& options = {});
 
+struct MovingObstacleOccupancySlice {
+    std::string id;
+    std::size_t trajectory_segment_index = 0;
+    std::uint64_t begin_tick = 0;
+    std::uint64_t end_tick = 0;
+    WorkspaceAabb swept_bounds;
+};
+
+struct MovingObstacleOccupancyBuildOptions {
+    std::size_t maximum_input_waypoints = 100'000;
+    std::size_t maximum_slices = 1'000'000;
+    double obstacle_padding = 0.0;
+    CancellationToken cancellation;
+};
+
+struct MovingObstacleOccupancyReplayOptions {
+    std::size_t maximum_input_waypoints = 100'000;
+    std::size_t maximum_slices = 1'000'000;
+    CancellationToken cancellation;
+};
+
+struct MovingObstacleOccupancy {
+    std::uint32_t storage_schema = 1;
+    std::string id;
+    std::string timeline_id;
+    std::string workspace_frame_id;
+    std::string obstacle_id;
+    std::string algorithm;
+    std::string algorithm_version;
+    double obstacle_padding = 0.0;
+    std::vector<TimedWorkspaceAabb> trajectory;
+    std::vector<MovingObstacleOccupancySlice> slices;
+
+    bool valid() const;
+    EvidenceLevel evidence() const noexcept { return EvidenceLevel::Unknown; }
+    bool authorizes_execution() const noexcept { return false; }
+};
+
+Result<MovingObstacleOccupancy>
+build_moving_obstacle_occupancy(std::string timeline_id, std::string workspace_frame_id,
+                                std::string obstacle_id, std::span<const TimedWorkspaceAabb> trajectory,
+                                const MovingObstacleOccupancyBuildOptions& options = {});
+
+Result<void> verify_moving_obstacle_occupancy(const MovingObstacleOccupancy& occupancy,
+                                              const MovingObstacleOccupancyReplayOptions& options = {});
+
 enum class ContinuousOccupancyConflictReason : std::uint8_t {
     SweptEnvelopeOverlap = 0,
     SeparationMarginViolated = 1,
@@ -150,6 +201,58 @@ struct ContinuousFleetOccupancyReport {
 Result<ContinuousFleetOccupancyReport>
 analyze_continuous_fleet_occupancy(std::span<const RobotTrajectoryOccupancy> occupancies,
                                    const ContinuousFleetOccupancyOptions& options = {});
+
+struct ContinuousRobotSceneOccupancyConflict {
+    std::string robot_occupancy_id;
+    std::string obstacle_occupancy_id;
+    std::string robot_slice_id;
+    std::string obstacle_slice_id;
+    std::size_t robot_link_index = 0;
+    std::uint64_t overlap_begin_tick = 0;
+    std::uint64_t overlap_end_tick = 0;
+    ContinuousOccupancyConflictReason reason = ContinuousOccupancyConflictReason::SweptEnvelopeOverlap;
+    double clearance_lower_bound = 0.0;
+    double required_margin = 0.0;
+};
+
+enum class ContinuousRobotSceneOccupancyStatus : std::uint8_t {
+    CertifiedSeparatedUnderSweptEnvelopes = 0,
+    PotentialConflict = 1,
+};
+
+struct ContinuousRobotSceneOccupancyOptions {
+    double minimum_separation = 0.0;
+    std::size_t maximum_robot_occupancies = 10'000;
+    std::size_t maximum_obstacle_occupancies = 100'000;
+    std::size_t maximum_conflicts = 1'000'000;
+    std::size_t maximum_slice_pair_evaluations = 100'000'000;
+    std::size_t maximum_link_evaluations = 1'000'000'000;
+    CancellationToken cancellation;
+};
+
+struct ContinuousRobotSceneOccupancyReport {
+    std::string id;
+    std::string timeline_id;
+    std::string workspace_frame_id;
+    std::uint64_t begin_tick = 0;
+    std::uint64_t end_tick = 0;
+    ContinuousRobotSceneOccupancyStatus status = ContinuousRobotSceneOccupancyStatus::PotentialConflict;
+    double minimum_separation = 0.0;
+    std::vector<std::string> robot_occupancy_ids;
+    std::vector<std::string> obstacle_occupancy_ids;
+    std::vector<ContinuousRobotSceneOccupancyConflict> conflicts;
+    std::size_t slice_pair_evaluations = 0;
+    std::size_t link_evaluations = 0;
+
+    bool valid() const;
+    EvidenceLevel evidence() const noexcept { return EvidenceLevel::Unknown; }
+    bool authorizes_execution() const noexcept { return false; }
+};
+
+Result<ContinuousRobotSceneOccupancyReport>
+analyze_continuous_robot_scene_occupancy(std::span<const RobotTrajectoryOccupancy> robot_occupancies,
+                                         std::span<const MovingObstacleOccupancy> obstacle_occupancies,
+                                         const ContinuousRobotSceneOccupancyOptions& options = {});
 
 struct ContinuousFleetOccupancyBundleLoadOptions {
     std::size_t maximum_occupancies = 10'000;
@@ -211,5 +314,76 @@ load_continuous_fleet_occupancy_bundle(std::span<const std::byte> payload,
 
 std::string continuous_occupancy_conflict_reason_name(ContinuousOccupancyConflictReason reason);
 std::string continuous_fleet_occupancy_status_name(ContinuousFleetOccupancyStatus status);
+
+struct ContinuousRobotSceneOccupancyBundleLoadOptions {
+    std::size_t maximum_robot_occupancies = 10'000;
+    std::size_t maximum_obstacle_occupancies = 100'000;
+    std::size_t maximum_robot_input_waypoints = 1'000'000;
+    std::size_t maximum_obstacle_input_waypoints = 10'000'000;
+    std::size_t maximum_dimension = 1'024;
+    std::size_t maximum_robot_slices = 10'000'000;
+    std::size_t maximum_obstacle_slices = 10'000'000;
+    std::size_t maximum_link_envelopes = 100'000'000;
+    std::size_t maximum_conflicts = 10'000'000;
+    std::size_t maximum_slice_pair_evaluations = 100'000'000;
+    std::size_t maximum_link_evaluations = 1'000'000'000;
+    std::uintmax_t maximum_payload_bytes = 536'870'912ULL;
+    CancellationToken cancellation;
+};
+
+class ContinuousRobotSceneOccupancyBundle {
+  public:
+    static Result<ContinuousRobotSceneOccupancyBundle>
+    create(std::vector<RobotTrajectoryOccupancy> robot_occupancies,
+           std::vector<MovingObstacleOccupancy> obstacle_occupancies,
+           const ContinuousRobotSceneOccupancyOptions& options = {});
+
+    std::uint32_t storage_schema() const noexcept { return storage_schema_; }
+    const std::string& id() const noexcept { return id_; }
+    const std::vector<RobotTrajectoryOccupancy>& robot_occupancies() const noexcept {
+        return robot_occupancies_;
+    }
+    const std::vector<MovingObstacleOccupancy>& obstacle_occupancies() const noexcept {
+        return obstacle_occupancies_;
+    }
+    const ContinuousRobotSceneOccupancyReport& report() const noexcept { return report_; }
+
+    bool valid() const;
+    EvidenceLevel evidence() const noexcept { return EvidenceLevel::Unknown; }
+    bool authorizes_execution() const noexcept { return false; }
+
+    Result<void> save(const std::filesystem::path& path, const SaveOptions& options = {}) const;
+    static Result<ContinuousRobotSceneOccupancyBundle>
+    load(const std::filesystem::path& path,
+         const ContinuousRobotSceneOccupancyBundleLoadOptions& options = {});
+
+  private:
+    friend Result<void>
+    save_continuous_robot_scene_occupancy_bundle(const ContinuousRobotSceneOccupancyBundle&,
+                                                 const std::filesystem::path&, const SaveOptions&);
+    friend Result<ContinuousRobotSceneOccupancyBundle>
+    load_continuous_robot_scene_occupancy_bundle(const std::filesystem::path&,
+                                                 const ContinuousRobotSceneOccupancyBundleLoadOptions&);
+    friend Result<ContinuousRobotSceneOccupancyBundle>
+    load_continuous_robot_scene_occupancy_bundle(std::span<const std::byte>,
+                                                 const ContinuousRobotSceneOccupancyBundleLoadOptions&);
+
+    std::uint32_t storage_schema_ = 1;
+    std::string id_;
+    std::vector<RobotTrajectoryOccupancy> robot_occupancies_;
+    std::vector<MovingObstacleOccupancy> obstacle_occupancies_;
+    ContinuousRobotSceneOccupancyReport report_;
+};
+
+Result<void> save_continuous_robot_scene_occupancy_bundle(const ContinuousRobotSceneOccupancyBundle& bundle,
+                                                          const std::filesystem::path& path,
+                                                          const SaveOptions& options);
+Result<ContinuousRobotSceneOccupancyBundle>
+load_continuous_robot_scene_occupancy_bundle(const std::filesystem::path& path,
+                                             const ContinuousRobotSceneOccupancyBundleLoadOptions& options);
+Result<ContinuousRobotSceneOccupancyBundle> load_continuous_robot_scene_occupancy_bundle(
+    std::span<const std::byte> payload, const ContinuousRobotSceneOccupancyBundleLoadOptions& options = {});
+
+std::string continuous_robot_scene_occupancy_status_name(ContinuousRobotSceneOccupancyStatus status);
 
 } // namespace rbfsafe

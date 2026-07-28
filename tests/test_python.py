@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.3.0"
+    assert rbfsafe.__version__ == "4.4.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -2928,6 +2928,186 @@ def test_continuous_fleet_occupancy_and_cli(
                 f"arm-a={robot_path}",
             ]
         )
+
+
+def test_continuous_robot_scene_occupancy(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    robot_path = Path(__file__).resolve().parents[1] / "data" / "planar_2r.json"
+    robot = rbfsafe.SerialRobotModel.from_json(robot_path)
+    robot_waypoints = [
+        rbfsafe.TimedConfiguration(0, [-0.2, 0.1]),
+        rbfsafe.TimedConfiguration(32, [0.2, -0.1]),
+    ]
+    robot_occupancy = rbfsafe.build_robot_trajectory_occupancy(
+        robot,
+        "python-scene-clock-v1",
+        "python-scene-world",
+        "arm-a",
+        [-4.0, 0.0, 0.0],
+        robot_waypoints,
+    )
+
+    def box(lower_x: float, upper_x: float) -> rbfsafe.WorkspaceAabb:
+        return rbfsafe.WorkspaceAabb(
+            [lower_x, -0.25, -0.25], [upper_x, 0.25, 0.25]
+        )
+
+    far_waypoints = [
+        rbfsafe.TimedWorkspaceAabb(0, box(5.0, 5.5)),
+        rbfsafe.TimedWorkspaceAabb(16, box(6.0, 6.5)),
+        rbfsafe.TimedWorkspaceAabb(32, box(5.0, 5.5)),
+    ]
+    obstacle_options = rbfsafe.MovingObstacleOccupancyBuildOptions()
+    obstacle_options.obstacle_padding = 0.02
+    far_obstacle = rbfsafe.build_moving_obstacle_occupancy(
+        "python-scene-clock-v1",
+        "python-scene-world",
+        "cart-far",
+        far_waypoints,
+        obstacle_options,
+    )
+    repeated_obstacle = rbfsafe.build_moving_obstacle_occupancy(
+        "python-scene-clock-v1",
+        "python-scene-world",
+        "cart-far",
+        far_waypoints,
+        obstacle_options,
+    )
+    assert far_obstacle.valid()
+    assert far_obstacle.id == repeated_obstacle.id
+    assert len(far_obstacle.slices) == 2
+    assert far_obstacle.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not far_obstacle.authorizes_execution
+    rbfsafe.verify_moving_obstacle_occupancy(far_obstacle)
+
+    separated = rbfsafe.analyze_continuous_robot_scene_occupancy(
+        [robot_occupancy], [far_obstacle]
+    )
+    assert separated.valid()
+    assert (
+        separated.status
+        == rbfsafe.ContinuousRobotSceneOccupancyStatus.CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES
+    )
+    assert separated.begin_tick == 0
+    assert separated.end_tick == 32
+    assert not separated.conflicts
+    assert separated.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not separated.authorizes_execution
+
+    near_waypoints = [
+        rbfsafe.TimedWorkspaceAabb(0, box(-4.25, -3.75)),
+        rbfsafe.TimedWorkspaceAabb(32, box(-4.25, -3.75)),
+    ]
+    near_obstacle = rbfsafe.build_moving_obstacle_occupancy(
+        "python-scene-clock-v1",
+        "python-scene-world",
+        "cart-near",
+        near_waypoints,
+    )
+    conflict = rbfsafe.analyze_continuous_robot_scene_occupancy(
+        [robot_occupancy], [near_obstacle]
+    )
+    assert (
+        conflict.status
+        == rbfsafe.ContinuousRobotSceneOccupancyStatus.POTENTIAL_CONFLICT
+    )
+    assert conflict.conflicts
+    assert (
+        conflict.conflicts[0].reason
+        == rbfsafe.ContinuousOccupancyConflictReason.SWEPT_ENVELOPE_OVERLAP
+    )
+
+    second_far = rbfsafe.build_moving_obstacle_occupancy(
+        "python-scene-clock-v1",
+        "python-scene-world",
+        "cart-z",
+        [
+            rbfsafe.TimedWorkspaceAabb(0, box(8.0, 8.5)),
+            rbfsafe.TimedWorkspaceAabb(32, box(9.0, 9.5)),
+        ],
+    )
+    ordered = rbfsafe.ContinuousRobotSceneOccupancyBundle.create(
+        [robot_occupancy], [second_far, far_obstacle]
+    )
+    reordered = rbfsafe.ContinuousRobotSceneOccupancyBundle.create(
+        [robot_occupancy], [far_obstacle, second_far]
+    )
+    assert ordered.id == reordered.id
+    assert ordered.valid()
+    assert ordered.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not ordered.authorizes_execution
+
+    destination = tmp_path / "continuous-robot-scene-occupancy.json"
+    ordered.save(destination)
+    loaded = rbfsafe.ContinuousRobotSceneOccupancyBundle.load(destination)
+    assert loaded.id == ordered.id
+    assert len(loaded.robot_occupancies) == 1
+    assert len(loaded.obstacle_occupancies) == 2
+    rbfsafe.verify_robot_trajectory_occupancy(
+        robot, loaded.robot_occupancies[0]
+    )
+    for obstacle in loaded.obstacle_occupancies:
+        rbfsafe.verify_moving_obstacle_occupancy(obstacle)
+
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "continuous_robot_scene_occupancy_schema1"
+    )
+    fixed = rbfsafe.ContinuousRobotSceneOccupancyBundle.load(
+        fixture / "occupancy.json"
+    )
+    fixed_robot = rbfsafe.SerialRobotModel.from_json(fixture / "robot.json")
+    assert (
+        fixed.id
+        == "653772769983773f589ae739e4d633ca1224e68b0273dbd3847e3308876e4b3f"
+    )
+    assert (
+        fixed.report.id
+        == "8264e583a0edc29442489f16b2f2217e75a83363c851642641f9ab78aa1d22ce"
+    )
+    rbfsafe.verify_robot_trajectory_occupancy(
+        fixed_robot, fixed.robot_occupancies[0]
+    )
+    rbfsafe.verify_moving_obstacle_occupancy(
+        fixed.obstacle_occupancies[0]
+    )
+
+    limits = rbfsafe.ContinuousRobotSceneOccupancyBundleLoadOptions()
+    limits.maximum_obstacle_occupancies = 1
+    with pytest.raises(MemoryError):
+        rbfsafe.ContinuousRobotSceneOccupancyBundle.load(destination, limits)
+    with pytest.raises(ValueError):
+        rbfsafe.analyze_continuous_robot_scene_occupancy(
+            [robot_occupancy], [far_obstacle, repeated_obstacle]
+        )
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(destination),
+                "--occupancy-robot",
+                f"arm-a={robot_path}",
+                "--occupancy-minimum-separation",
+                "20.0",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "continuous-robot-scene-occupancy-bundle schema=1" in output
+    assert "status=POTENTIAL_CONFLICT" in output
+    assert "robots=1" in output
+    assert "obstacles=2" in output
+    assert "robot_replay_verified=true" in output
+    assert "obstacle_replay_verified=true" in output
+    assert "evidence=unknown" in output
+    assert "authorizes_execution=false" in output
+    with pytest.raises(SystemExit):
+        main([str(destination), "--plot", str(tmp_path / "ignored.png")])
 
 
 def test_authenticated_occupancy_publication(

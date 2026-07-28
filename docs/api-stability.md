@@ -57,7 +57,10 @@ validation, schema-1 publication persistence, and a public exact-byte
 occupancy-bundle loader. RBF-Safe 4.3 additively introduces
 `OccupancyPublicationHistory`, immutable history records, bounded history load
 options, exact stored-payload replay, expected-head publication, deterministic
-history relation/audit values, and schema-1 history directories. Public
+history relation/audit values, and schema-1 history directories. RBF-Safe 4.4
+additively introduces timestamped workspace AABBs, moving-obstacle occupancy
+records/build/replay, robot-scene reports and analysis, bounded load options,
+and schema-1 robot-scene occupancy bundles. Public
 headers under `include/rbfsafe`, installed CMake targets, and names exported
 from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots

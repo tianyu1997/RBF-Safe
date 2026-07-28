@@ -81,6 +81,10 @@ if(TARGET rbfsafe_inspect)
         COMMAND rbfsafe_inspect
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/continuous_fleet_occupancy_schema2/occupancy.json)
     add_test(
+        NAME rbfsafe_continuous_robot_scene_occupancy_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/continuous_robot_scene_occupancy_schema1/occupancy.json)
+    add_test(
         NAME rbfsafe_occupancy_publication_fixture_inspect
         COMMAND rbfsafe_inspect
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/occupancy_publication_schema1/publication.json

@@ -75,6 +75,26 @@ hardware interlocks remain separate. See
 [the complete contract](continuous-fleet-occupancy.md)
 and [storage format](continuous-fleet-occupancy-format.md).
 
+## Continuous moving-obstacle occupancy
+
+`build_moving_obstacle_occupancy` converts timestamped piecewise-linear
+workspace AABB waypoints into deterministic, outward-rounded padded swept
+slices. `verify_moving_obstacle_occupancy` reconstructs the full record.
+
+`analyze_continuous_robot_scene_occupancy` requires complete timeline,
+workspace-frame, and begin/end-window equality across all robot and obstacle
+occupancies. It reports deterministic link/obstacle overlap or
+separation-margin witnesses under explicit count, sweep, link, conflict, and
+cancellation budgets.
+
+`ContinuousRobotSceneOccupancyBundle` canonically stores all records and the
+replayable report in an independent checksummed schema-1 file. Load verifies
+moving-obstacle construction and replays analysis; each robot still requires
+external exact-model replay. Every value and successful separation status
+remains `Unknown` and non-authorizing. See
+[the complete contract](continuous-moving-obstacles.md) and
+[storage format](continuous-robot-scene-occupancy-format.md).
+
 ## Authenticated occupancy publication
 
 Include `<rbfsafe/coordination.h>` and link `RBFSafe::coordination`.
