@@ -142,6 +142,16 @@ checksum/tamper/symlink rejection, overwrite protection, cross-platform byte
 equality, and fixed bundle/report identities. Confirm every occupancy,
 conflict, report, bundle, and successful separation status remains
 non-authorizing `Unknown`.
+Run the authenticated occupancy publication C++/Python quickstarts and fixed
+schema-1 fixture through both inspectors. Verify one-read exact-byte digest,
+length, decoded bundle/timeline/frame binding, full trajectory coverage of
+the closed validity window, active publish-key policy, wrong-secret and
+signature rejection, explicit stream/publisher/trust/parent/tick pins,
+root/successor sequence rules, wrong parent, expired tick, payload
+substitution, schema/checksum/tamper/truncation/symlink rejection, byte limits,
+cancellation, overwrite protection, and fixed cross-platform identities.
+Confirm publications and verification results remain non-authorizing
+`Unknown`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -178,7 +188,8 @@ service-trust-bundle, service-trust-history, service-trust-checkpoint,
 reviewed-deployment-profile, calibration-profile, or
 calibration-lifecycle, bounded-execution-session, execution-ledger, or
 transparency-log, transparency-gossip-archive, or
-verifiable-provenance-bundle, or continuous-fleet-occupancy-bundle schema
+verifiable-provenance-bundle, continuous-fleet-occupancy-bundle, or
+authenticated-occupancy-publication schema
 changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
 error. A library version change must never silently reinterpret an existing

@@ -779,3 +779,61 @@ non-authorizing: it does not establish obstacle freedom, self-collision
 freedom, clock synchronization, moving-frame behavior, controller tracking,
 dynamics, or execution.
 See [continuous-time fleet occupancy](continuous-fleet-occupancy.md).
+
+## 20. Authenticate an occupancy publication
+
+Use one publication-capable key from an explicitly trusted public bundle to
+bind the exact serialized occupancy bytes to a monotonic stream and closed
+logical-tick window:
+
+```python
+key_pair = rbfsafe.ed25519_key_pair_from_seed(protected_seed)
+publisher_key = rbfsafe.make_service_public_key(
+    "fleet-coordinator",
+    key_pair.public_key,
+    1,
+    0,
+    rbfsafe.ServiceKeyState.ACTIVE,
+    False,
+    True,
+    False,
+)
+trust_bundle = rbfsafe.ServiceTrustBundle.create(1, "", [publisher_key])
+publication = rbfsafe.sign_continuous_fleet_occupancy_publication(
+    "fleet-occupancy.json",
+    trust_bundle,
+    "cell-a-occupancy-v1",
+    "fleet-coordinator",
+    publisher_key.id,
+    key_pair.secret_key,
+    1,
+    "",
+    0,
+    32,
+)
+publication.save("occupancy-publication.json")
+```
+
+A consumer must obtain the expected stream, publisher, current trust-bundle
+ID, retained parent ID, and evaluation tick from its own reviewed state:
+
+```python
+verified = rbfsafe.verify_continuous_fleet_occupancy_publication(
+    "fleet-occupancy.json",
+    rbfsafe.OccupancyPublication.load("occupancy-publication.json"),
+    retained_trust_bundle,
+    retained_stream_id,
+    retained_publisher_service_id,
+    retained_trust_bundle_id,
+    retained_parent_publication_id,
+    evaluation_tick,
+)
+assert verified.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+assert not verified.authorizes_execution
+```
+
+For sequence 2 and later, authenticate both statements and call
+`verify_occupancy_publication_successor(previous, successor)` before replacing
+the externally retained head. Never derive the expected parent from the
+untrusted successor itself. See
+[authenticated occupancy publication](authenticated-occupancy-publication.md).

@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.1.0"
+    assert rbfsafe.__version__ == "4.2.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -2927,4 +2927,153 @@ def test_continuous_fleet_occupancy_and_cli(
                 "--occupancy-robot",
                 f"arm-a={robot_path}",
             ]
+        )
+
+
+def test_authenticated_occupancy_publication(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "continuous_fleet_occupancy_schema2"
+        / "occupancy.json"
+    )
+    key_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+    key = rbfsafe.make_service_public_key(
+        "python-occupancy-publisher",
+        key_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        False,
+    )
+    trust_bundle = rbfsafe.ServiceTrustBundle.create(1, "", [key])
+    fixed_directory = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "occupancy_publication_schema1"
+    )
+    fixed_publication = rbfsafe.OccupancyPublication.load(
+        fixed_directory / "publication.json"
+    )
+    fixed_trust_bundle = rbfsafe.ServiceTrustBundle.load(
+        fixed_directory / "trust-bundle.json"
+    )
+    assert (
+        fixed_publication.id
+        == "90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251"
+    )
+    fixed_verification = rbfsafe.verify_continuous_fleet_occupancy_publication(
+        fixture,
+        fixed_publication,
+        fixed_trust_bundle,
+        "fixture-cell-occupancy-stream-v1",
+        "fixture-occupancy-publisher",
+        fixed_trust_bundle.id,
+        "",
+        16,
+    )
+    assert (
+        fixed_verification.id
+        == "9910e71348c6b69609bb2026e7a7f926d27bca243bc2140a0259b7ece9d8fe09"
+    )
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(fixed_directory / "publication.json"),
+                "--occupancy-payload",
+                str(fixture),
+                "--occupancy-trust-bundle",
+                str(fixed_directory / "trust-bundle.json"),
+                "--expected-occupancy-stream",
+                "fixture-cell-occupancy-stream-v1",
+                "--expected-occupancy-publisher",
+                "fixture-occupancy-publisher",
+                "--expected-occupancy-trust-bundle",
+                fixed_trust_bundle.id,
+                "--expected-occupancy-parent",
+                "-",
+                "--occupancy-evaluation-tick",
+                "16",
+            ]
+        )
+        == 0
+    )
+    cli_output = capsys.readouterr().out
+    assert "continuous-fleet-occupancy-publication schema=1" in cli_output
+    assert "signature_verified=true" in cli_output
+    assert "payload_verified=true" in cli_output
+    assert "authorizes_execution=false" in cli_output
+
+    publication = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        fixture,
+        trust_bundle,
+        "python-cell-occupancy-stream-v1",
+        "python-occupancy-publisher",
+        key.id,
+        key_pair.secret_key,
+        1,
+        "",
+        0,
+        32,
+    )
+    assert publication.valid()
+    assert publication.publisher_sequence == 1
+    assert publication.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not publication.authorizes_execution
+    verification = rbfsafe.verify_continuous_fleet_occupancy_publication(
+        fixture,
+        publication,
+        trust_bundle,
+        "python-cell-occupancy-stream-v1",
+        "python-occupancy-publisher",
+        trust_bundle.id,
+        "",
+        16,
+    )
+    assert verification.valid()
+    assert verification.publication_id == publication.id
+    assert verification.evaluation_tick == 16
+    assert verification.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not verification.authorizes_execution
+
+    path = tmp_path / "occupancy-publication.json"
+    publication.save(path)
+    loaded = rbfsafe.OccupancyPublication.load(path)
+    assert loaded.id == publication.id
+    with pytest.raises(OSError):
+        publication.save(path)
+    publication.save(path, overwrite=True)
+    with pytest.raises(MemoryError):
+        rbfsafe.OccupancyPublication.load(path, 16)
+
+    successor = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        fixture,
+        trust_bundle,
+        "python-cell-occupancy-stream-v1",
+        "python-occupancy-publisher",
+        key.id,
+        key_pair.secret_key,
+        2,
+        publication.id,
+        1,
+        31,
+    )
+    rbfsafe.verify_occupancy_publication_successor(publication, successor)
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.verify_continuous_fleet_occupancy_publication(
+            fixture,
+            successor,
+            trust_bundle,
+            "python-cell-occupancy-stream-v1",
+            "python-occupancy-publisher",
+            trust_bundle.id,
+            "",
+            16,
         )

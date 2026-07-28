@@ -1,0 +1,25 @@
+{
+  "checksum": "6ec9c592145e5a26480c15acf53dded7d767687292a352a6ae9e31614b433f56",
+  "format": "rbfsafe-continuous-fleet-occupancy-publication",
+  "library_version": "4.2.0",
+  "payload": {
+    "algorithm": 1,
+    "authentication_tag": "9da8ba098cfa7133bff52278bcf77e405a53630d41e6d3aa126833a455364455c65a142fa0e9f1da9af727755580088907ea988b192022c9541072651574c402",
+    "id": "90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251",
+    "occupancy_bundle_id": "6030e3574db5634f60b6cf04ffc325077f944ef23d256ef7cc937fe857dce8d0",
+    "parent_publication_id": "",
+    "payload_bytes": "14171",
+    "payload_digest": "d5c566782ab97847dcef150b81cdaeb73c27192bfd8c12a7e34ea0787d010c2f",
+    "publisher_key_id": "db69491130c011ccd19cb5d0b86259e6cc627840f0dd83f5b55ce7a37ee494dd",
+    "publisher_sequence": "1",
+    "publisher_service_id": "fixture-occupancy-publisher",
+    "storage_schema": 1,
+    "stream_id": "fixture-cell-occupancy-stream-v1",
+    "timeline_id": "fixture-cell-clock-v1",
+    "trust_bundle_id": "89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d",
+    "valid_from_tick": "0",
+    "valid_through_tick": "32",
+    "workspace_frame_id": "fixture-cell-world"
+  },
+  "schema": 1
+}

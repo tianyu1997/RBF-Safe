@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 4.1
+geometric safety certificates in robot configuration space. Version 4.2
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -93,6 +93,11 @@ multi-robot separation or potential-conflict witnesses under hard work limits.
 Nominal right-handed deployment rotations and explicit translation/angular
 uncertainty are conservatively enclosed and identity-bound.
 Its results remain non-authorizing and require exact robot-model replay.
+The coordination layer signs the exact serialized occupancy bytes with an
+Ed25519 publication key, binds a monotonic parent-linked publisher stream and
+closed logical-tick validity window, and verifies only under explicit caller
+pins for the stream, publisher, trust bundle, parent, and evaluation tick.
+Authenticated publications remain non-authorizing.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -185,15 +190,20 @@ certificate.
   subdivision, bounded deployment-frame transforms, IFK-AA swept-link AABBs,
   bounded fleet separation analysis, exact robot replay, schema-1/schema-2
   persistence, and C++/Python/inspection tools.
+- Public `RBFSafe::coordination` exact-byte occupancy publications, active
+  publish-key Ed25519 authentication, caller-pinned trust/stream/parent/tick
+  verification, monotonic succession checks, checksummed schema-1
+  persistence, fixed fixtures, and C++/Python/inspection tools.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated policy inference and metadata,
-moving/time-varying fleet frames, concrete network artifact clients,
+moving/time-varying fleet frames, network fleet coordination or consensus,
+concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v4.1. TLS, endpoint/credential policy, trustworthy local clocks,
+remain outside v4.2. TLS, endpoint/credential policy, trustworthy local clocks,
 tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
 transport/discovery services, vendor evidence acquisition and adapter
 validation, private-key storage, and network I/O remain application
@@ -387,6 +397,10 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Witnessed transparency and checkpoint gossip](docs/witnessed-transparency.md)
 - [Verifiable provenance and external time](docs/verifiable-provenance.md)
 - [Verifiable provenance bundle schema 1](docs/verifiable-provenance-format.md)
+- [Continuous-time fleet occupancy](docs/continuous-fleet-occupancy.md)
+- [Continuous fleet occupancy schemas 1 and 2](docs/continuous-fleet-occupancy-format.md)
+- [Authenticated occupancy publication](docs/authenticated-occupancy-publication.md)
+- [Authenticated occupancy publication schema 1](docs/authenticated-occupancy-publication-format.md)
 - [Schema support and migrations](docs/schema-migrations.md)
 - [Release fixtures and benchmark](docs/release-fixtures.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)

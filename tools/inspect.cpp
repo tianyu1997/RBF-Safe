@@ -65,6 +65,10 @@ bool is_continuous_fleet_occupancy_bundle(const std::filesystem::path& path) {
     return bounded_file_contains(path, "\"rbfsafe-continuous-fleet-occupancy-bundle\"", 268'435'456);
 }
 
+bool is_occupancy_publication(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-continuous-fleet-occupancy-publication\"", 1'048'576);
+}
+
 bool decode_uint64(std::string_view text, std::uint64_t& result) {
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
     return !text.empty() && parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
@@ -118,8 +122,69 @@ int main(int argc, char** argv) {
                      "<expected-checkpoint> <expected-bundle>\n"
                   << "       rbfsafe-inspect <provenance-bundle> <trust-history> "
                      "<expected-root> <checkpoint> <expected-checkpoint> <evaluated-at-ns>\n"
+                  << "       rbfsafe-inspect <occupancy-publication> <occupancy-payload> "
+                     "<trust-bundle> <expected-stream> <expected-publisher> "
+                     "<expected-trust-bundle> <expected-parent-or-dash> <evaluation-tick>\n"
                   << "       rbfsafe-inspect <continuous-fleet-occupancy-bundle>\n";
         return 2;
+    }
+    if (is_occupancy_publication(std::filesystem::path(argv[1]))) {
+        if (argc != 9) {
+            std::cerr << "occupancy publication inspection requires the exact occupancy payload, "
+                         "trust bundle, caller-pinned stream, publisher, trust-bundle ID, parent, "
+                         "and evaluation tick\n";
+            return 2;
+        }
+        std::uint64_t evaluation_tick = 0;
+        if (!decode_uint64(argv[8], evaluation_tick)) {
+            std::cerr << "occupancy publication evaluation tick must be an unsigned decimal value\n";
+            return 2;
+        }
+        auto publication = rbfsafe::OccupancyPublication::load(std::filesystem::path(argv[1]));
+        if (!publication) {
+            std::cerr << publication.error().describe() << '\n';
+            return 1;
+        }
+        auto trust_bundle = rbfsafe::ServiceTrustBundle::load(std::filesystem::path(argv[3]));
+        if (!trust_bundle) {
+            std::cerr << trust_bundle.error().describe() << '\n';
+            return 1;
+        }
+        const std::string_view expected_parent =
+            std::string_view(argv[7]) == "-" ? std::string_view{} : std::string_view(argv[7]);
+        auto verified = rbfsafe::verify_continuous_fleet_occupancy_publication(
+            std::filesystem::path(argv[2]), publication.value(), trust_bundle.value(), argv[4], argv[5],
+            argv[6], expected_parent, evaluation_tick);
+        if (!verified) {
+            std::cerr << verified.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe continuous fleet occupancy publication\n"
+                  << "schema: " << publication.value().storage_schema << '\n'
+                  << "publication: " << publication.value().id << '\n'
+                  << "stream: " << publication.value().stream_id << '\n'
+                  << "publisher: " << publication.value().publisher_service_id << '\n'
+                  << "key: " << publication.value().publisher_key_id << '\n'
+                  << "publisher sequence: " << publication.value().publisher_sequence << '\n'
+                  << "parent: "
+                  << (publication.value().parent_publication_id.empty()
+                          ? std::string_view{"root"}
+                          : std::string_view{publication.value().parent_publication_id})
+                  << '\n'
+                  << "trust bundle: " << publication.value().trust_bundle_id << '\n'
+                  << "occupancy bundle: " << publication.value().occupancy_bundle_id << '\n'
+                  << "timeline: " << publication.value().timeline_id << '\n'
+                  << "workspace frame: " << publication.value().workspace_frame_id << '\n'
+                  << "valid ticks: [" << publication.value().valid_from_tick << ','
+                  << publication.value().valid_through_tick << "]\n"
+                  << "evaluation tick: " << verified.value().evaluation_tick << '\n'
+                  << "payload digest: " << publication.value().payload_digest << '\n'
+                  << "payload bytes: " << publication.value().payload_bytes << '\n'
+                  << "signature verified: true\n"
+                  << "payload verified: true\n"
+                  << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_continuous_fleet_occupancy_bundle(std::filesystem::path(argv[1]))) {
         if (argc != 2) {

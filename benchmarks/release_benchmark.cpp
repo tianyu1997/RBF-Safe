@@ -369,6 +369,42 @@ rbfsafe::Result<void> replay_continuous_occupancy_fixture(const std::filesystem:
     return rbfsafe::Result<void>::success();
 }
 
+rbfsafe::Result<void> replay_occupancy_publication_fixture(const std::filesystem::path& fixture_root,
+                                                           std::uint64_t& logical_hash) {
+    const auto publication_root = fixture_root.parent_path() / "occupancy_publication_schema1";
+    const auto occupancy_path =
+        fixture_root.parent_path() / "continuous_fleet_occupancy_schema2" / "occupancy.json";
+    auto publication = rbfsafe::OccupancyPublication::load(publication_root / "publication.json");
+    if (!publication)
+        return publication.error();
+    auto trust_bundle = rbfsafe::ServiceTrustBundle::load(publication_root / "trust-bundle.json");
+    if (!trust_bundle)
+        return trust_bundle.error();
+    auto verified = rbfsafe::verify_continuous_fleet_occupancy_publication(
+        occupancy_path, publication.value(), trust_bundle.value(), "fixture-cell-occupancy-stream-v1",
+        "fixture-occupancy-publisher", trust_bundle.value().id(), "", 16);
+    if (!verified)
+        return verified.error();
+    if (publication.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        publication.value().authorizes_execution() ||
+        verified.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        verified.value().authorizes_execution()) {
+        return rbfsafe::Result<void>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release authenticated occupancy publication replay was inconsistent");
+    }
+    hash_field(logical_hash, "ed25519-authenticated-occupancy-publication-but-non-authorizing");
+    hash_field(logical_hash, publication.value().id);
+    hash_field(logical_hash, trust_bundle.value().id());
+    hash_field(logical_hash, publication.value().occupancy_bundle_id);
+    hash_field(logical_hash, publication.value().stream_id);
+    hash_field(logical_hash, publication.value().publisher_service_id);
+    hash_field(logical_hash, std::to_string(publication.value().publisher_sequence));
+    hash_field(logical_hash, verified.value().id);
+    hash_field(logical_hash, std::to_string(verified.value().evaluation_tick));
+    return rbfsafe::Result<void>::success();
+}
+
 rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t iterations,
                                       std::uint64_t& logical_hash) {
     auto robot = rbfsafe::SerialRobotModel::from_json(fixture.robot);
@@ -1580,6 +1616,11 @@ int main(int argc, char** argv) {
     auto occupancy = replay_continuous_occupancy_fixture(options.fixtures, logical_hash);
     if (!occupancy) {
         std::cerr << occupancy.error().describe() << '\n';
+        return 1;
+    }
+    auto occupancy_publication = replay_occupancy_publication_fixture(options.fixtures, logical_hash);
+    if (!occupancy_publication) {
+        std::cerr << occupancy_publication.error().describe() << '\n';
         return 1;
     }
     const std::string actual_digest = hex64(logical_hash);

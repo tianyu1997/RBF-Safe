@@ -141,15 +141,22 @@
   multi-robot comparison, separation-margin witnesses, replay verification,
   bounded schema-1 persistence, and C++/Python/inspection tooling. Every
   result remains `Unknown` and non-authorizing.
-- **v4.1 (current) - Bounded deployment frames:** right-handed nominal
+- **v4.1 - Bounded deployment frames:** right-handed nominal
   rotations, axis-wise translation uncertainty, arbitrary-axis angular
   uncertainty, conservative outward-rounded workspace expansion, exact frame
   identity binding, schema-2 persistence with schema-1 compatibility, and
   C++/Python/inspection tooling. Every result remains `Unknown` and
   non-authorizing.
-- **v4.2+ candidates:** distributed fleet coordination, authenticated
-  occupancy publication, continuous moving obstacles, and certified
-  hardware/deployment profiles.
+- **v4.2 (current) - Authenticated occupancy publication:** exact serialized
+  occupancy-byte binding; Ed25519 signatures under caller-pinned active
+  publication keys and trust bundles; monotonic parent-linked streams;
+  closed logical-tick validity windows; exact stream/publisher/trust/parent/
+  tick verification; bounded checksummed schema-1 persistence; fixed
+  fixtures; and C++/Python/inspection tooling. Every result remains
+  `Unknown` and non-authorizing.
+- **v4.3+ candidates:** persistent/fork-audited fleet publication histories,
+  continuous moving obstacles, coordinated reservation protocols, and
+  independently certified hardware/deployment inputs.
 
 RBF-Safe remains safety infrastructure rather than another motion planner.
 Paper experiments and RapidBoxForest legacy caches stay outside the standalone

@@ -27,6 +27,8 @@ RBFSafe::geometry
                                       `-> RBFSafe::optimization
 
 All core targets -> RBFSafe::rbfsafe (aggregate target)
+
+RBFSafe::occupancy + RBFSafe::identity -> RBFSafe::coordination
 ```
 
 ## Modules
@@ -66,6 +68,20 @@ deployment frames, outward-rounded transformed per-link IFK-AA swept AABBs,
 bounded fleet pair analysis, replay verification, and its independent
 schema-1/schema-2 bundle. It does not consume an Atlas or scene,
 read clocks, coordinate processes, execute commands, or raise evidence.
+
+### Authenticated occupancy coordination
+
+`RBFSafe::coordination` depends on `RBFSafe::occupancy` and
+`RBFSafe::identity`. It reads one validated occupancy payload into bounded
+memory, binds the exact bytes plus decoded bundle/timeline/frame identities,
+and signs or verifies a monotonic parent-linked publication under an exact
+public trust bundle. The verifier additionally requires caller-pinned stream,
+publisher, trust-bundle, parent, and logical evaluation tick.
+
+The target does not own transport, a persistent publication archive, head
+distribution, peer discovery, clock synchronization, consensus, controller
+I/O, or hardware enforcement. Applications retain the accepted parent and
+trust head externally. Every publication result remains `Unknown`.
 
 ### Corridor
 

@@ -3,6 +3,37 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.2.0] - 2026-07-28
+
+### Added
+
+- Public `RBFSafe::coordination` target with deterministic
+  `OccupancyPublication` and `VerifiedOccupancyPublication` values.
+- Exact-byte continuous-fleet-occupancy binding, Ed25519 publication under an
+  active publish-authorized service key, exact trust-bundle binding, closed
+  logical-tick validity windows, and explicit caller pins for stream,
+  publisher, trust bundle, parent, and evaluation tick.
+- Monotonic parent-linked publisher-stream succession checks, bounded
+  checksummed schema-1 persistence, atomic non-overwriting publication,
+  symbolic-link rejection, C++/Python APIs and quickstarts, native/Python CLI
+  verification, and a fixed cross-platform fixture.
+- Exact-byte occupancy loading so digest, decoded bundle identity, timeline,
+  frame, and trajectory-window coverage are verified from one in-memory read.
+
+### Compatibility and safety
+
+- All documented 4.1 APIs and continuous-fleet-occupancy schema-1/schema-2
+  bytes remain supported. The new publication format is independent and no
+  unsigned occupancy bundle is upgraded implicitly.
+- A verified publication authenticates a software statement relative to
+  caller-retained pins. It is not a network protocol, consensus result,
+  globally fresh head, trusted clock, collision certificate, or execution
+  authorization.
+- Publications and verification results remain `Unknown` and
+  non-authorizing. The caller must authenticate each successor, retain the
+  accepted parent externally, and provide trustworthy tick and trust-head
+  inputs.
+
 ## [4.1.0] - 2026-07-28
 
 ### Added

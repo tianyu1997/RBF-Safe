@@ -138,7 +138,8 @@ inline Result<std::vector<std::byte>> read_binary_file(const std::filesystem::pa
     if (error)
         return Result<std::vector<std::byte>>::failure(StatusCode::IoError, "failed to stat binary file",
                                                        path.string());
-    if (size > maximum_size)
+    if (size > maximum_size || size > static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
+        size > static_cast<std::uintmax_t>(std::numeric_limits<std::streamsize>::max()))
         return Result<std::vector<std::byte>>::failure(StatusCode::ResourceLimit,
                                                        "binary file exceeds resource limit", path.string());
     std::ifstream input(path, std::ios::binary);
@@ -147,9 +148,11 @@ inline Result<std::vector<std::byte>> read_binary_file(const std::filesystem::pa
                                                        path.string());
     std::vector<std::byte> bytes(static_cast<std::size_t>(size));
     input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-    if (!input && !bytes.empty())
-        return Result<std::vector<std::byte>>::failure(StatusCode::IoError, "failed to read binary file",
-                                                       path.string());
+    if ((!bytes.empty() && input.gcount() != static_cast<std::streamsize>(bytes.size())) ||
+        input.peek() != std::char_traits<char>::eof() || input.bad()) {
+        return Result<std::vector<std::byte>>::failure(StatusCode::CorruptData,
+                                                       "binary file changed while reading", path.string());
+    }
     return bytes;
 }
 

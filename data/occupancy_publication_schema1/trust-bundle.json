@@ -1,0 +1,22 @@
+{
+  "format": "rbfsafe-service-trust-bundle",
+  "id": "89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d",
+  "keys": [
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "db69491130c011ccd19cb5d0b86259e6cc627840f0dd83f5b55ce7a37ee494dd",
+      "public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+      "service_id": "fixture-occupancy-publisher",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    }
+  ],
+  "library_version": "4.2.0",
+  "parent_id": "",
+  "schema": 2,
+  "sequence": "1"
+}

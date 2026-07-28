@@ -300,6 +300,27 @@ inspection. The `CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES` status remains
 non-authorizing `Unknown`; the fixture has no obstacles, physical clock,
 tracking, controller, or hardware claim.
 
+`data/occupancy_publication_schema1` is the fixed RBF-Safe 4.2 authenticated
+publication for the exact schema-2 occupancy bytes above. It uses one active
+publication-only Ed25519 service key, a root stream statement valid for ticks
+0 through 32, and no private key material. Its stable identities are:
+
+- publication:
+  `90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251`;
+- trust bundle:
+  `89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d`;
+- publisher key:
+  `db69491130c011ccd19cb5d0b86259e6cc627840f0dd83f5b55ce7a37ee494dd`;
+  and
+- verification at tick 16:
+  `9910e71348c6b69609bb2026e7a7f926d27bca243bc2140a0259b7ece9d8fe09`.
+
+C++ and Python tests load the same publication and trust bytes, verify the
+same external occupancy file under exact caller pins, and run both
+inspectors. The fixture demonstrates authenticated software provenance only;
+it has no network, consensus, trusted time, collision, tracking, hardware, or
+execution claim.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -377,3 +398,10 @@ fixed continuous fleet occupancy bundles and binds their bundle/report
 identities, schemas, occupancy/slice counts, frame classification, and
 separation status into the digest. Timings and memory estimates remain
 diagnostic; the occupancy result remains non-authorizing `Unknown`.
+
+The reviewed RBF-Safe 4.2 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `43b03f055ffa8777`. It
+additionally authenticates the fixed occupancy publication against its exact
+payload, public trust bundle, stream, publisher, root parent, and evaluation
+tick, then binds only stable identities and discrete values into the digest.
+Publication and verification results remain non-authorizing `Unknown`.
