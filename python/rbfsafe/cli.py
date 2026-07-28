@@ -19,6 +19,7 @@ from . import (
     HipacCorridor,
     MemoryArtifactState,
     MemoryArtifactType,
+    OccupancyPublication,
     PolicyFeedbackDatabase,
     PolicyFeedbackLabel,
     PolicyFeedbackQuery,
@@ -72,6 +73,7 @@ from . import (
     transparency_gossip_conflict_type_name,
     transparency_gossip_status_name,
     verify_artifact_file,
+    verify_continuous_fleet_occupancy_publication,
     verify_robot_trajectory_occupancy,
 )
 
@@ -277,6 +279,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="reanalyze a continuous fleet occupancy bundle with this separation margin",
     )
     parser.add_argument(
+        "--occupancy-payload",
+        type=Path,
+        help="exact continuous fleet occupancy payload bound by an authenticated publication",
+    )
+    parser.add_argument(
+        "--occupancy-trust-bundle",
+        type=Path,
+        help="public trust bundle required to authenticate an occupancy publication",
+    )
+    parser.add_argument(
+        "--expected-occupancy-stream",
+        help="caller-pinned stream ID required to authenticate an occupancy publication",
+    )
+    parser.add_argument(
+        "--expected-occupancy-publisher",
+        help="caller-pinned publisher service ID required to authenticate an occupancy publication",
+    )
+    parser.add_argument(
+        "--expected-occupancy-trust-bundle",
+        help="caller-pinned exact trust-bundle ID required to authenticate an occupancy publication",
+    )
+    parser.add_argument(
+        "--expected-occupancy-parent",
+        help="caller-retained parent publication ID; use '-' for a root publication",
+    )
+    parser.add_argument(
+        "--occupancy-evaluation-tick",
+        type=int,
+        help="caller-supplied logical timeline tick used to evaluate publication validity",
+    )
+    parser.add_argument(
         "--dispatch-monotonic-ns",
         type=int,
         help="caller-supplied monotonic dispatch time for exact command evaluation",
@@ -363,8 +396,97 @@ def main(argv: list[str] | None = None) -> int:
         pass
     if (
         file_document.get("format")
+        == "rbfsafe-continuous-fleet-occupancy-publication"
+    ):
+        if args.occupancy_robot or args.occupancy_minimum_separation is not None:
+            parser.error(
+                "--occupancy-robot and --occupancy-minimum-separation apply only "
+                "to a continuous fleet occupancy bundle"
+            )
+        required = (
+            args.occupancy_payload,
+            args.occupancy_trust_bundle,
+            args.expected_occupancy_stream,
+            args.expected_occupancy_publisher,
+            args.expected_occupancy_trust_bundle,
+            args.expected_occupancy_parent,
+            args.occupancy_evaluation_tick,
+        )
+        if any(value is None for value in required):
+            parser.error(
+                "occupancy publication inspection requires --occupancy-payload, "
+                "--occupancy-trust-bundle, --expected-occupancy-stream, "
+                "--expected-occupancy-publisher, --expected-occupancy-trust-bundle, "
+                "--expected-occupancy-parent, and --occupancy-evaluation-tick"
+            )
+        if args.occupancy_evaluation_tick < 0:
+            parser.error("--occupancy-evaluation-tick must be non-negative")
+        publication = OccupancyPublication.load(args.atlas)
+        trust_bundle = ServiceTrustBundle.load(args.occupancy_trust_bundle)
+        expected_parent = (
+            "" if args.expected_occupancy_parent == "-" else args.expected_occupancy_parent
+        )
+        verified = verify_continuous_fleet_occupancy_publication(
+            args.occupancy_payload,
+            publication,
+            trust_bundle,
+            args.expected_occupancy_stream,
+            args.expected_occupancy_publisher,
+            args.expected_occupancy_trust_bundle,
+            expected_parent,
+            args.occupancy_evaluation_tick,
+        )
+        print(
+            "RBF-Safe continuous-fleet-occupancy-publication "
+            f"schema={publication.storage_schema}"
+        )
+        print(f"publication_id={publication.id}")
+        print(
+            f"stream={publication.stream_id} "
+            f"publisher={publication.publisher_service_id} "
+            f"key={publication.publisher_key_id}"
+        )
+        print(
+            f"publisher_sequence={publication.publisher_sequence} "
+            f"parent={publication.parent_publication_id or 'root'}"
+        )
+        print(f"trust_bundle={publication.trust_bundle_id}")
+        print(f"occupancy_bundle={publication.occupancy_bundle_id}")
+        print(
+            f"timeline={publication.timeline_id} "
+            f"workspace_frame={publication.workspace_frame_id}"
+        )
+        print(
+            f"valid_ticks=[{publication.valid_from_tick},{publication.valid_through_tick}] "
+            f"evaluation_tick={verified.evaluation_tick}"
+        )
+        print(
+            f"payload_digest={publication.payload_digest} "
+            f"payload_bytes={publication.payload_bytes}"
+        )
+        print("signature_verified=true")
+        print("payload_verified=true")
+        print("evidence=unknown")
+        print("authorizes_execution=false")
+        return 0
+    if (
+        file_document.get("format")
         == "rbfsafe-continuous-fleet-occupancy-bundle"
     ):
+        publication_options = (
+            args.occupancy_payload,
+            args.occupancy_trust_bundle,
+            args.expected_occupancy_stream,
+            args.expected_occupancy_publisher,
+            args.expected_occupancy_trust_bundle,
+            args.expected_occupancy_parent,
+            args.occupancy_evaluation_tick,
+        )
+        if any(value is not None for value in publication_options):
+            parser.error(
+                "authenticated occupancy publication options apply only to "
+                "an occupancy publication"
+            )
         bundle = ContinuousFleetOccupancyBundle.load(args.atlas)
         report = bundle.report
         if args.occupancy_minimum_separation is not None:
@@ -463,9 +585,17 @@ def main(argv: list[str] | None = None) -> int:
     if (
         args.occupancy_robot
         or args.occupancy_minimum_separation is not None
+        or args.occupancy_payload is not None
+        or args.occupancy_trust_bundle is not None
+        or args.expected_occupancy_stream is not None
+        or args.expected_occupancy_publisher is not None
+        or args.expected_occupancy_trust_bundle is not None
+        or args.expected_occupancy_parent is not None
+        or args.occupancy_evaluation_tick is not None
     ):
         parser.error(
-            "continuous occupancy options require a continuous fleet occupancy bundle"
+            "continuous occupancy options require a continuous fleet occupancy "
+            "bundle or authenticated publication"
         )
     if file_document.get("format") == "rbfsafe-verifiable-provenance-bundle":
         required = (

@@ -56,12 +56,14 @@ target_link_libraries(my_consumer PRIVATE RBFSafe::rbfsafe)
 
 Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/install`. Individual
 targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
+`RBFSafe::occupancy`, `RBFSafe::coordination`,
 `RBFSafe::update`, `RBFSafe::corridor`, `RBFSafe::ik`, and
 `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`,
 `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`,
 `RBFSafe::trust`, `RBFSafe::remote`, `RBFSafe::identity`,
-`RBFSafe::deployment`, `RBFSafe::execution`, `RBFSafe::transparency`, and
-`RBFSafe::witness` are available when the aggregate target is unnecessary.
+`RBFSafe::deployment`, `RBFSafe::execution`, `RBFSafe::transparency`,
+`RBFSafe::witness`, and `RBFSafe::provenance` are available when the
+aggregate target is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
 party dependency. It provides OBB, Portal, and HiPaC APIs. The aggregate
@@ -102,6 +104,11 @@ and offline transfer verification. It vendors the Monocypher source listed in
 public package contract. Private-key storage, root/head/checkpoint
 distribution, and retention outside a rollback domain remain
 application-owned.
+
+`RBFSafe::occupancy` derives and replays bounded continuous swept-link
+occupancy bundles. `RBFSafe::coordination` combines that target with
+`RBFSafe::identity` to authenticate exact occupancy bytes under explicit
+caller pins. It adds no network, clock, consensus, or key-storage dependency.
 
 `RBFSafe::policy` also provides policy-calibration profiles and calibrated
 gating. In 3.5 it additionally provides aggregate operational drift

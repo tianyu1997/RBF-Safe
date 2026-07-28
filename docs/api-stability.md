@@ -50,7 +50,11 @@ fleet separation reports, replay verification, and bounded schema-1 bundle
 persistence. RBF-Safe 4.1 additively introduces `DeploymentFrameBounds`,
 `build_robot_trajectory_occupancy_in_frame`, rotated and uncertain
 deployment-frame fields, and schema-2 occupancy persistence while preserving
-the 4.0 translation-only API and schema-1 reader. Public
+the 4.0 translation-only API and schema-1 reader. RBF-Safe 4.2 additively
+introduces `RBFSafe::coordination`, `OccupancyPublication`,
+`VerifiedOccupancyPublication`, exact-byte sign/verify functions, successor
+validation, schema-1 publication persistence, and a public exact-byte
+occupancy-bundle loader. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots record the
@@ -119,6 +123,8 @@ when policy status is `SATISFIED`, `FRESH`, or `ready`.
 Continuous occupancies, conflict witnesses, fleet separation reports, and
 bundles remain `Unknown`, including
 `CertifiedSeparatedUnderSweptEnvelopes`.
+Authenticated occupancy publications and verification results also remain
+`Unknown`; a valid Ed25519 signature never becomes execution evidence.
 The application must still enforce its separately reviewed tracking,
 uncertainty, clock, transport, device, and emergency-stop assumptions.
 

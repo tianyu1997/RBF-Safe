@@ -43,6 +43,10 @@ Version 4.1 additively adds bounded deployment frames with nominal
 right-handed rotations, axis-wise translation uncertainty, arbitrary-axis
 angular uncertainty, and occupancy-bundle schema 2 while retaining the
 translation-only API and schema-1 reader.
+Version 4.2 additively adds `RBFSafe::coordination`, exact-byte Ed25519
+occupancy publication, caller-pinned monotonic stream verification, and an
+independent schema-1 publication format while retaining every earlier
+occupancy API and format.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 4.x line. Additive API changes may appear in
@@ -282,6 +286,14 @@ occupancy identities and robot-model replay. A schema-2 bundle may
 deliberately contain schema-1 occupancies; a schema-1 bundle cannot contain
 schema-2 values. No loader infers frame uncertainty for a schema-1 record.
 
+The v4.2 continuous-fleet-occupancy-publication schema 1 is an independent
+checksummed JSON file. It binds exact occupancy payload bytes and decoded
+bundle/timeline/frame identities to one publisher stream, trust bundle,
+sequence/parent, and closed tick window under Ed25519. Loading is structural;
+cryptographic and payload verification requires explicit caller pins and the
+external exact payload. No unsigned bundle is upgraded, and no current parent,
+trust head, or evaluation tick is inferred.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -312,6 +324,7 @@ calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
 service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
 bounded-execution-session/execution-ledger/transparency-log/
 transparency-gossip-archive/continuous-fleet-occupancy schema-1/schema-2 fixtures,
+authenticated-occupancy-publication schema-1 fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

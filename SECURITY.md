@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security and correctness fixes are provided for the latest tagged 3.x minor
+Security and correctness fixes are provided for the latest tagged 4.x minor
 release. Users should reproduce a report against the current `main` branch
 when practical.
 
@@ -28,6 +28,10 @@ Include, when available:
   authorization/authorization-set IDs, checkpoint ID and signer public-key
   IDs, and redacted signed metadata; never include an Ed25519 seed or private
   key;
+- for authenticated occupancy issues, the publication/stream/publisher/
+  trust-bundle/parent IDs, sequence, validity and evaluation ticks, payload
+  digest/length, and a redacted or synthetic reproducer; never include the
+  signing key;
 - a minimal reproducer and whether the result is deterministic;
 - expected impact and any known deployed use.
 

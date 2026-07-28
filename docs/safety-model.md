@@ -406,7 +406,7 @@ scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v4.1
+## Explicit exclusions in v4.2
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -431,7 +431,8 @@ responsibilities.
   cosignature, gossip message/archive/conflict, and transparency or gossip
   audit, hardware provenance statement/report, external-time assertion/report,
   provenance bundle, combined provenance `ready` status, continuous
-  occupancy, fleet separation report, and occupancy bundle are not
+  occupancy, fleet separation report, occupancy bundle, authenticated
+  occupancy publication, and verified publication result are not
   runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
@@ -496,8 +497,11 @@ responsibilities.
   conservative bounds. The v4.1 occupancy layer separately derives
   continuous swept-link AABBs, but neither layer provides distributed
   consensus, clock guarantees, obstacle clearance, controller interlocks, or
-  tracking enforcement. Archive/bundle integrity is not a signature,
-  authorization decision, or execution certificate.
+  tracking enforcement. The v4.2 coordination layer authenticates exact
+  bundle bytes only relative to caller-pinned trust, stream, parent, and tick.
+  It does not persist a globally current head, distribute trust, synchronize
+  clocks, resolve forks, or turn a signature into an authorization decision
+  or execution certificate.
 - Named release fixtures and benchmark success demonstrate deterministic API
   integration and regression behavior only. They are synthetic, uncalibrated,
   and do not validate a physical robot, workcell, payload, or deployment.

@@ -1,6 +1,7 @@
 #include <rbfsafe/occupancy.h>
 #include <rbfsafe/version.h>
 
+#include "internal/binary.h"
 #include "internal/certificate_utils.h"
 #include "internal/json.h"
 #include "internal/occupancy.h"
@@ -10,7 +11,6 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
-#include <fstream>
 #include <limits>
 #include <string_view>
 #include <system_error>
@@ -493,54 +493,6 @@ decode_report(const Json& value, const ContinuousFleetOccupancyBundleLoadOptions
     return result;
 }
 
-Result<Json> read_bounded_json(const std::filesystem::path& path,
-                               const ContinuousFleetOccupancyBundleLoadOptions& options) {
-    if (options.cancellation.cancelled()) {
-        return Result<Json>::failure(StatusCode::Cancelled, "continuous occupancy bundle load was cancelled");
-    }
-    std::error_code error;
-    const auto status = std::filesystem::symlink_status(path, error);
-    if (error || status.type() == std::filesystem::file_type::not_found) {
-        return Result<Json>::failure(StatusCode::IoError, "failed to inspect continuous occupancy bundle",
-                                     path.string());
-    }
-    if (std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
-        return Result<Json>::failure(
-            StatusCode::CorruptData,
-            "continuous occupancy bundle is missing, indirect, or not a regular file", path.string());
-    }
-    const auto bytes = std::filesystem::file_size(path, error);
-    if (error) {
-        return Result<Json>::failure(StatusCode::IoError,
-                                     "failed to inspect continuous occupancy bundle size", path.string());
-    }
-    if (bytes > options.maximum_payload_bytes ||
-        bytes > static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
-        bytes > static_cast<std::uintmax_t>(std::numeric_limits<std::streamsize>::max())) {
-        return Result<Json>::failure(StatusCode::ResourceLimit,
-                                     "continuous occupancy bundle exceeds configured byte limit",
-                                     path.string());
-    }
-    std::ifstream input(path, std::ios::binary);
-    if (!input) {
-        return Result<Json>::failure(StatusCode::IoError, "failed to open continuous occupancy bundle",
-                                     path.string());
-    }
-    std::string text(static_cast<std::size_t>(bytes), '\0');
-    if (!text.empty()) {
-        input.read(text.data(), static_cast<std::streamsize>(text.size()));
-        if (input.gcount() != static_cast<std::streamsize>(text.size())) {
-            return Result<Json>::failure(StatusCode::CorruptData,
-                                         "continuous occupancy bundle changed while reading", path.string());
-        }
-    }
-    if (input.peek() != std::char_traits<char>::eof()) {
-        return Result<Json>::failure(StatusCode::CorruptData,
-                                     "continuous occupancy bundle changed while reading", path.string());
-    }
-    return Json::parse(text);
-}
-
 Result<void> publish_file(const std::filesystem::path& temporary, const std::filesystem::path& destination,
                           bool destination_exists) {
     std::error_code error;
@@ -667,7 +619,48 @@ load_continuous_fleet_occupancy_bundle(const std::filesystem::path& path,
         return Result<ContinuousFleetOccupancyBundle>::failure(
             StatusCode::InvalidArgument, "continuous occupancy bundle path or load options are invalid");
     }
-    auto document = read_bounded_json(path, options);
+    if (options.cancellation.cancelled()) {
+        return Result<ContinuousFleetOccupancyBundle>::failure(
+            StatusCode::Cancelled, "continuous occupancy bundle load was cancelled");
+    }
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(path, error);
+    if (error || status.type() == std::filesystem::file_type::not_found) {
+        return Result<ContinuousFleetOccupancyBundle>::failure(
+            StatusCode::IoError, "failed to inspect continuous occupancy bundle", path.string());
+    }
+    if (std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+        return Result<ContinuousFleetOccupancyBundle>::failure(
+            StatusCode::CorruptData,
+            "continuous occupancy bundle is missing, indirect, or not a regular file", path.string());
+    }
+    auto bytes = internal::read_binary_file(path, options.maximum_payload_bytes);
+    if (!bytes)
+        return bytes.error();
+    return load_continuous_fleet_occupancy_bundle(bytes.value(), options);
+}
+
+Result<ContinuousFleetOccupancyBundle>
+load_continuous_fleet_occupancy_bundle(std::span<const std::byte> bytes,
+                                       const ContinuousFleetOccupancyBundleLoadOptions& options) {
+    if (options.maximum_occupancies == 0 || options.maximum_input_waypoints < 2 ||
+        options.maximum_dimension == 0 || options.maximum_slices == 0 ||
+        options.maximum_link_envelopes == 0 || options.maximum_conflicts == 0 ||
+        options.maximum_slice_pair_evaluations == 0 || options.maximum_link_pair_evaluations == 0 ||
+        options.maximum_payload_bytes == 0) {
+        return Result<ContinuousFleetOccupancyBundle>::failure(
+            StatusCode::InvalidArgument, "continuous occupancy bundle load options are invalid");
+    }
+    if (bytes.size() > options.maximum_payload_bytes) {
+        return Result<ContinuousFleetOccupancyBundle>::failure(
+            StatusCode::ResourceLimit, "continuous occupancy bundle exceeds byte limit");
+    }
+    if (options.cancellation.cancelled()) {
+        return Result<ContinuousFleetOccupancyBundle>::failure(
+            StatusCode::Cancelled, "continuous occupancy bundle load was cancelled");
+    }
+    const std::string_view text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    auto document = Json::parse(text);
     if (!document)
         return document.error();
     if (!exact_object(document.value(), 5)) {
@@ -696,7 +689,7 @@ load_continuous_fleet_occupancy_bundle(const std::filesystem::path& path,
     if (!internal::valid_sha256(checksum.value()) ||
         checksum.value() != internal::sha256(payload->dump(false))) {
         return Result<ContinuousFleetOccupancyBundle>::failure(
-            StatusCode::CorruptData, "continuous occupancy bundle checksum mismatch", path.string());
+            StatusCode::CorruptData, "continuous occupancy bundle checksum mismatch");
     }
     auto storage = decimal_field(*payload, "storage_schema");
     auto stored_id = string_field(*payload, "id");

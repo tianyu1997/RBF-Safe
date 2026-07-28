@@ -1,5 +1,6 @@
 .venv/
 build*/
+consumer-build*/
 dist/
 dist-*/
 wheelhouse/

@@ -75,6 +75,30 @@ hardware interlocks remain separate. See
 [the complete contract](continuous-fleet-occupancy.md)
 and [storage format](continuous-fleet-occupancy-format.md).
 
+## Authenticated occupancy publication
+
+Include `<rbfsafe/coordination.h>` and link `RBFSafe::coordination`.
+`sign_continuous_fleet_occupancy_publication` signs one exact validated
+occupancy-bundle file with an active, publication-authorized Ed25519 service
+key. `OccupancyPublication` binds the payload length and SHA-256, decoded
+bundle/timeline/frame identities, stream and publisher identities, exact trust
+bundle, positive sequence and parent, and a closed tick window covered by
+every deployment trajectory.
+
+`verify_continuous_fleet_occupancy_publication` requires the exact payload,
+public trust bundle, caller-pinned stream, publisher, trust-bundle ID, retained
+parent, and evaluation tick. It verifies the signature and every binding from
+one bounded payload read. `verify_occupancy_publication_successor` checks exact
+sequence/parent extension and stable stream/publisher/timeline/frame, but
+callers must authenticate both publications separately.
+
+`OccupancyPublication::save/load` provides an independent checksummed
+schema-1 file with bounded loading, atomic publication, and overwrite/symlink
+guards. Publication verification never raises geometric evidence or
+authorizes execution. See
+[the complete contract](authenticated-occupancy-publication.md) and
+[storage format](authenticated-occupancy-publication-format.md).
+
 ## Revocation-aware execution ledger
 
 Include `<rbfsafe/execution_ledger.h>` and link `RBFSafe::execution`.

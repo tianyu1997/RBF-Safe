@@ -189,6 +189,9 @@ class ContinuousFleetOccupancyBundle {
     friend Result<ContinuousFleetOccupancyBundle>
     load_continuous_fleet_occupancy_bundle(const std::filesystem::path&,
                                            const ContinuousFleetOccupancyBundleLoadOptions&);
+    friend Result<ContinuousFleetOccupancyBundle>
+    load_continuous_fleet_occupancy_bundle(std::span<const std::byte>,
+                                           const ContinuousFleetOccupancyBundleLoadOptions&);
 
     std::uint32_t storage_schema_ = 1;
     std::string id_;
@@ -202,6 +205,9 @@ Result<void> save_continuous_fleet_occupancy_bundle(const ContinuousFleetOccupan
 Result<ContinuousFleetOccupancyBundle>
 load_continuous_fleet_occupancy_bundle(const std::filesystem::path& path,
                                        const ContinuousFleetOccupancyBundleLoadOptions& options);
+Result<ContinuousFleetOccupancyBundle>
+load_continuous_fleet_occupancy_bundle(std::span<const std::byte> payload,
+                                       const ContinuousFleetOccupancyBundleLoadOptions& options = {});
 
 std::string continuous_occupancy_conflict_reason_name(ContinuousOccupancyConflictReason reason);
 std::string continuous_fleet_occupancy_status_name(ContinuousFleetOccupancyStatus status);
