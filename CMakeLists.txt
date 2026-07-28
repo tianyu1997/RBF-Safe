@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 4.0.0
+    VERSION 4.1.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES C CXX)
@@ -581,6 +581,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/provenance_bundle_schema1)
     install(DIRECTORY data/continuous_fleet_occupancy_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/continuous_fleet_occupancy_schema1)
+    install(DIRECTORY data/continuous_fleet_occupancy_schema2/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/continuous_fleet_occupancy_schema2)
     install(DIRECTORY data/policy_calibration_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
     install(DIRECTORY data/policy_calibration_lifecycle_schema1/

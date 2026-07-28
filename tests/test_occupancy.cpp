@@ -52,6 +52,8 @@ int main() {
                                                    {2.0, 0.0, 0.0}, trajectory(), build_options);
     CHECK(first);
     CHECK(second);
+    CHECK(first.value().storage_schema == 1);
+    CHECK(first.value().algorithm_version == "1");
     CHECK(first.value().valid());
     CHECK(second.value().valid());
     CHECK(first.value().slices.size() == 4);
@@ -81,6 +83,70 @@ int main() {
             }
         }
     }
+
+    DeploymentFrameBounds rotated_frame;
+    rotated_frame.rotation = {0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0};
+    rotated_frame.translation = {1.0, 2.0, 3.0};
+    CHECK(rotated_frame.valid());
+    CHECK(rotated_frame.exact());
+    auto rotated = build_robot_trajectory_occupancy_in_frame(
+        robot, "cell-clock-v1", "cell-world", "arm-rotated", rotated_frame, trajectory(), build_options);
+    CHECK(rotated);
+    CHECK(rotated.value().storage_schema == 2);
+    CHECK(rotated.value().algorithm_version == "2");
+    CHECK(rotated.value().workspace_rotation == rotated_frame.rotation);
+    CHECK(verify_robot_trajectory_occupancy(robot, rotated.value()));
+    for (const auto& slice : rotated.value().slices) {
+        for (std::size_t sample = 0; sample <= 100; ++sample) {
+            const double tick =
+                static_cast<double>(slice.begin_tick) +
+                static_cast<double>(slice.end_tick - slice.begin_tick) * static_cast<double>(sample) / 100.0;
+            const double fraction = tick / 16.0;
+            auto points = robot.forward_kinematics(Configuration{fraction});
+            CHECK(points);
+            for (const auto& endpoint : points.value()) {
+                for (std::size_t output_axis = 0; output_axis < 3; ++output_axis) {
+                    double transformed = rotated_frame.translation[output_axis];
+                    for (std::size_t input_axis = 0; input_axis < 3; ++input_axis) {
+                        transformed +=
+                            rotated_frame.rotation[output_axis * 3 + input_axis] * endpoint[input_axis];
+                    }
+                    CHECK(transformed >= slice.link_envelopes.front().lower[output_axis] - 1e-12);
+                    CHECK(transformed <= slice.link_envelopes.front().upper[output_axis] + 1e-12);
+                }
+            }
+        }
+    }
+
+    auto uncertain_frame = rotated_frame;
+    uncertain_frame.translation_uncertainty = {0.1, 0.2, 0.3};
+    uncertain_frame.angular_uncertainty_radians = 0.05;
+    CHECK(uncertain_frame.valid());
+    CHECK(!uncertain_frame.exact());
+    auto uncertain = build_robot_trajectory_occupancy_in_frame(
+        robot, "cell-clock-v1", "cell-world", "arm-uncertain", uncertain_frame, trajectory(), build_options);
+    CHECK(uncertain);
+    CHECK(verify_robot_trajectory_occupancy(robot, uncertain.value()));
+    CHECK(uncertain.value().id != rotated.value().id);
+    for (std::size_t slice = 0; slice < rotated.value().slices.size(); ++slice) {
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            CHECK(uncertain.value().slices[slice].link_envelopes.front().lower[axis] <
+                  rotated.value().slices[slice].link_envelopes.front().lower[axis]);
+            CHECK(uncertain.value().slices[slice].link_envelopes.front().upper[axis] >
+                  rotated.value().slices[slice].link_envelopes.front().upper[axis]);
+        }
+    }
+    auto invalid_frame = rotated_frame;
+    invalid_frame.rotation[0] = -1.0;
+    CHECK(!invalid_frame.valid());
+    CHECK(!build_robot_trajectory_occupancy_in_frame(robot, "cell-clock-v1", "cell-world", "arm-invalid",
+                                                     invalid_frame, trajectory(), build_options));
+    invalid_frame = rotated_frame;
+    invalid_frame.translation_uncertainty[0] = -0.1;
+    CHECK(!invalid_frame.valid());
+    invalid_frame = rotated_frame;
+    invalid_frame.angular_uncertainty_radians = 4.0;
+    CHECK(!invalid_frame.valid());
 
     auto repeated = build_robot_trajectory_occupancy(robot, "cell-clock-v1", "cell-world", "arm-a",
                                                      {-2.0, 0.0, 0.0}, trajectory(), build_options);
@@ -287,6 +353,33 @@ int main() {
     CHECK(!bundle.value().authorizes_execution());
 
     const auto directory = temporary_directory();
+    auto far_frame = uncertain_frame;
+    far_frame.translation = {20.0, 2.0, 3.0};
+    auto far = build_robot_trajectory_occupancy_in_frame(robot, "cell-clock-v1", "cell-world", "arm-far",
+                                                         far_frame, trajectory(), build_options);
+    CHECK(far);
+    auto frame_bundle = ContinuousFleetOccupancyBundle::create({uncertain.value(), far.value()});
+    CHECK(frame_bundle);
+    CHECK(frame_bundle.value().storage_schema() == 2);
+    const auto frame_bundle_path = directory / "occupancy-schema2.json";
+    CHECK(frame_bundle.value().save(frame_bundle_path));
+    auto loaded_frame_bundle = ContinuousFleetOccupancyBundle::load(frame_bundle_path);
+    CHECK(loaded_frame_bundle);
+    CHECK(loaded_frame_bundle.value().id() == frame_bundle.value().id());
+    CHECK(loaded_frame_bundle.value().storage_schema() == 2);
+    for (const auto& occupancy : loaded_frame_bundle.value().occupancies())
+        CHECK(verify_robot_trajectory_occupancy(robot, occupancy));
+    auto mixed_bundle = ContinuousFleetOccupancyBundle::create({first.value(), far.value()});
+    CHECK(mixed_bundle);
+    CHECK(mixed_bundle.value().storage_schema() == 2);
+    const auto mixed_bundle_path = directory / "occupancy-mixed-schema.json";
+    CHECK(mixed_bundle.value().save(mixed_bundle_path));
+    auto loaded_mixed_bundle = ContinuousFleetOccupancyBundle::load(mixed_bundle_path);
+    CHECK(loaded_mixed_bundle);
+    CHECK(loaded_mixed_bundle.value().id() == mixed_bundle.value().id());
+    CHECK(loaded_mixed_bundle.value().occupancies().front().storage_schema == 1);
+    CHECK(loaded_mixed_bundle.value().occupancies().back().storage_schema == 2);
+
     const auto bundle_path = directory / "occupancy.json";
     auto missing = ContinuousFleetOccupancyBundle::load(directory / "missing.json");
     CHECK(!missing);
@@ -367,6 +460,23 @@ int main() {
     CHECK(fixture.value().report().id == "05fc3206ce76135946763fca75e3a399449a80b44a47ae168d564a439aa280ef");
     for (const auto& occupancy : fixture.value().occupancies())
         CHECK(verify_robot_trajectory_occupancy(fixture_robot.value(), occupancy));
+
+    const auto fixture2_directory =
+        std::filesystem::path(RBFSAFE_TEST_DATA_DIR) / "continuous_fleet_occupancy_schema2";
+    auto fixture2 = ContinuousFleetOccupancyBundle::load(fixture2_directory / "occupancy.json");
+    auto fixture2_robot = SerialRobotModel::from_json(fixture2_directory / "robot.json");
+    CHECK(fixture2);
+    CHECK(fixture2_robot);
+    CHECK(fixture2.value().id() == "6030e3574db5634f60b6cf04ffc325077f944ef23d256ef7cc937fe857dce8d0");
+    CHECK(fixture2.value().report().id == "9a8b12df9ba0ca88142a9f44ef722a411cb33930a8986e4dd7b657d8d333053e");
+    CHECK(fixture2.value().storage_schema() == 2);
+    constexpr std::array<double, 9> identity_rotation{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    constexpr std::array<double, 3> fixture_uncertainty{0.01, 0.01, 0.02};
+    for (const auto& occupancy : fixture2.value().occupancies()) {
+        CHECK(occupancy.workspace_rotation != identity_rotation);
+        CHECK(occupancy.workspace_translation_uncertainty == fixture_uncertainty);
+        CHECK(verify_robot_trajectory_occupancy(fixture2_robot.value(), occupancy));
+    }
 
     std::filesystem::remove_all(directory);
     return 0;

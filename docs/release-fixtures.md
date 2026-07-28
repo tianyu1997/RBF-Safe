@@ -281,6 +281,19 @@ slices. Its exact identities are:
 - fleet report:
   `05fc3206ce76135946763fca75e3a399449a80b44a47ae168d564a439aa280ef`.
 
+`data/continuous_fleet_occupancy_schema2` is the fixed RBF-Safe 4.1
+bounded-frame fixture for the same synthetic planar 2R robot. Both
+deployments use an exact 90-degree right-handed base rotation and explicit
+translation uncertainty `[0.01, 0.01, 0.02]`; all eight stored slices remain
+separated. Its exact identities are:
+
+- occupancy bundle:
+  `6030e3574db5634f60b6cf04ffc325077f944ef23d256ef7cc937fe857dce8d0`;
+- fleet report:
+  `9a8b12df9ba0ca88142a9f44ef722a411cb33930a8986e4dd7b657d8d333053e`;
+- serialized file SHA-256:
+  `d5c566782ab97847dcef150b81cdaeb73c27192bfd8c12a7e34ea0787d010c2f`.
+
 C++ and Python tests load the same bytes, replay both occupancies from the
 included robot model, replay the fleet report, and verify native/Python
 inspection. The `CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES` status remains
@@ -358,9 +371,9 @@ fixture against its exact trust root and checkpoint, and binds the bundle,
 hardware report, freshness report, statement count, and source count into the
 digest. The `SATISFIED + FRESH` outcome remains non-authorizing `Unknown`.
 
-The reviewed RBF-Safe 4.0 cross-platform logical digest is recorded in
-`data/release-fixtures/logical_digest.txt` as `a4d9acf4578b0377`. It
-additionally loads and robot-replays the fixed continuous fleet occupancy
-bundle and binds its bundle/report identities, occupancy/slice counts, and
+The reviewed RBF-Safe 4.1 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `156c1b1e36828399`. It loads and robot-replays both
+fixed continuous fleet occupancy bundles and binds their bundle/report
+identities, schemas, occupancy/slice counts, frame classification, and
 separation status into the digest. Timings and memory estimates remain
 diagnostic; the occupancy result remains non-authorizing `Unknown`.

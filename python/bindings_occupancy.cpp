@@ -20,6 +20,15 @@ void bind_occupancy(py::module_& module) {
         .def_readwrite("tick", &TimedConfiguration::tick)
         .def_readwrite("configuration", &TimedConfiguration::configuration);
 
+    py::class_<DeploymentFrameBounds>(module, "DeploymentFrameBounds")
+        .def(py::init<>())
+        .def_readwrite("rotation", &DeploymentFrameBounds::rotation)
+        .def_readwrite("translation", &DeploymentFrameBounds::translation)
+        .def_readwrite("translation_uncertainty", &DeploymentFrameBounds::translation_uncertainty)
+        .def_readwrite("angular_uncertainty_radians", &DeploymentFrameBounds::angular_uncertainty_radians)
+        .def("valid", &DeploymentFrameBounds::valid)
+        .def("exact", &DeploymentFrameBounds::exact);
+
     py::class_<SweptLinkOccupancySlice>(module, "SweptLinkOccupancySlice")
         .def_readonly("id", &SweptLinkOccupancySlice::id)
         .def_readonly("trajectory_segment_index", &SweptLinkOccupancySlice::trajectory_segment_index)
@@ -55,6 +64,11 @@ void bind_occupancy(py::module_& module) {
         .def_readonly("deployment_id", &RobotTrajectoryOccupancy::deployment_id)
         .def_readonly("robot_digest", &RobotTrajectoryOccupancy::robot_digest)
         .def_readonly("workspace_translation", &RobotTrajectoryOccupancy::workspace_translation)
+        .def_readonly("workspace_rotation", &RobotTrajectoryOccupancy::workspace_rotation)
+        .def_readonly("workspace_translation_uncertainty",
+                      &RobotTrajectoryOccupancy::workspace_translation_uncertainty)
+        .def_readonly("workspace_angular_uncertainty_radians",
+                      &RobotTrajectoryOccupancy::workspace_angular_uncertainty_radians)
         .def_readonly("algorithm", &RobotTrajectoryOccupancy::algorithm)
         .def_readonly("algorithm_version", &RobotTrajectoryOccupancy::algorithm_version)
         .def_readonly("maximum_subdivision_depth", &RobotTrajectoryOccupancy::maximum_subdivision_depth)
@@ -188,6 +202,23 @@ void bind_occupancy(py::module_& module) {
         },
         py::arg("robot"), py::arg("timeline_id"), py::arg("workspace_frame_id"), py::arg("deployment_id"),
         py::arg("workspace_translation"), py::arg("trajectory"),
+        py::arg("options") = ContinuousOccupancyBuildOptions{});
+
+    module.def(
+        "build_robot_trajectory_occupancy_in_frame",
+        [](const SerialRobotModel& robot, std::string timeline_id, std::string workspace_frame_id,
+           std::string deployment_id, const DeploymentFrameBounds& deployment_frame,
+           std::vector<TimedConfiguration> trajectory, const ContinuousOccupancyBuildOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::build_robot_trajectory_occupancy_in_frame(
+                    robot, std::move(timeline_id), std::move(workspace_frame_id), std::move(deployment_id),
+                    deployment_frame, trajectory, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("robot"), py::arg("timeline_id"), py::arg("workspace_frame_id"), py::arg("deployment_id"),
+        py::arg("deployment_frame"), py::arg("trajectory"),
         py::arg("options") = ContinuousOccupancyBuildOptions{});
 
     module.def(

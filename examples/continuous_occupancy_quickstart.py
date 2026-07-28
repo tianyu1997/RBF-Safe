@@ -42,21 +42,29 @@ def main() -> int:
     ]
     build_options = rbfsafe.ContinuousOccupancyBuildOptions()
     build_options.maximum_normalized_joint_width = 0.05
-    first = rbfsafe.build_robot_trajectory_occupancy(
+    first_frame = rbfsafe.DeploymentFrameBounds()
+    first_frame.rotation = [0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    first_frame.translation = [-4.0, 0.0, 0.0]
+    first_frame.translation_uncertainty = [0.01, 0.01, 0.02]
+    second_frame = rbfsafe.DeploymentFrameBounds()
+    second_frame.rotation = first_frame.rotation
+    second_frame.translation = [4.0, 0.0, 0.0]
+    second_frame.translation_uncertainty = first_frame.translation_uncertainty
+    first = rbfsafe.build_robot_trajectory_occupancy_in_frame(
         robot,
         "fixture-cell-clock-v1",
         "fixture-cell-world",
         "arm-a",
-        [-4.0, 0.0, 0.0],
+        first_frame,
         trajectory,
         build_options,
     )
-    second = rbfsafe.build_robot_trajectory_occupancy(
+    second = rbfsafe.build_robot_trajectory_occupancy_in_frame(
         robot,
         "fixture-cell-clock-v1",
         "fixture-cell-world",
         "arm-b",
-        [4.0, 0.0, 0.0],
+        second_frame,
         trajectory,
         build_options,
     )

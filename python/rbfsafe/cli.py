@@ -427,6 +427,27 @@ def main(argv: list[str] | None = None) -> int:
             f"slices={sum(len(item.slices) for item in bundle.occupancies)} "
             f"conflicts={len(report.conflicts)}"
         )
+        identity_rotation = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+        print(
+            "rotated_frames="
+            + str(
+                sum(
+                    tuple(item.workspace_rotation) != identity_rotation
+                    for item in bundle.occupancies
+                )
+            )
+            + " uncertain_frames="
+            + str(
+                sum(
+                    item.workspace_angular_uncertainty_radians > 0.0
+                    or any(
+                        value > 0.0
+                        for value in item.workspace_translation_uncertainty
+                    )
+                    for item in bundle.occupancies
+                )
+            )
+        )
         print(
             f"minimum_separation={report.minimum_separation} "
             f"slice_pair_evaluations={report.slice_pair_evaluations} "

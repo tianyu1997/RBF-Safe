@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 4.0 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 4.1 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 4.0 |
+| Format | Read | Write | Migration in 4.1 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -30,7 +30,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Transparency log | 1 | 1 | New append-only deployment/observation history; no global freshness, physical observation, prior publication, or execution evidence is inferred |
 | Transparency gossip archive | 1 | 1 | Independent witnessed-checkpoint exchange history; no peer discovery, global freshness, hardware provenance, time, or execution authority is inferred |
 | Verifiable provenance bundle | 1 | 1 | Explicit new hardware-statement/time-source artifact; no vendor evidence, trusted adapter, clock, historical assertion, or execution authority is inferred |
-| Continuous fleet occupancy bundle | 1 | 1 | Independent swept-link trajectory artifact; no v3 reservation AABB, planner path, clock, frame transform, robot model, obstacle proof, tracking observation, or execution authority is inferred |
+| Continuous fleet occupancy bundle | 1, 2 | 1 from legacy translation builder; 2 from bounded-frame builder/mixed input | Schema 1 remains exact fixed-translation evidence; rotation or uncertainty is never inferred |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -211,7 +211,7 @@ inputs. No existing timestamp or monotonic observation is upgraded
 implicitly, and no migration can invent physical key custody or trustworthy
 time.
 
-Continuous-fleet-occupancy-bundle schema 1 is specified in
+Continuous-fleet-occupancy-bundle schemas 1 and 2 are specified in
 [Continuous fleet occupancy](continuous-fleet-occupancy-format.md). A v3
 fleet reservation contains one caller-declared workspace AABB, not the exact
 joint trajectory, robot model, per-link swept envelopes, timeline/frame
@@ -219,3 +219,12 @@ contract, or subdivision parameters. No migration can infer those values.
 Build a new occupancy from reviewed trajectory/model inputs, replay it against
 the exact model, and deliberately integrate its non-authorizing report into
 the deployment's scheduling policy.
+
+Schema 1 has exact fixed-translation semantics and remains readable and
+robot-replayable. Schema 2 adds explicit nominal rotation plus translation
+and angular uncertainty. A schema-1 record is not silently upgraded because
+no file can establish missing calibration uncertainty. To publish schema 2,
+obtain a reviewed `DeploymentFrameBounds` input and rebuild the occupancy
+from the exact robot and trajectory. Mixed schema-1/schema-2 inputs are
+permitted only inside a schema-2 bundle and remain distinguishable by each
+record's storage schema and algorithm version.

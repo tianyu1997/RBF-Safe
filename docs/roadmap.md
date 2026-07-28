@@ -135,15 +135,21 @@
   assertions, freshness policy, provenance-chain replay, and adapters that
   remain separate from geometric and physical-execution certification. No
   device vendor or time source is trusted implicitly.
-- **v4.0 (current) - Continuous-time fleet occupancy:** deterministic
+- **v4.0 - Continuous-time fleet occupancy:** deterministic
   piecewise-linear joint-trajectory subdivision, conservative IFK-AA per-link
   swept AABBs, explicit timeline/frame/deployment binding, translated
   multi-robot comparison, separation-margin witnesses, replay verification,
   bounded schema-1 persistence, and C++/Python/inspection tooling. Every
   result remains `Unknown` and non-authorizing.
-- **v4.1+ candidates:** rotated/uncertain deployment frames, distributed
-  fleet coordination, authenticated occupancy publication, continuous moving
-  obstacles, and certified hardware/deployment profiles.
+- **v4.1 (current) - Bounded deployment frames:** right-handed nominal
+  rotations, axis-wise translation uncertainty, arbitrary-axis angular
+  uncertainty, conservative outward-rounded workspace expansion, exact frame
+  identity binding, schema-2 persistence with schema-1 compatibility, and
+  C++/Python/inspection tooling. Every result remains `Unknown` and
+  non-authorizing.
+- **v4.2+ candidates:** distributed fleet coordination, authenticated
+  occupancy publication, continuous moving obstacles, and certified
+  hardware/deployment profiles.
 
 RBF-Safe remains safety infrastructure rather than another motion planner.
 Paper experiments and RapidBoxForest legacy caches stay outside the standalone

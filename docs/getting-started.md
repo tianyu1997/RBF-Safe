@@ -736,20 +736,31 @@ trajectory = [
     rbfsafe.TimedConfiguration(0, [-0.2, 0.1]),
     rbfsafe.TimedConfiguration(32, [0.2, -0.1]),
 ]
-first = rbfsafe.build_robot_trajectory_occupancy(
+first_frame = rbfsafe.DeploymentFrameBounds()
+first_frame.rotation = [0.0, -1.0, 0.0,
+                        1.0,  0.0, 0.0,
+                        0.0,  0.0, 1.0]
+first_frame.translation = [-4.0, 0.0, 0.0]
+first_frame.translation_uncertainty = [0.01, 0.01, 0.02]
+second_frame = rbfsafe.DeploymentFrameBounds()
+second_frame.rotation = first_frame.rotation
+second_frame.translation = [4.0, 0.0, 0.0]
+second_frame.translation_uncertainty = first_frame.translation_uncertainty
+
+first = rbfsafe.build_robot_trajectory_occupancy_in_frame(
     robot,
     "cell-clock-v1",
     "cell-world",
     "arm-a",
-    [-4.0, 0.0, 0.0],
+    first_frame,
     trajectory,
 )
-second = rbfsafe.build_robot_trajectory_occupancy(
+second = rbfsafe.build_robot_trajectory_occupancy_in_frame(
     robot,
     "cell-clock-v1",
     "cell-world",
     "arm-b",
-    [4.0, 0.0, 0.0],
+    second_frame,
     trajectory,
 )
 
@@ -765,5 +776,6 @@ Replay each loaded occupancy against its exact robot model before relying on
 its stored envelopes. A successful
 `CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES` result remains `Unknown` and
 non-authorizing: it does not establish obstacle freedom, self-collision
-freedom, clock synchronization, controller tracking, dynamics, or execution.
+freedom, clock synchronization, moving-frame behavior, controller tracking,
+dynamics, or execution.
 See [continuous-time fleet occupancy](continuous-fleet-occupancy.md).

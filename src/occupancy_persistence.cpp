@@ -112,6 +112,30 @@ Result<const Json::Array*> array_field(const Json& object, std::string_view key,
     return &value->as_array();
 }
 
+template <std::size_t Size>
+Result<std::array<double, Size>> number_array_field(const Json& object, std::string_view key,
+                                                    bool non_negative = false) {
+    auto values = array_field(object, key, Size);
+    if (!values)
+        return values.error();
+    if (values.value()->size() != Size) {
+        return Result<std::array<double, Size>>::failure(
+            StatusCode::CorruptData, "occupancy numeric array has an invalid length", std::string(key));
+    }
+    std::array<double, Size> result{};
+    for (std::size_t index = 0; index < Size; ++index) {
+        const auto& value = (*values.value())[index];
+        if (!value.is_number() || !std::isfinite(value.as_number()) ||
+            (non_negative && value.as_number() < 0.0)) {
+            return Result<std::array<double, Size>>::failure(
+                StatusCode::CorruptData, "occupancy numeric array contains an invalid value",
+                std::string(key));
+        }
+        result[index] = value.as_number();
+    }
+    return result;
+}
+
 Result<Interval> decode_interval(const Json& value) {
     if (!exact_object(value, 2)) {
         return Result<Interval>::failure(StatusCode::CorruptData, "occupancy interval object is invalid");
@@ -264,16 +288,20 @@ Result<RobotTrajectoryOccupancy> decode_occupancy(const Json& value,
                                                   const ContinuousFleetOccupancyBundleLoadOptions& options,
                                                   std::size_t& total_waypoints, std::size_t& total_slices,
                                                   std::size_t& total_link_envelopes) {
-    if (!exact_object(value, 14)) {
+    if (!value.is_object()) {
         return Result<RobotTrajectoryOccupancy>::failure(StatusCode::CorruptData,
                                                          "robot trajectory occupancy object is invalid");
     }
     auto storage = decimal_field(value, "storage_schema");
     if (!storage)
         return storage.error();
-    if (storage.value() != 1) {
+    if (storage.value() != 1 && storage.value() != 2) {
         return Result<RobotTrajectoryOccupancy>::failure(
             StatusCode::IncompatibleFormat, "robot trajectory occupancy schema is not supported");
+    }
+    if (!exact_object(value, storage.value() == 1 ? 14 : 17)) {
+        return Result<RobotTrajectoryOccupancy>::failure(
+            StatusCode::CorruptData, "robot trajectory occupancy fields do not match its schema");
     }
     auto id = string_field(value, "id");
     auto timeline = string_field(value, "timeline_id");
@@ -287,11 +315,9 @@ Result<RobotTrajectoryOccupancy> decode_occupancy(const Json& value,
     auto padding = number_field(value, "link_padding", true);
     auto trajectory_json = array_field(value, "trajectory", options.maximum_input_waypoints);
     auto slices_json = array_field(value, "slices", options.maximum_slices);
-    const auto* translation_json = value.find("workspace_translation");
+    auto translation = number_array_field<3>(value, "workspace_translation");
     if (!id || !timeline || !frame || !deployment || !robot || !algorithm || !algorithm_version ||
-        !maximum_depth || !maximum_width || !padding || !trajectory_json || !slices_json ||
-        translation_json == nullptr || !translation_json->is_array() ||
-        translation_json->as_array().size() != 3) {
+        !maximum_depth || !maximum_width || !padding || !trajectory_json || !slices_json || !translation) {
         return Result<RobotTrajectoryOccupancy>::failure(StatusCode::CorruptData,
                                                          "robot trajectory occupancy is incomplete");
     }
@@ -304,23 +330,33 @@ Result<RobotTrajectoryOccupancy> decode_occupancy(const Json& value,
         return Result<RobotTrajectoryOccupancy>::failure(
             StatusCode::CorruptData, "robot trajectory occupancy has no replayable content");
     }
-    std::array<double, 3> translation{};
-    for (std::size_t axis = 0; axis < 3; ++axis) {
-        const auto& coordinate = translation_json->as_array()[axis];
-        if (!coordinate.is_number() || !std::isfinite(coordinate.as_number())) {
+    std::array<double, 9> rotation{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    std::array<double, 3> translation_uncertainty{};
+    double angular_uncertainty = 0.0;
+    if (storage.value() == 2) {
+        auto decoded_rotation = number_array_field<9>(value, "workspace_rotation");
+        auto decoded_translation_uncertainty =
+            number_array_field<3>(value, "workspace_translation_uncertainty", true);
+        auto decoded_angular_uncertainty = number_field(value, "workspace_angular_uncertainty_radians", true);
+        if (!decoded_rotation || !decoded_translation_uncertainty || !decoded_angular_uncertainty) {
             return Result<RobotTrajectoryOccupancy>::failure(StatusCode::CorruptData,
-                                                             "occupancy workspace translation is invalid");
+                                                             "deployment-frame bounds are incomplete");
         }
-        translation[axis] = coordinate.as_number();
+        rotation = decoded_rotation.value();
+        translation_uncertainty = decoded_translation_uncertainty.value();
+        angular_uncertainty = decoded_angular_uncertainty.value();
     }
     RobotTrajectoryOccupancy result;
-    result.storage_schema = 1;
+    result.storage_schema = static_cast<std::uint32_t>(storage.value());
     result.id = std::move(id).value();
     result.timeline_id = std::move(timeline).value();
     result.workspace_frame_id = std::move(frame).value();
     result.deployment_id = std::move(deployment).value();
     result.robot_digest = std::move(robot).value();
-    result.workspace_translation = translation;
+    result.workspace_translation = translation.value();
+    result.workspace_rotation = rotation;
+    result.workspace_translation_uncertainty = translation_uncertainty;
+    result.workspace_angular_uncertainty_radians = angular_uncertainty;
     result.algorithm = std::move(algorithm).value();
     result.algorithm_version = std::move(algorithm_version).value();
     result.maximum_subdivision_depth = maximum_depth.value();
@@ -544,7 +580,7 @@ Json bundle_document(const ContinuousFleetOccupancyBundle& bundle) {
         {"format", "rbfsafe-continuous-fleet-occupancy-bundle"},
         {"library_version", kVersion},
         {"payload", payload},
-        {"schema", 1},
+        {"schema", static_cast<int>(bundle.storage_schema())},
     };
 }
 
@@ -653,7 +689,7 @@ load_continuous_fleet_occupancy_bundle(const std::filesystem::path& path,
             StatusCode::IncompatibleFormat, "continuous occupancy bundle format is not recognized",
             format.value());
     }
-    if (schema.value() != 1) {
+    if (schema.value() != 1 && schema.value() != 2) {
         return Result<ContinuousFleetOccupancyBundle>::failure(
             StatusCode::IncompatibleFormat, "continuous occupancy bundle schema is not supported");
     }
@@ -670,9 +706,10 @@ load_continuous_fleet_occupancy_bundle(const std::filesystem::path& path,
         return Result<ContinuousFleetOccupancyBundle>::failure(
             StatusCode::CorruptData, "continuous occupancy bundle payload is incomplete");
     }
-    if (storage.value() != 1) {
+    if ((storage.value() != 1 && storage.value() != 2) || storage.value() != schema.value()) {
         return Result<ContinuousFleetOccupancyBundle>::failure(
-            StatusCode::IncompatibleFormat, "continuous occupancy bundle storage schema is not supported");
+            StatusCode::IncompatibleFormat,
+            "continuous occupancy bundle document and storage schemas are incompatible");
     }
     if (occupancies_json.value()->empty()) {
         return Result<ContinuousFleetOccupancyBundle>::failure(
@@ -714,7 +751,7 @@ load_continuous_fleet_occupancy_bundle(const std::filesystem::path& path,
     }
 
     ContinuousFleetOccupancyBundle result;
-    result.storage_schema_ = 1;
+    result.storage_schema_ = static_cast<std::uint32_t>(storage.value());
     result.id_ = std::move(stored_id).value();
     result.occupancies_ = std::move(occupancies);
     result.report_ = std::move(report).value();

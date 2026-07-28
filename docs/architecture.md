@@ -61,9 +61,10 @@ records and parent certificate IDs keep derived claims auditable.
 
 `RBFSafe::occupancy` consumes the Atlas-level cancellation, save-option, and
 evidence value types plus the geometry kernel. It owns timestamped
-piecewise-linear trajectories, deterministic subdivision, translated
-per-link IFK-AA swept AABBs, bounded fleet pair analysis, replay verification,
-and its independent schema-1 bundle. It does not consume an Atlas or scene,
+piecewise-linear trajectories, deterministic subdivision, bounded rigid
+deployment frames, outward-rounded transformed per-link IFK-AA swept AABBs,
+bounded fleet pair analysis, replay verification, and its independent
+schema-1/schema-2 bundle. It does not consume an Atlas or scene,
 read clocks, coordinate processes, execute commands, or raise evidence.
 
 ### Corridor

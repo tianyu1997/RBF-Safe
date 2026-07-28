@@ -20,6 +20,20 @@ struct TimedConfiguration {
     Configuration configuration;
 };
 
+struct DeploymentFrameBounds {
+    DeploymentFrameBounds() = default;
+
+    // Row-major rotation from the robot-local frame into workspace_frame_id.
+    std::array<double, 9> rotation{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    std::array<double, 3> translation{};
+    std::array<double, 3> translation_uncertainty{};
+    // Maximum geodesic rotation error about any axis, in radians.
+    double angular_uncertainty_radians = 0.0;
+
+    bool valid() const;
+    bool exact() const;
+};
+
 struct SweptLinkOccupancySlice {
     std::string id;
     std::size_t trajectory_segment_index = 0;
@@ -54,6 +68,9 @@ struct RobotTrajectoryOccupancy {
     std::string deployment_id;
     std::string robot_digest;
     std::array<double, 3> workspace_translation{};
+    std::array<double, 9> workspace_rotation{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    std::array<double, 3> workspace_translation_uncertainty{};
+    double workspace_angular_uncertainty_radians = 0.0;
     std::string algorithm;
     std::string algorithm_version;
     std::size_t maximum_subdivision_depth = 0;
@@ -70,6 +87,11 @@ struct RobotTrajectoryOccupancy {
 Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy(
     const SerialRobotModel& robot, std::string timeline_id, std::string workspace_frame_id,
     std::string deployment_id, std::array<double, 3> workspace_translation,
+    std::span<const TimedConfiguration> trajectory, const ContinuousOccupancyBuildOptions& options = {});
+
+Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy_in_frame(
+    const SerialRobotModel& robot, std::string timeline_id, std::string workspace_frame_id,
+    std::string deployment_id, const DeploymentFrameBounds& deployment_frame,
     std::span<const TimedConfiguration> trajectory, const ContinuousOccupancyBuildOptions& options = {});
 
 Result<void> verify_robot_trajectory_occupancy(const SerialRobotModel& robot,
