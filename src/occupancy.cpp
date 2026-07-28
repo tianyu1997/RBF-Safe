@@ -17,7 +17,13 @@ namespace {
 constexpr std::size_t kMaximumIdentifierBytes = 256;
 constexpr std::size_t kMaximumSubdivisionDepth = 64;
 constexpr const char* kOccupancyAlgorithm = "ifk-aa-piecewise-linear-swept-link-aabb";
-constexpr const char* kOccupancyAlgorithmVersion = "1";
+constexpr const char* kOccupancyAlgorithmVersion1 = "1";
+constexpr const char* kOccupancyAlgorithmVersion2 = "2";
+constexpr double kPi = 3.141592653589793238462643383279502884;
+constexpr double kRotationTolerance = 1e-9;
+constexpr std::array<double, 9> kIdentityRotation{
+    1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+};
 
 bool contains_control_character(const std::string& value) {
     return std::any_of(value.begin(), value.end(),
@@ -31,6 +37,45 @@ bool valid_identifier(const std::string& value) {
 bool valid_translation(const std::array<double, 3>& translation) {
     return std::all_of(translation.begin(), translation.end(),
                        [](double value) { return std::isfinite(value); });
+}
+
+bool valid_rotation(const std::array<double, 9>& rotation) {
+    if (!std::all_of(rotation.begin(), rotation.end(), [](double value) { return std::isfinite(value); })) {
+        return false;
+    }
+    for (std::size_t first = 0; first < 3; ++first) {
+        for (std::size_t second = 0; second < 3; ++second) {
+            double row_dot = 0.0;
+            double column_dot = 0.0;
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                row_dot += rotation[first * 3 + axis] * rotation[second * 3 + axis];
+                column_dot += rotation[axis * 3 + first] * rotation[axis * 3 + second];
+            }
+            const double expected = first == second ? 1.0 : 0.0;
+            if (std::abs(row_dot - expected) > kRotationTolerance ||
+                std::abs(column_dot - expected) > kRotationTolerance) {
+                return false;
+            }
+        }
+    }
+    const double determinant = rotation[0] * (rotation[4] * rotation[8] - rotation[5] * rotation[7]) -
+                               rotation[1] * (rotation[3] * rotation[8] - rotation[5] * rotation[6]) +
+                               rotation[2] * (rotation[3] * rotation[7] - rotation[4] * rotation[6]);
+    return determinant > 0.0 && std::abs(determinant - 1.0) <= kRotationTolerance;
+}
+
+DeploymentFrameBounds occupancy_frame(const RobotTrajectoryOccupancy& occupancy) {
+    DeploymentFrameBounds frame;
+    frame.rotation = occupancy.workspace_rotation;
+    frame.translation = occupancy.workspace_translation;
+    frame.translation_uncertainty = occupancy.workspace_translation_uncertainty;
+    frame.angular_uncertainty_radians = occupancy.workspace_angular_uncertainty_radians;
+    return frame;
+}
+
+bool legacy_translation_frame(const DeploymentFrameBounds& frame) {
+    return frame.rotation == kIdentityRotation && frame.translation_uncertainty == std::array<double, 3>{} &&
+           frame.angular_uncertainty_radians == 0.0;
 }
 
 bool valid_build_options(const ContinuousOccupancyBuildOptions& options) {
@@ -127,6 +172,91 @@ Result<std::vector<WorkspaceAabb>> translated_envelopes(const LinkEnvelope& enve
     return result;
 }
 
+Result<std::vector<WorkspaceAabb>> transformed_envelopes(const LinkEnvelope& envelope,
+                                                         const DeploymentFrameBounds& frame) {
+    std::vector<WorkspaceAabb> result;
+    result.reserve(envelope.links.size());
+    const double negative_infinity = -std::numeric_limits<double>::infinity();
+    const double positive_infinity = std::numeric_limits<double>::infinity();
+    for (const auto& local : envelope.links) {
+        double maximum_radius_squared = 0.0;
+        if (frame.angular_uncertainty_radians > 0.0) {
+            std::array<double, 3> local_maximum_coordinate{};
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                local_maximum_coordinate[axis] =
+                    std::max(std::abs(local.lower[axis]), std::abs(local.upper[axis]));
+            }
+            for (std::size_t output_axis = 0; output_axis < 3; ++output_axis) {
+                double transformed_maximum_coordinate = 0.0;
+                for (std::size_t input_axis = 0; input_axis < 3; ++input_axis) {
+                    const double product = std::abs(frame.rotation[output_axis * 3 + input_axis]) *
+                                           local_maximum_coordinate[input_axis];
+                    transformed_maximum_coordinate = std::nextafter(
+                        transformed_maximum_coordinate + std::nextafter(product, positive_infinity),
+                        positive_infinity);
+                }
+                const double squared = transformed_maximum_coordinate * transformed_maximum_coordinate;
+                if (!std::isfinite(squared)) {
+                    return Result<std::vector<WorkspaceAabb>>::failure(
+                        StatusCode::InvalidArgument,
+                        "deployment-frame angular uncertainty produced a non-finite radius");
+                }
+                maximum_radius_squared = std::nextafter(
+                    maximum_radius_squared + std::nextafter(squared, positive_infinity), positive_infinity);
+            }
+        }
+        double angular_expansion = 0.0;
+        if (frame.angular_uncertainty_radians > 0.0) {
+            const double maximum_radius =
+                std::nextafter(std::sqrt(maximum_radius_squared), positive_infinity);
+            const double chord_scale = std::min(frame.angular_uncertainty_radians, 2.0);
+            angular_expansion = std::nextafter(chord_scale * maximum_radius, positive_infinity);
+            if (!std::isfinite(angular_expansion)) {
+                return Result<std::vector<WorkspaceAabb>>::failure(
+                    StatusCode::InvalidArgument,
+                    "deployment-frame angular uncertainty produced a non-finite expansion");
+            }
+        }
+
+        WorkspaceAabb transformed;
+        for (std::size_t output_axis = 0; output_axis < 3; ++output_axis) {
+            double lower = frame.translation[output_axis];
+            double upper = frame.translation[output_axis];
+            for (std::size_t input_axis = 0; input_axis < 3; ++input_axis) {
+                const double coefficient = frame.rotation[output_axis * 3 + input_axis];
+                if (coefficient == 0.0)
+                    continue;
+                const double lower_endpoint =
+                    coefficient > 0.0 ? local.lower[input_axis] : local.upper[input_axis];
+                const double upper_endpoint =
+                    coefficient > 0.0 ? local.upper[input_axis] : local.lower[input_axis];
+                const double lower_product = coefficient * lower_endpoint;
+                const double upper_product = coefficient * upper_endpoint;
+                if (!std::isfinite(lower_product) || !std::isfinite(upper_product)) {
+                    return Result<std::vector<WorkspaceAabb>>::failure(
+                        StatusCode::InvalidArgument,
+                        "deployment-frame rotation produced a non-finite swept envelope");
+                }
+                lower = std::nextafter(lower + std::nextafter(lower_product, negative_infinity),
+                                       negative_infinity);
+                upper = std::nextafter(upper + std::nextafter(upper_product, positive_infinity),
+                                       positive_infinity);
+            }
+            const double expansion = frame.translation_uncertainty[output_axis] + angular_expansion;
+            lower = std::nextafter(lower - expansion, negative_infinity);
+            upper = std::nextafter(upper + expansion, positive_infinity);
+            transformed.lower[output_axis] = lower;
+            transformed.upper[output_axis] = upper;
+        }
+        if (!transformed.valid()) {
+            return Result<std::vector<WorkspaceAabb>>::failure(
+                StatusCode::InvalidArgument, "deployment-frame bounds produced a non-finite swept envelope");
+        }
+        result.push_back(transformed);
+    }
+    return result;
+}
+
 bool slice_less(const SweptLinkOccupancySlice& first, const SweptLinkOccupancySlice& second) {
     return std::tie(first.trajectory_segment_index, first.begin_tick, first.end_tick, first.id) <
            std::tie(second.trajectory_segment_index, second.begin_tick, second.end_tick, second.id);
@@ -159,6 +289,19 @@ bool valid_conflict(const ContinuousOccupancyConflict& conflict) {
 }
 
 } // namespace
+
+bool DeploymentFrameBounds::valid() const {
+    return valid_rotation(rotation) && valid_translation(translation) &&
+           std::all_of(translation_uncertainty.begin(), translation_uncertainty.end(),
+                       [](double value) { return std::isfinite(value) && value >= 0.0; }) &&
+           std::isfinite(angular_uncertainty_radians) && angular_uncertainty_radians >= 0.0 &&
+           angular_uncertainty_radians <= kPi;
+}
+
+bool DeploymentFrameBounds::exact() const {
+    return valid() && translation_uncertainty == std::array<double, 3>{} &&
+           angular_uncertainty_radians == 0.0;
+}
 
 namespace internal {
 
@@ -241,6 +384,18 @@ Json robot_trajectory_occupancy_json(const RobotTrajectoryOccupancy& occupancy, 
         {"workspace_frame_id", occupancy.workspace_frame_id},
         {"workspace_translation", std::move(translation)},
     };
+    if (occupancy.storage_schema >= 2) {
+        Json::Array rotation;
+        for (const double value : occupancy.workspace_rotation)
+            rotation.emplace_back(value);
+        Json::Array translation_uncertainty;
+        for (const double value : occupancy.workspace_translation_uncertainty)
+            translation_uncertainty.emplace_back(value);
+        object.emplace("workspace_angular_uncertainty_radians",
+                       occupancy.workspace_angular_uncertainty_radians);
+        object.emplace("workspace_rotation", std::move(rotation));
+        object.emplace("workspace_translation_uncertainty", std::move(translation_uncertainty));
+    }
     if (include_id)
         object.emplace("id", occupancy.id);
     return object;
@@ -304,16 +459,32 @@ Json continuous_fleet_occupancy_bundle_payload_json(const ContinuousFleetOccupan
 
 std::string swept_link_occupancy_slice_identity(const RobotTrajectoryOccupancy& occupancy,
                                                 const SweptLinkOccupancySlice& slice) {
-    return sha256(Json(Json::Object{
-                           {"algorithm", occupancy.algorithm},
-                           {"algorithm_version", occupancy.algorithm_version},
-                           {"deployment_id", occupancy.deployment_id},
-                           {"robot_digest", occupancy.robot_digest},
-                           {"slice", swept_slice_json(slice, false)},
-                           {"timeline_id", occupancy.timeline_id},
-                           {"workspace_frame_id", occupancy.workspace_frame_id},
-                       })
-                      .dump(false));
+    Json::Object object{
+        {"algorithm", occupancy.algorithm},
+        {"algorithm_version", occupancy.algorithm_version},
+        {"deployment_id", occupancy.deployment_id},
+        {"robot_digest", occupancy.robot_digest},
+        {"slice", swept_slice_json(slice, false)},
+        {"timeline_id", occupancy.timeline_id},
+        {"workspace_frame_id", occupancy.workspace_frame_id},
+    };
+    if (occupancy.storage_schema >= 2) {
+        Json::Array rotation;
+        for (const double value : occupancy.workspace_rotation)
+            rotation.emplace_back(value);
+        Json::Array translation;
+        for (const double value : occupancy.workspace_translation)
+            translation.emplace_back(value);
+        Json::Array translation_uncertainty;
+        for (const double value : occupancy.workspace_translation_uncertainty)
+            translation_uncertainty.emplace_back(value);
+        object.emplace("workspace_angular_uncertainty_radians",
+                       occupancy.workspace_angular_uncertainty_radians);
+        object.emplace("workspace_rotation", std::move(rotation));
+        object.emplace("workspace_translation", std::move(translation));
+        object.emplace("workspace_translation_uncertainty", std::move(translation_uncertainty));
+    }
+    return sha256(Json(std::move(object)).dump(false));
 }
 
 std::string robot_trajectory_occupancy_identity(const RobotTrajectoryOccupancy& occupancy) {
@@ -331,10 +502,14 @@ std::string continuous_fleet_occupancy_bundle_identity(const ContinuousFleetOccu
 } // namespace internal
 
 bool RobotTrajectoryOccupancy::valid() const {
-    if (storage_schema != 1 || !internal::valid_sha256(id) || !valid_identifier(timeline_id) ||
+    const auto frame = occupancy_frame(*this);
+    const bool supported_semantics =
+        (storage_schema == 1 && algorithm_version == kOccupancyAlgorithmVersion1 &&
+         legacy_translation_frame(frame)) ||
+        (storage_schema == 2 && algorithm_version == kOccupancyAlgorithmVersion2);
+    if (!supported_semantics || !internal::valid_sha256(id) || !valid_identifier(timeline_id) ||
         !valid_identifier(workspace_frame_id) || !valid_identifier(deployment_id) ||
-        !internal::valid_sha256(robot_digest) || !valid_translation(workspace_translation) ||
-        algorithm != kOccupancyAlgorithm || algorithm_version != kOccupancyAlgorithmVersion ||
+        !internal::valid_sha256(robot_digest) || !frame.valid() || algorithm != kOccupancyAlgorithm ||
         maximum_subdivision_depth > kMaximumSubdivisionDepth ||
         !std::isfinite(maximum_normalized_joint_width) || maximum_normalized_joint_width <= 0.0 ||
         !std::isfinite(link_padding) || link_padding < 0.0 || trajectory.size() < 2 || slices.empty()) {
@@ -394,16 +569,20 @@ bool RobotTrajectoryOccupancy::valid() const {
     return internal::robot_trajectory_occupancy_identity(*this) == id;
 }
 
-Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy(
+namespace {
+
+Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy_impl(
     const SerialRobotModel& robot, std::string timeline_id, std::string workspace_frame_id,
-    std::string deployment_id, std::array<double, 3> workspace_translation,
-    std::span<const TimedConfiguration> trajectory, const ContinuousOccupancyBuildOptions& options) {
+    std::string deployment_id, const DeploymentFrameBounds& deployment_frame,
+    std::span<const TimedConfiguration> trajectory, const ContinuousOccupancyBuildOptions& options,
+    std::uint32_t storage_schema) {
     auto robot_status = robot.validate();
     if (!robot_status)
         return robot_status.error();
     if (!valid_build_options(options) || !valid_identifier(timeline_id) ||
         !valid_identifier(workspace_frame_id) || !valid_identifier(deployment_id) ||
-        !valid_translation(workspace_translation)) {
+        !deployment_frame.valid() || (storage_schema != 1 && storage_schema != 2) ||
+        (storage_schema == 1 && !legacy_translation_frame(deployment_frame))) {
         return Result<RobotTrajectoryOccupancy>::failure(
             StatusCode::InvalidArgument, "continuous occupancy metadata or build options are invalid");
     }
@@ -436,13 +615,18 @@ Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy(
     }
 
     RobotTrajectoryOccupancy result;
+    result.storage_schema = storage_schema;
     result.timeline_id = std::move(timeline_id);
     result.workspace_frame_id = std::move(workspace_frame_id);
     result.deployment_id = std::move(deployment_id);
     result.robot_digest = robot.digest();
-    result.workspace_translation = workspace_translation;
+    result.workspace_translation = deployment_frame.translation;
+    result.workspace_rotation = deployment_frame.rotation;
+    result.workspace_translation_uncertainty = deployment_frame.translation_uncertainty;
+    result.workspace_angular_uncertainty_radians = deployment_frame.angular_uncertainty_radians;
     result.algorithm = kOccupancyAlgorithm;
-    result.algorithm_version = kOccupancyAlgorithmVersion;
+    result.algorithm_version =
+        storage_schema == 1 ? kOccupancyAlgorithmVersion1 : kOccupancyAlgorithmVersion2;
     result.maximum_subdivision_depth = options.maximum_subdivision_depth;
     result.maximum_normalized_joint_width = options.maximum_normalized_joint_width;
     result.link_padding = options.link_padding;
@@ -507,15 +691,17 @@ Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy(
                 compute_ifk_aa_link_envelope(robot, domain, EnvelopeOptions{options.link_padding});
             if (!envelope)
                 return envelope.error();
-            auto translated = translated_envelopes(envelope.value(), workspace_translation);
-            if (!translated)
-                return translated.error();
+            auto transformed = storage_schema == 1
+                                   ? translated_envelopes(envelope.value(), deployment_frame.translation)
+                                   : transformed_envelopes(envelope.value(), deployment_frame);
+            if (!transformed)
+                return transformed.error();
             SweptLinkOccupancySlice slice;
             slice.trajectory_segment_index = segment;
             slice.begin_tick = candidate.begin_tick;
             slice.end_tick = candidate.end_tick;
             slice.configuration_domain = domain;
-            slice.link_envelopes = std::move(translated).value();
+            slice.link_envelopes = std::move(transformed).value();
             slice.id = internal::swept_link_occupancy_slice_identity(result, slice);
             result.slices.push_back(std::move(slice));
             link_envelope_count += robot.link_count();
@@ -528,6 +714,27 @@ Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy(
             StatusCode::InternalError, "continuous occupancy builder produced an invalid result");
     }
     return result;
+}
+
+} // namespace
+
+Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy(
+    const SerialRobotModel& robot, std::string timeline_id, std::string workspace_frame_id,
+    std::string deployment_id, std::array<double, 3> workspace_translation,
+    std::span<const TimedConfiguration> trajectory, const ContinuousOccupancyBuildOptions& options) {
+    DeploymentFrameBounds frame;
+    frame.translation = workspace_translation;
+    return build_robot_trajectory_occupancy_impl(robot, std::move(timeline_id), std::move(workspace_frame_id),
+                                                 std::move(deployment_id), frame, trajectory, options, 1);
+}
+
+Result<RobotTrajectoryOccupancy> build_robot_trajectory_occupancy_in_frame(
+    const SerialRobotModel& robot, std::string timeline_id, std::string workspace_frame_id,
+    std::string deployment_id, const DeploymentFrameBounds& deployment_frame,
+    std::span<const TimedConfiguration> trajectory, const ContinuousOccupancyBuildOptions& options) {
+    return build_robot_trajectory_occupancy_impl(robot, std::move(timeline_id), std::move(workspace_frame_id),
+                                                 std::move(deployment_id), deployment_frame, trajectory,
+                                                 options, 2);
 }
 
 Result<void> verify_robot_trajectory_occupancy(const SerialRobotModel& robot,
@@ -569,9 +776,14 @@ Result<void> verify_robot_trajectory_occupancy(const SerialRobotModel& robot,
     replay.maximum_normalized_joint_width = occupancy.maximum_normalized_joint_width;
     replay.link_padding = occupancy.link_padding;
     replay.cancellation = options.cancellation;
-    auto rebuilt = build_robot_trajectory_occupancy(
-        robot, occupancy.timeline_id, occupancy.workspace_frame_id, occupancy.deployment_id,
-        occupancy.workspace_translation, occupancy.trajectory, replay);
+    Result<RobotTrajectoryOccupancy> rebuilt =
+        occupancy.storage_schema == 1
+            ? build_robot_trajectory_occupancy(robot, occupancy.timeline_id, occupancy.workspace_frame_id,
+                                               occupancy.deployment_id, occupancy.workspace_translation,
+                                               occupancy.trajectory, replay)
+            : build_robot_trajectory_occupancy_in_frame(
+                  robot, occupancy.timeline_id, occupancy.workspace_frame_id, occupancy.deployment_id,
+                  occupancy_frame(occupancy), occupancy.trajectory, replay);
     if (!rebuilt)
         return rebuilt.error();
     if (rebuilt.value().id != occupancy.id) {
@@ -781,6 +993,10 @@ ContinuousFleetOccupancyBundle::create(std::vector<RobotTrajectoryOccupancy> occ
     if (!report)
         return report.error();
     ContinuousFleetOccupancyBundle result;
+    result.storage_schema_ = std::any_of(occupancies.begin(), occupancies.end(),
+                                         [](const auto& occupancy) { return occupancy.storage_schema >= 2; })
+                                 ? 2
+                                 : 1;
     result.occupancies_ = std::move(occupancies);
     result.report_ = std::move(report).value();
     result.id_ = internal::continuous_fleet_occupancy_bundle_identity(result);
@@ -793,7 +1009,8 @@ ContinuousFleetOccupancyBundle::create(std::vector<RobotTrajectoryOccupancy> occ
 }
 
 bool ContinuousFleetOccupancyBundle::valid() const {
-    if (storage_schema_ != 1 || !internal::valid_sha256(id_) || occupancies_.size() < 2 || !report_.valid() ||
+    if ((storage_schema_ != 1 && storage_schema_ != 2) || !internal::valid_sha256(id_) ||
+        occupancies_.size() < 2 || !report_.valid() ||
         !std::is_sorted(occupancies_.begin(), occupancies_.end(),
                         [](const auto& first, const auto& second) {
                             return std::tie(first.deployment_id, first.id) <
@@ -801,6 +1018,12 @@ bool ContinuousFleetOccupancyBundle::valid() const {
                         }) ||
         !std::all_of(occupancies_.begin(), occupancies_.end(),
                      [](const auto& occupancy) { return occupancy.valid(); })) {
+        return false;
+    }
+    const bool contains_schema2 =
+        std::any_of(occupancies_.begin(), occupancies_.end(),
+                    [](const auto& occupancy) { return occupancy.storage_schema >= 2; });
+    if ((storage_schema_ == 1 && contains_schema2) || (storage_schema_ == 2 && !contains_schema2)) {
         return false;
     }
     std::vector<std::string> ids;

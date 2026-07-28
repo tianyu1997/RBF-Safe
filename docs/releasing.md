@@ -131,14 +131,17 @@ unknown schema, checksum/tamper/truncation/symlink rejection, overwrite
 protection, count/byte/policy limits, and cancellation. Confirm
 `SATISFIED`, `FRESH`, and combined `ready` remain non-authorizing `Unknown`.
 Run the continuous fleet occupancy C++/Python quickstarts and fixed schema-1
-fixture through both inspectors. Verify deterministic subdivision, sampled
-IFK-AA envelope containment, fixed-translation outward rounding, exact robot
-replay, duplicate deployment and timeline/frame rejection, overlap and
-separation-margin witnesses, single-input rejection, cancellation, all work
-and load limits, unknown schema, truncation, checksum/tamper/symlink
-rejection, overwrite protection, cross-platform byte equality, and fixed
-bundle/report identities. Confirm every occupancy, conflict, report, bundle,
-and successful separation status remains non-authorizing `Unknown`.
+and schema-2 fixtures through both inspectors. Verify deterministic
+subdivision, sampled IFK-AA envelope containment, fixed-translation legacy
+replay, right-handed rotation validation, outward-rounded interval
+transforms, translation/angular uncertainty expansion, exact robot replay,
+mixed-schema handling, duplicate deployment and timeline/frame rejection,
+overlap and separation-margin witnesses, single-input rejection,
+cancellation, all work and load limits, unknown schema, truncation,
+checksum/tamper/symlink rejection, overwrite protection, cross-platform byte
+equality, and fixed bundle/report identities. Confirm every occupancy,
+conflict, report, bundle, and successful separation status remains
+non-authorizing `Unknown`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below

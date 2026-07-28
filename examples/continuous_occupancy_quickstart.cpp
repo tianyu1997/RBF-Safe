@@ -42,12 +42,18 @@ int main(int argc, char** argv) {
         };
         ContinuousOccupancyBuildOptions build_options;
         build_options.maximum_normalized_joint_width = 0.05;
-        const auto first =
-            require(build_robot_trajectory_occupancy(robot, "fixture-cell-clock-v1", "fixture-cell-world",
-                                                     "arm-a", {-4.0, 0.0, 0.0}, trajectory, build_options));
-        const auto second =
-            require(build_robot_trajectory_occupancy(robot, "fixture-cell-clock-v1", "fixture-cell-world",
-                                                     "arm-b", {4.0, 0.0, 0.0}, trajectory, build_options));
+        DeploymentFrameBounds first_frame;
+        first_frame.rotation = {0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+        first_frame.translation = {-4.0, 0.0, 0.0};
+        first_frame.translation_uncertainty = {0.01, 0.01, 0.02};
+        auto second_frame = first_frame;
+        second_frame.translation = {4.0, 0.0, 0.0};
+        const auto first = require(
+            build_robot_trajectory_occupancy_in_frame(robot, "fixture-cell-clock-v1", "fixture-cell-world",
+                                                      "arm-a", first_frame, trajectory, build_options));
+        const auto second = require(
+            build_robot_trajectory_occupancy_in_frame(robot, "fixture-cell-clock-v1", "fixture-cell-world",
+                                                      "arm-b", second_frame, trajectory, build_options));
         require(verify_robot_trajectory_occupancy(robot, first));
         require(verify_robot_trajectory_occupancy(robot, second));
         ContinuousFleetOccupancyOptions analysis_options;

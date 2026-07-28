@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.0.0"
+    assert rbfsafe.__version__ == "4.1.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -2781,6 +2781,55 @@ def test_continuous_fleet_occupancy_and_cli(
     assert not first.authorizes_execution
     rbfsafe.verify_robot_trajectory_occupancy(robot, first)
 
+    frame = rbfsafe.DeploymentFrameBounds()
+    frame.rotation = [0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0]
+    frame.translation = [-4.0, 0.0, 0.0]
+    frame.translation_uncertainty = [0.01, 0.02, 0.03]
+    frame.angular_uncertainty_radians = 0.05
+    assert frame.valid()
+    assert not frame.exact()
+    framed_first = rbfsafe.build_robot_trajectory_occupancy_in_frame(
+        robot,
+        "python-cell-clock-v1",
+        "python-cell-world",
+        "arm-frame-a",
+        frame,
+        waypoints,
+        build_options,
+    )
+    frame.translation = [4.0, 0.0, 0.0]
+    framed_second = rbfsafe.build_robot_trajectory_occupancy_in_frame(
+        robot,
+        "python-cell-clock-v1",
+        "python-cell-world",
+        "arm-frame-b",
+        frame,
+        waypoints,
+        build_options,
+    )
+    assert framed_first.storage_schema == 2
+    assert framed_first.algorithm_version == "2"
+    assert framed_first.workspace_rotation == pytest.approx(
+        [0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0]
+    )
+    assert framed_first.workspace_translation_uncertainty == pytest.approx(
+        [0.01, 0.02, 0.03]
+    )
+    assert framed_first.workspace_angular_uncertainty_radians == pytest.approx(
+        0.05
+    )
+    rbfsafe.verify_robot_trajectory_occupancy(robot, framed_first)
+    framed_bundle = rbfsafe.ContinuousFleetOccupancyBundle.create(
+        [framed_second, framed_first]
+    )
+    framed_destination = tmp_path / "continuous-occupancy-schema2.json"
+    framed_bundle.save(framed_destination)
+    framed_loaded = rbfsafe.ContinuousFleetOccupancyBundle.load(
+        framed_destination
+    )
+    assert framed_loaded.storage_schema == 2
+    assert framed_loaded.id == framed_bundle.id
+
     analysis_options = rbfsafe.ContinuousFleetOccupancyOptions()
     analysis_options.minimum_separation = 1.0
     with pytest.raises(ValueError):
@@ -2824,6 +2873,27 @@ def test_continuous_fleet_occupancy_and_cli(
     for occupancy in fixed.occupancies:
         rbfsafe.verify_robot_trajectory_occupancy(fixed_robot, occupancy)
 
+    fixture2 = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "continuous_fleet_occupancy_schema2"
+    )
+    fixed2 = rbfsafe.ContinuousFleetOccupancyBundle.load(
+        fixture2 / "occupancy.json"
+    )
+    fixed2_robot = rbfsafe.SerialRobotModel.from_json(fixture2 / "robot.json")
+    assert (
+        fixed2.id
+        == "6030e3574db5634f60b6cf04ffc325077f944ef23d256ef7cc937fe857dce8d0"
+    )
+    assert (
+        fixed2.report.id
+        == "9a8b12df9ba0ca88142a9f44ef722a411cb33930a8986e4dd7b657d8d333053e"
+    )
+    assert fixed2.storage_schema == 2
+    for occupancy in fixed2.occupancies:
+        rbfsafe.verify_robot_trajectory_occupancy(fixed2_robot, occupancy)
+
     from rbfsafe.cli import main
 
     assert (
@@ -2846,6 +2916,10 @@ def test_continuous_fleet_occupancy_and_cli(
     assert "robot_replay_verified=true" in output
     assert "evidence=unknown" in output
     assert "authorizes_execution=false" in output
+    assert main([str(framed_destination)]) == 0
+    framed_output = capsys.readouterr().out
+    assert "continuous-fleet-occupancy-bundle schema=2" in framed_output
+    assert "rotated_frames=2 uncertain_frames=2" in framed_output
     with pytest.raises(SystemExit):
         main(
             [

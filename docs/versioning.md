@@ -39,6 +39,10 @@ Version 4.0 retains the complete documented 3.x surface and adds
 `RBFSafe::occupancy`, conservative piecewise-linear swept-link occupancy,
 bounded fleet separation analysis, replay verification, and an independent
 bundle format.
+Version 4.1 additively adds bounded deployment frames with nominal
+right-handed rotations, axis-wise translation uncertainty, arbitrary-axis
+angular uncertainty, and occupancy-bundle schema 2 while retaining the
+translation-only API and schema-1 reader.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 4.x line. Additive API changes may appear in
@@ -271,6 +275,13 @@ complete time coverage and replays fleet comparisons, but exact robot models
 remain external and must be supplied to
 `verify_robot_trajectory_occupancy`.
 
+The v4.1 continuous-fleet-occupancy-bundle schema 2 adds the exact row-major
+nominal rotation, translation-uncertainty half-widths, and angular uncertainty
+bound to each current occupancy. Those values participate in slice and
+occupancy identities and robot-model replay. A schema-2 bundle may
+deliberately contain schema-1 occupancies; a schema-1 bundle cannot contain
+schema-2 values. No loader infers frame uncertainty for a schema-1 record.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -300,7 +311,7 @@ hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
 service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
 bounded-execution-session/execution-ledger/transparency-log/
-transparency-gossip-archive/continuous-fleet-occupancy fixtures,
+transparency-gossip-archive/continuous-fleet-occupancy schema-1/schema-2 fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

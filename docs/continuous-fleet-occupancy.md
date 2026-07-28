@@ -1,6 +1,6 @@
 # Continuous-time fleet occupancy
 
-RBF-Safe 4.0 derives conservative per-link workspace occupancies from
+RBF-Safe 4.1 derives conservative per-link workspace occupancies from
 timestamped, piecewise-linear joint trajectories and checks robot pairs over
 one explicit logical timeline. The public CMake target is
 `RBFSafe::occupancy`; the same high-level values and operations are available
@@ -13,14 +13,15 @@ monitoring.
 
 ## Input contract
 
-`build_robot_trajectory_occupancy` requires:
+`build_robot_trajectory_occupancy_in_frame` requires:
 
 - one valid `SerialRobotModel`;
 - at least two `TimedConfiguration` values with strictly increasing
   `uint64_t` ticks;
 - configurations inside the model's joint limits;
 - non-empty caller-defined timeline, workspace-frame, and deployment IDs;
-- a finite workspace translation for the deployment; and
+- a valid `DeploymentFrameBounds` from the robot-local DH base into the
+  workspace frame; and
 - explicit subdivision, padding, work, and cancellation limits.
 
 The trajectory between adjacent waypoints is linear in the supplied joint
@@ -32,9 +33,17 @@ compared envelopes. A deployment that ends exactly when another starts has no
 overlapping interval; the caller owns that hand-off convention.
 
 The workspace-frame IDs must be exactly equal before occupancies can be
-compared. Version 4.0 supports only a fixed translation from each robot's DH
-base to that frame. A rotated, moving, uncertain, or calibrated base frame
-must first be conservatively represented by the application or rejected.
+compared. `DeploymentFrameBounds` contains a row-major right-handed
+orthonormal rotation, a nominal translation, independent non-negative
+translation half-widths on the three workspace axes, and a geodesic angular
+uncertainty bound in `[0, pi]`. The angle bounds an arbitrary-axis rotation
+error around the robot base origin. It is not a covariance or probability.
+Moving frames and time-varying uncertainty are not supported.
+
+The preserved `build_robot_trajectory_occupancy` overload accepts only a
+translation and emits the original schema-1/version-1 semantics. New code
+should use `build_robot_trajectory_occupancy_in_frame`, which emits
+schema-2/version-2 records even when its frame is exact.
 
 ## Conservative construction
 
@@ -46,8 +55,14 @@ For every original trajectory segment, the builder:
 3. evaluates every midpoint directly from the original piecewise-linear
    segment, making the subdivision independent of traversal history;
 4. calls the existing `IFK-AA` link-envelope kernel on every leaf joint box;
-5. adds link padding and the deployment translation; and
-6. assigns deterministic SHA-256 slice and occupancy identities.
+5. maps each local link AABB through the nominal rotation and translation
+   using outward-rounded interval arithmetic;
+6. expands every workspace axis by its translation uncertainty and by
+   `min(alpha, 2) r`, where `alpha` is the angular uncertainty and `r` is an
+   outward upper bound on the nominally transformed AABB's maximum distance
+   from the base origin; this upper-bounds the exact rotational chord
+   displacement without relying on transcendental-library rounding; and
+7. assigns deterministic SHA-256 slice and occupancy identities.
 
 The `IFK-AA` envelope contains each represented link for every configuration
 in the leaf joint box. Because the piecewise-linear subsegment lies in that
@@ -55,7 +70,7 @@ box, its complete link sweep is contained by the persisted per-link AABBs.
 Subdivision improves tightness; reaching a depth or tick limit does not make
 the result unsound because the unsplit joint box remains conservative.
 
-The builder is deterministic and single-threaded in 4.0. It validates
+The builder is deterministic and single-threaded in 4.1. It validates
 waypoint, slice, link-envelope, and cancellation limits before or during
 work. Defaults are 100,000 waypoints, 1,000,000 slices, 10,000,000 link
 envelopes, subdivision depth 16, normalized joint width `0.05`, and zero
@@ -85,8 +100,8 @@ overflow cannot create a separation claim.
 An overlap is conservative: it means the AABB proof cannot separate the
 links, not that the physical links necessarily collide. The successful
 status is a separation statement only under the exact stored swept envelopes,
-timeline, frame, translations, robot models, piecewise-linear interpolation,
-and padding assumptions.
+timeline, bounded deployment frames, robot models, piecewise-linear
+interpolation, and padding assumptions.
 
 Two records with disjoint active time ranges have no concurrent occupancy and
 therefore produce a vacuous separation result with zero link-pair
@@ -115,8 +130,9 @@ status has `EvidenceLevel::Unknown` and
   controller tracking;
 - does not read a clock, synchronize robots, reserve resources, transmit
   commands, or stop hardware;
-- does not include payloads, cables, tools, or uncertainty unless covered by
-  the model's link radii, tool link, padding, and frame assumptions; and
+- does not include payloads, cables, tools, deformation, tracking error, or
+  uncertainty beyond the model's link radii, tool link, padding, and explicit
+  frame bounds; and
 - does not combine its result with Atlas, reviewed-profile, execution-ledger,
   provenance, or runtime-monitor evidence automatically.
 
@@ -129,10 +145,18 @@ requirements.
 ```cpp
 std::vector<TimedConfiguration> path{{0, {-0.2, 0.1}},
                                      {32, {0.2, -0.1}}};
-auto first = build_robot_trajectory_occupancy(
-    robot, "cell-clock-v1", "cell-world", "arm-a", {-4.0, 0.0, 0.0}, path);
-auto second = build_robot_trajectory_occupancy(
-    robot, "cell-clock-v1", "cell-world", "arm-b", {4.0, 0.0, 0.0}, path);
+DeploymentFrameBounds first_frame;
+first_frame.rotation = {0.0, -1.0, 0.0,
+                        1.0,  0.0, 0.0,
+                        0.0,  0.0, 1.0};
+first_frame.translation = {-4.0, 0.0, 0.0};
+first_frame.translation_uncertainty = {0.01, 0.01, 0.02};
+auto second_frame = first_frame;
+second_frame.translation = {4.0, 0.0, 0.0};
+auto first = build_robot_trajectory_occupancy_in_frame(
+    robot, "cell-clock-v1", "cell-world", "arm-a", first_frame, path);
+auto second = build_robot_trajectory_occupancy_in_frame(
+    robot, "cell-clock-v1", "cell-world", "arm-b", second_frame, path);
 
 ContinuousFleetOccupancyOptions options;
 options.minimum_separation = 1.0;

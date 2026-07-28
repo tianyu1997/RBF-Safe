@@ -100,7 +100,9 @@ their source artifacts.
 RBF-Safe 4.0 adds a separate
 [continuous fleet occupancy](continuous-fleet-occupancy.md) target that
 derives per-link swept AABBs from explicit piecewise-linear joint trajectories
-and checks them on one caller-owned timeline and workspace frame. It does not
+and checks them on one caller-owned timeline and workspace frame. RBF-Safe
+4.1 additionally encloses static nominal rotation plus explicit translation
+and angular deployment-frame uncertainty. It does not
 silently replace a `FleetReservation`: applications that want durable
 scheduling still decide how a verified occupancy bundle is authenticated,
 registered in memory, and mapped into their reservation/publication

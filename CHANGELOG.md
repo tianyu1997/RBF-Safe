@@ -3,6 +3,30 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.1.0] - 2026-07-28
+
+### Added
+
+- `DeploymentFrameBounds` and
+  `build_robot_trajectory_occupancy_in_frame` with validated row-major
+  right-handed rotations, nominal translations, axis-wise translation
+  uncertainty, and arbitrary-axis angular uncertainty.
+- Conservative outward-rounded AABB transformation and angular expansion,
+  exact frame binding in slice/occupancy identities, robot replay, C++/Python
+  APIs, CLI frame summaries, examples, and property/regression tests.
+- Continuous-fleet-occupancy schema 2 with exact field sets, bounded loading,
+  mixed schema-1/schema-2 support, a fixed cross-platform fixture, and
+  documented migration rules.
+
+### Compatibility and safety
+
+- The v4.0 translation-only builder and schema-1 reader remain functional and
+  reproduce the original fixed fixture identities.
+- Frame bounds are static for one occupancy. Moving frames, time-varying
+  localization, dynamic obstacles, clock guarantees, tracking, dynamics, and
+  hardware enforcement remain external.
+- Every occupancy and fleet result remains `Unknown` and non-authorizing.
+
 ## [4.0.0] - 2026-07-28
 
 ### Added

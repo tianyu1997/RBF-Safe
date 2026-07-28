@@ -367,11 +367,23 @@ execution. `SATISFIED`, `FRESH`, and `ready` remain `Unknown`.
 
 ## Continuous fleet occupancy claims
 
-The v4.0 occupancy layer covers each piecewise-linear joint subsegment with a
+The v4.1 occupancy layer covers each piecewise-linear joint subsegment with a
 C-space AABB and applies the existing conservative IFK-AA link-envelope
 kernel. Therefore every represented link position along that subsegment lies
-inside its stored translated workspace AABB under the exact robot, base
-translation, interpolation, padding, and frame assumptions.
+inside its stored workspace AABB under the exact robot, interpolation,
+padding, and deployment-frame assumptions.
+
+For schema-2 records, a right-handed orthonormal nominal rotation is applied
+with outward-rounded interval arithmetic. Axis-wise translation uncertainty
+is added directly. An arbitrary-axis angular bound `alpha` expands every axis
+by `min(alpha, 2) r`, where `r` bounds the farthest nominally transformed
+AABB point from the base origin. Since
+`2 sin(alpha/2) <= min(alpha, 2)` on `[0, pi]`, this deterministically
+upper-bounds the rotational chord displacement without relying on libm
+rounding. This is a worst-case enclosure, not a probabilistic localization
+confidence claim. Invalid rotations, negative or
+non-finite uncertainty, angles above pi, and numeric overflow are rejected.
+Schema-1 fixed-translation records retain their original semantics.
 
 Two occupancies are reported
 `CertifiedSeparatedUnderSweptEnvelopes` only when every link AABB pair whose
@@ -383,8 +395,8 @@ the exact robot model.
 
 These values remain `Unknown` and non-authorizing. The layer does not prove
 obstacle freedom, self-collision freedom, clock synchronization, trajectory
-tracking, dynamics, or execution. It supports only a fixed translation from a
-robot's DH base into the named workspace frame.
+tracking, dynamics, moving-frame behavior, time-varying localization, or
+execution.
 
 The execution, transparency, witness, provenance, and occupancy layers do not
 prove that an endpoint key belongs to physical hardware, that the clock or
@@ -394,16 +406,17 @@ scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v4.0
+## Explicit exclusions in v4.1
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
   by the supplied link radii and optional tool link.
-- Continuous-time dynamic obstacles, localization/calibration uncertainty,
-  rotated or moving robot bases, control error, deformation, and latency are
-  not modeled automatically. The v4.0 swept-motion layer covers only explicit
-  piecewise-linear robot joint trajectories under fixed translated bases;
-  v0.9 scene updates still occur only between explicit static AABB snapshots.
+- Continuous-time dynamic obstacles, moving robot bases, time-varying
+  localization/calibration uncertainty, control error, deformation, and
+  latency are not modeled automatically. The v4.1 swept-motion layer covers
+  only explicit piecewise-linear robot joint trajectories under one static
+  bounded deployment frame per occupancy; v0.9 scene updates still occur only
+  between explicit static AABB snapshots.
 - AABB separation is the only workspace collision proof; OBB certification
   uses a conservative C-space enclosure rather than a correlated workspace
   proof, and no mesh or KDOP validation is performed. Swept-time validation
@@ -480,7 +493,7 @@ responsibilities.
   RBF-Safe does not provision devices, attest sensors, read clocks, check
   tracking, enforce real-time scheduling, or operate an emergency stop.
 - Fleet member envelopes and v3 reservation occupancy are caller-supplied
-  conservative bounds. The v4.0 occupancy layer separately derives
+  conservative bounds. The v4.1 occupancy layer separately derives
   continuous swept-link AABBs, but neither layer provides distributed
   consensus, clock guarantees, obstacle clearance, controller interlocks, or
   tracking enforcement. Archive/bundle integrity is not a signature,

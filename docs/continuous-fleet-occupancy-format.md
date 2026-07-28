@@ -1,4 +1,4 @@
-# Continuous fleet occupancy bundle schema 1
+# Continuous fleet occupancy bundle schemas 1 and 2
 
 `ContinuousFleetOccupancyBundle` uses one checksummed JSON file. It is
 independent from Atlas, LECT, corridor, region-database, fleet-schedule, and
@@ -12,9 +12,9 @@ The top-level object has exactly these fields:
 {
   "checksum": "<sha256 of compact canonical payload JSON>",
   "format": "rbfsafe-continuous-fleet-occupancy-bundle",
-  "library_version": "4.0.0",
+  "library_version": "4.1.0",
   "payload": {},
-  "schema": 1
+  "schema": 2
 }
 ```
 
@@ -35,11 +35,31 @@ numbers. Objects use exact field sets; arrays and aggregate allocations are
 checked against caller-configurable limits before reserve or replay.
 
 Each occupancy stores its robot digest, deployment/timeline/frame identities,
-fixed translation, algorithm/version and construction parameters, original
-timed configurations, complete ordered slice coverage, C-space domains, and
-per-link swept AABBs. Each report stores canonical occupancy IDs, separation
-margin, status, deterministic conflict witnesses, and exact evaluation
-counts.
+algorithm/version and construction parameters, original timed configurations,
+complete ordered slice coverage, C-space domains, and per-link swept AABBs.
+Each report stores canonical occupancy IDs, separation margin, status,
+deterministic conflict witnesses, and exact evaluation counts.
+
+Schema 1 stores only `workspace_translation` and algorithm version `1`.
+Schema 2 additionally stores these exact fields:
+
+```json
+{
+  "workspace_rotation": [1, 0, 0, 0, 1, 0, 0, 0, 1],
+  "workspace_translation_uncertainty": [0, 0, 0],
+  "workspace_angular_uncertainty_radians": 0
+}
+```
+
+The rotation is row-major, right-handed, orthonormal, and maps robot-local
+coordinates into the named workspace frame. Translation uncertainty values
+are non-negative axis half-widths. Angular uncertainty is a non-negative
+geodesic bound no greater than pi. Schema-2 slice identities bind these frame
+bounds explicitly in addition to their resulting world envelopes.
+
+A schema-2 bundle may contain schema-1 records when deliberately combining
+legacy and current occupancies. A schema-1 bundle may contain only schema-1
+records. The top-level `schema` and payload `storage_schema` must match.
 
 ## Identities and validation
 
@@ -79,7 +99,10 @@ SHA-256 detects accidental or unkeyed content changes; it is not an
 authentication signature. Use the separately governed artifact/trust layers
 when publisher authenticity or rollback resistance is required.
 
-The committed fixture is
-[`data/continuous_fleet_occupancy_schema1`](../data/continuous_fleet_occupancy_schema1).
-It must remain byte-readable on Linux and Windows and must reproduce bundle
-ID `d9a6a28c80ae86a28b996c8da954c33c725d9883a22f9f080f22d51e72be4231`.
+The preserved v4.0 fixture is
+[`data/continuous_fleet_occupancy_schema1`](../data/continuous_fleet_occupancy_schema1)
+and reproduces bundle ID
+`d9a6a28c80ae86a28b996c8da954c33c725d9883a22f9f080f22d51e72be4231`.
+The v4.1 fixture is
+[`data/continuous_fleet_occupancy_schema2`](../data/continuous_fleet_occupancy_schema2).
+Both must remain byte-readable and robot-replayable on Linux and Windows.

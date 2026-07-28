@@ -1,5 +1,6 @@
 #include <rbfsafe/rbfsafe.h>
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cmath>
@@ -131,8 +132,22 @@ int main(int argc, char** argv) {
             return 1;
         }
         std::size_t slices = 0;
-        for (const auto& occupancy : bundle.value().occupancies())
+        std::size_t rotated_frames = 0;
+        std::size_t uncertain_frames = 0;
+        constexpr std::array<double, 9> identity_rotation{
+            1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+        };
+        for (const auto& occupancy : bundle.value().occupancies()) {
             slices += occupancy.slices.size();
+            if (occupancy.workspace_rotation != identity_rotation)
+                ++rotated_frames;
+            if (occupancy.workspace_angular_uncertainty_radians > 0.0 ||
+                std::any_of(occupancy.workspace_translation_uncertainty.begin(),
+                            occupancy.workspace_translation_uncertainty.end(),
+                            [](double value) { return value > 0.0; })) {
+                ++uncertain_frames;
+            }
+        }
         std::cout << "RBF-Safe continuous fleet occupancy bundle\n"
                   << "schema: " << bundle.value().storage_schema() << '\n'
                   << "bundle: " << bundle.value().id() << '\n'
@@ -142,6 +157,8 @@ int main(int argc, char** argv) {
                   << rbfsafe::continuous_fleet_occupancy_status_name(bundle.value().report().status) << '\n'
                   << "occupancies: " << bundle.value().occupancies().size() << '\n'
                   << "slices: " << slices << '\n'
+                  << "rotated frames: " << rotated_frames << '\n'
+                  << "uncertain frames: " << uncertain_frames << '\n'
                   << "conflicts: " << bundle.value().report().conflicts.size() << '\n'
                   << "minimum separation: " << bundle.value().report().minimum_separation << '\n'
                   << "robot replay verified: false\n"

@@ -47,7 +47,10 @@ combined replay, and bounded schema-1 bundle persistence. RBF-Safe 4.0 retains
 the complete 3.x surface and adds `RBFSafe::occupancy`, timestamped
 piecewise-linear trajectories, conservative swept-link records, deterministic
 fleet separation reports, replay verification, and bounded schema-1 bundle
-persistence. Public
+persistence. RBF-Safe 4.1 additively introduces `DeploymentFrameBounds`,
+`build_robot_trajectory_occupancy_in_frame`, rotated and uncertain
+deployment-frame fields, and schema-2 occupancy persistence while preserving
+the 4.0 translation-only API and schema-1 reader. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots record the
@@ -105,7 +108,7 @@ machine-readable contract.
 ## Evidence compatibility
 
 Numeric values and ordering of `EvidenceLevel` are stable throughout 4.x.
-Consumers must compare enum values rather than parsing display names. In 4.0,
+Consumers must compare enum values rather than parsing display names. In 4.x,
 only an exact closed-window `ExecutionCommandAuthorization` may issue
 `RuntimeExecutable`; reviewed profiles, bounded sessions, ledgers, summaries,
 transparency anchors/observations/logs/proofs/checkpoints, witness

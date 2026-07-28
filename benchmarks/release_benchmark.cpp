@@ -313,34 +313,59 @@ rbfsafe::Result<void> replay_provenance_fixture(const std::filesystem::path& fix
 
 rbfsafe::Result<void> replay_continuous_occupancy_fixture(const std::filesystem::path& fixture_root,
                                                           std::uint64_t& logical_hash) {
-    const auto root = fixture_root.parent_path() / "continuous_fleet_occupancy_schema1";
-    auto robot = rbfsafe::SerialRobotModel::from_json(root / "robot.json");
-    if (!robot)
-        return robot.error();
-    auto bundle = rbfsafe::ContinuousFleetOccupancyBundle::load(root / "occupancy.json");
-    if (!bundle)
-        return bundle.error();
-    std::size_t slices = 0;
-    for (const auto& occupancy : bundle.value().occupancies()) {
-        auto verified = rbfsafe::verify_robot_trajectory_occupancy(robot.value(), occupancy);
-        if (!verified)
-            return verified.error();
-        slices += occupancy.slices.size();
+    constexpr std::array<std::string_view, 2> fixture_names{
+        "continuous_fleet_occupancy_schema1",
+        "continuous_fleet_occupancy_schema2",
+    };
+    constexpr std::array<double, 9> identity_rotation{
+        1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+    };
+    for (const auto fixture_name : fixture_names) {
+        const auto root = fixture_root.parent_path() / fixture_name;
+        auto robot = rbfsafe::SerialRobotModel::from_json(root / "robot.json");
+        if (!robot)
+            return robot.error();
+        auto bundle = rbfsafe::ContinuousFleetOccupancyBundle::load(root / "occupancy.json");
+        if (!bundle)
+            return bundle.error();
+        std::size_t slices = 0;
+        std::size_t rotated_frames = 0;
+        std::size_t uncertain_frames = 0;
+        for (const auto& occupancy : bundle.value().occupancies()) {
+            auto verified = rbfsafe::verify_robot_trajectory_occupancy(robot.value(), occupancy);
+            if (!verified)
+                return verified.error();
+            slices += occupancy.slices.size();
+            if (occupancy.workspace_rotation != identity_rotation)
+                ++rotated_frames;
+            if (occupancy.workspace_angular_uncertainty_radians > 0.0 ||
+                std::any_of(occupancy.workspace_translation_uncertainty.begin(),
+                            occupancy.workspace_translation_uncertainty.end(),
+                            [](double value) { return value > 0.0; })) {
+                ++uncertain_frames;
+            }
+        }
+        if (bundle.value().report().status !=
+                rbfsafe::ContinuousFleetOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes ||
+            !bundle.value().report().conflicts.empty() ||
+            bundle.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+            bundle.value().authorizes_execution()) {
+            return rbfsafe::Result<void>::failure(
+                rbfsafe::StatusCode::InternalError,
+                "release continuous occupancy fixture replay was inconsistent");
+        }
+        hash_field(logical_hash, "continuous-fleet-swept-link-aabb-separated-but-non-authorizing");
+        hash_field(logical_hash, fixture_name);
+        hash_field(logical_hash, std::to_string(bundle.value().storage_schema()));
+        hash_field(logical_hash, bundle.value().id());
+        hash_field(logical_hash, bundle.value().report().id);
+        hash_field(logical_hash, std::to_string(bundle.value().occupancies().size()));
+        hash_field(logical_hash, std::to_string(slices));
+        hash_field(logical_hash, std::to_string(rotated_frames));
+        hash_field(logical_hash, std::to_string(uncertain_frames));
+        hash_field(logical_hash,
+                   rbfsafe::continuous_fleet_occupancy_status_name(bundle.value().report().status));
     }
-    if (bundle.value().report().status !=
-            rbfsafe::ContinuousFleetOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes ||
-        !bundle.value().report().conflicts.empty() ||
-        bundle.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
-        bundle.value().authorizes_execution()) {
-        return rbfsafe::Result<void>::failure(rbfsafe::StatusCode::InternalError,
-                                              "release continuous occupancy fixture replay was inconsistent");
-    }
-    hash_field(logical_hash, "continuous-fleet-swept-link-aabb-separated-but-non-authorizing");
-    hash_field(logical_hash, bundle.value().id());
-    hash_field(logical_hash, bundle.value().report().id);
-    hash_field(logical_hash, std::to_string(bundle.value().occupancies().size()));
-    hash_field(logical_hash, std::to_string(slices));
-    hash_field(logical_hash, rbfsafe::continuous_fleet_occupancy_status_name(bundle.value().report().status));
     return rbfsafe::Result<void>::success();
 }
 
