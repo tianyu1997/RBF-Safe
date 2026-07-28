@@ -14,6 +14,7 @@
 #include <rbfsafe/lect.h>
 #include <rbfsafe/memory.h>
 #include <rbfsafe/model.h>
+#include <rbfsafe/occupancy.h>
 #include <rbfsafe/optimization.h>
 #include <rbfsafe/planning.h>
 #include <rbfsafe/policy.h>

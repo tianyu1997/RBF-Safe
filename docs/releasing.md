@@ -130,6 +130,15 @@ status, unsigned overflow boundaries, wrong-source/key/clock rejection,
 unknown schema, checksum/tamper/truncation/symlink rejection, overwrite
 protection, count/byte/policy limits, and cancellation. Confirm
 `SATISFIED`, `FRESH`, and combined `ready` remain non-authorizing `Unknown`.
+Run the continuous fleet occupancy C++/Python quickstarts and fixed schema-1
+fixture through both inspectors. Verify deterministic subdivision, sampled
+IFK-AA envelope containment, fixed-translation outward rounding, exact robot
+replay, duplicate deployment and timeline/frame rejection, overlap and
+separation-margin witnesses, single-input rejection, cancellation, all work
+and load limits, unknown schema, truncation, checksum/tamper/symlink
+rejection, overwrite protection, cross-platform byte equality, and fixed
+bundle/report identities. Confirm every occupancy, conflict, report, bundle,
+and successful separation status remains non-authorizing `Unknown`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -166,7 +175,7 @@ service-trust-bundle, service-trust-history, service-trust-checkpoint,
 reviewed-deployment-profile, calibration-profile, or
 calibration-lifecycle, bounded-execution-session, execution-ledger, or
 transparency-log, transparency-gossip-archive, or
-verifiable-provenance-bundle schema
+verifiable-provenance-bundle, or continuous-fleet-occupancy-bundle schema
 changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
 error. A library version change must never silently reinterpret an existing

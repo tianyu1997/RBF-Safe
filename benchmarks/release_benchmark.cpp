@@ -311,6 +311,39 @@ rbfsafe::Result<void> replay_provenance_fixture(const std::filesystem::path& fix
     return rbfsafe::Result<void>::success();
 }
 
+rbfsafe::Result<void> replay_continuous_occupancy_fixture(const std::filesystem::path& fixture_root,
+                                                          std::uint64_t& logical_hash) {
+    const auto root = fixture_root.parent_path() / "continuous_fleet_occupancy_schema1";
+    auto robot = rbfsafe::SerialRobotModel::from_json(root / "robot.json");
+    if (!robot)
+        return robot.error();
+    auto bundle = rbfsafe::ContinuousFleetOccupancyBundle::load(root / "occupancy.json");
+    if (!bundle)
+        return bundle.error();
+    std::size_t slices = 0;
+    for (const auto& occupancy : bundle.value().occupancies()) {
+        auto verified = rbfsafe::verify_robot_trajectory_occupancy(robot.value(), occupancy);
+        if (!verified)
+            return verified.error();
+        slices += occupancy.slices.size();
+    }
+    if (bundle.value().report().status !=
+            rbfsafe::ContinuousFleetOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes ||
+        !bundle.value().report().conflicts.empty() ||
+        bundle.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        bundle.value().authorizes_execution()) {
+        return rbfsafe::Result<void>::failure(rbfsafe::StatusCode::InternalError,
+                                              "release continuous occupancy fixture replay was inconsistent");
+    }
+    hash_field(logical_hash, "continuous-fleet-swept-link-aabb-separated-but-non-authorizing");
+    hash_field(logical_hash, bundle.value().id());
+    hash_field(logical_hash, bundle.value().report().id);
+    hash_field(logical_hash, std::to_string(bundle.value().occupancies().size()));
+    hash_field(logical_hash, std::to_string(slices));
+    hash_field(logical_hash, rbfsafe::continuous_fleet_occupancy_status_name(bundle.value().report().status));
+    return rbfsafe::Result<void>::success();
+}
+
 rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t iterations,
                                       std::uint64_t& logical_hash) {
     auto robot = rbfsafe::SerialRobotModel::from_json(fixture.robot);
@@ -1517,6 +1550,11 @@ int main(int argc, char** argv) {
     auto provenance = replay_provenance_fixture(options.fixtures, logical_hash);
     if (!provenance) {
         std::cerr << provenance.error().describe() << '\n';
+        return 1;
+    }
+    auto occupancy = replay_continuous_occupancy_fixture(options.fixtures, logical_hash);
+    if (!occupancy) {
+        std::cerr << occupancy.error().describe() << '\n';
         return 1;
     }
     const std::string actual_digest = hex64(logical_hash);

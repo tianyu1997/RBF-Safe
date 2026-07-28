@@ -130,13 +130,20 @@
   same-size-equivocation and invalid-proof split-view detection, bounded
   append-only schema-1 archives, fixed fixtures, and C++/Python/inspection
   tooling.
-- **v3.15 (current) - Verifiable provenance and time inputs:** pluggable,
+- **v3.15 - Verifiable provenance and time inputs:** pluggable,
   explicitly scoped hardware-key attestation statements, signed external time
   assertions, freshness policy, provenance-chain replay, and adapters that
   remain separate from geometric and physical-execution certification. No
   device vendor or time source is trusted implicitly.
-- **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
-  distributed fleet coordination, and certified hardware/deployment profiles.
+- **v4.0 (current) - Continuous-time fleet occupancy:** deterministic
+  piecewise-linear joint-trajectory subdivision, conservative IFK-AA per-link
+  swept AABBs, explicit timeline/frame/deployment binding, translated
+  multi-robot comparison, separation-margin witnesses, replay verification,
+  bounded schema-1 persistence, and C++/Python/inspection tooling. Every
+  result remains `Unknown` and non-authorizing.
+- **v4.1+ candidates:** rotated/uncertain deployment frames, distributed
+  fleet coordination, authenticated occupancy publication, continuous moving
+  obstacles, and certified hardware/deployment profiles.
 
 RBF-Safe remains safety infrastructure rather than another motion planner.
 Paper experiments and RapidBoxForest legacy caches stay outside the standalone

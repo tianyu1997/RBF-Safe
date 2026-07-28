@@ -35,12 +35,17 @@ gossip, split-view detection, and bounded append-only gossip archives.
 Version 3.15 adds explicitly scoped adapter-normalized hardware-key statement
 chains, signed external-time source chains, caller-pinned freshness policy,
 combined replay, and bounded provenance-bundle persistence.
+Version 4.0 retains the complete documented 3.x surface and adds
+`RBFSafe::occupancy`, conservative piecewise-linear swept-link occupancy,
+bounded fleet separation analysis, replay verification, and an independent
+bundle format.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
-source compatible throughout the 3.x line. Additive API changes may appear in
-minor releases. Deprecated APIs remain functional through 3.x and may be
-removed only in 4.0. The exact policy and automated review gate are documented
-in [API stability](api-stability.md).
+source compatible throughout the 4.x line. Additive API changes may appear in
+minor releases. No documented 3.x API was removed in 4.0. Deprecated APIs
+remain functional through 4.x and may be removed only in 5.0. The exact policy
+and automated review gate are documented in
+[API stability](api-stability.md).
 
 C++ ABI compatibility is not promised across compilers, standard libraries,
 runtime-library selections, build modes, or RBF-Safe releases. Downstream C++
@@ -258,6 +263,14 @@ Expected-head publication, bounded replay, and proof-graph audit do not alter
 the underlying transparency-log schema. Schema 1 does not rotate its pinned
 trust bundle in place.
 
+The v4.0 continuous-fleet-occupancy-bundle schema 1 is an independent
+checksummed JSON file. It stores exact trajectory, robot digest,
+timeline/frame/deployment metadata, fixed base translation, deterministic
+IFK-AA swept-link slices, and a replayable fleet report. Loading validates
+complete time coverage and replays fleet comparisons, but exact robot models
+remain external and must be supplied to
+`verify_robot_trajectory_occupancy`.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -287,7 +300,7 @@ hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
 service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
 bounded-execution-session/execution-ledger/transparency-log/
-transparency-gossip-archive fixtures,
+transparency-gossip-archive/continuous-fleet-occupancy fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

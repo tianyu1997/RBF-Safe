@@ -365,25 +365,49 @@ caller-supplied time. It does not validate a vendor blob, establish physical
 key custody, choose a trustworthy adapter/source/clock, or authorize
 execution. `SATISFIED`, `FRESH`, and `ready` remain `Unknown`.
 
-The execution, transparency, witness, and provenance layers do not prove that
-an endpoint key belongs to physical hardware, that the clock or observation is
-trustworthy, that a command was transmitted or
-executed, that tracking remained inside the certified geometry, or that the
+## Continuous fleet occupancy claims
+
+The v4.0 occupancy layer covers each piecewise-linear joint subsegment with a
+C-space AABB and applies the existing conservative IFK-AA link-envelope
+kernel. Therefore every represented link position along that subsegment lies
+inside its stored translated workspace AABB under the exact robot, base
+translation, interpolation, padding, and frame assumptions.
+
+Two occupancies are reported
+`CertifiedSeparatedUnderSweptEnvelopes` only when every link AABB pair whose
+half-open logical time slices overlap has at least the requested AABB distance
+lower bound. A `PotentialConflict` is an inability to prove the requested
+separation, not proof of physical collision. Loading replays report semantics;
+`verify_robot_trajectory_occupancy` additionally rederives every envelope from
+the exact robot model.
+
+These values remain `Unknown` and non-authorizing. The layer does not prove
+obstacle freedom, self-collision freedom, clock synchronization, trajectory
+tracking, dynamics, or execution. It supports only a fixed translation from a
+robot's DH base into the named workspace frame.
+
+The execution, transparency, witness, provenance, and occupancy layers do not
+prove that an endpoint key belongs to physical hardware, that the clock or
+observation is trustworthy, that a command was transmitted or executed, that
+tracking remained inside the certified geometry, or that the
 scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v3.15
+## Explicit exclusions in v4.0
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
   by the supplied link radii and optional tool link.
-- Continuous-time dynamic obstacles, swept motion, localization/calibration
-  uncertainty, control error, deformation, and latency are not modeled
-  automatically. v0.9 updates only between explicit static AABB snapshots.
+- Continuous-time dynamic obstacles, localization/calibration uncertainty,
+  rotated or moving robot bases, control error, deformation, and latency are
+  not modeled automatically. The v4.0 swept-motion layer covers only explicit
+  piecewise-linear robot joint trajectories under fixed translated bases;
+  v0.9 scene updates still occur only between explicit static AABB snapshots.
 - AABB separation is the only workspace collision proof; OBB certification
   uses a conservative C-space enclosure rather than a correlated workspace
-  proof, and no mesh, KDOP, or swept-time validation is performed.
+  proof, and no mesh or KDOP validation is performed. Swept-time validation
+  uses conservative per-link AABBs rather than exact correlated geometry.
 - Arbitrary AABB/OBB intersection portals are discovered, but zonotope/Taylor
   Portal intersections and continuous-time portals are not.
 - Pose tolerances, MoveIt callback acceptance, and trajectory coverage do not
@@ -393,7 +417,8 @@ responsibilities.
   independent observation, log record/checkpoint/proof/witness, checkpoint
   cosignature, gossip message/archive/conflict, and transparency or gossip
   audit, hardware provenance statement/report, external-time assertion/report,
-  provenance bundle, and combined provenance `ready` status are not
+  provenance bundle, combined provenance `ready` status, continuous
+  occupancy, fleet separation report, and occupancy bundle are not
   runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
@@ -454,11 +479,12 @@ responsibilities.
   Controller/monitor endpoint keys and runtime fields are caller inputs;
   RBF-Safe does not provision devices, attest sensors, read clocks, check
   tracking, enforce real-time scheduling, or operate an emergency stop.
-- Fleet member envelopes and reservation occupancy are caller-supplied
-  conservative bounds. The v3.2 analyzer and archive do not provide continuous-time
-  multi-robot geometry, distributed consensus, clock guarantees, or controller
-  interlocks. Archive integrity is not a signature, authorization decision, or
-  execution certificate.
+- Fleet member envelopes and v3 reservation occupancy are caller-supplied
+  conservative bounds. The v4.0 occupancy layer separately derives
+  continuous swept-link AABBs, but neither layer provides distributed
+  consensus, clock guarantees, obstacle clearance, controller interlocks, or
+  tracking enforcement. Archive/bundle integrity is not a signature,
+  authorization decision, or execution certificate.
 - Named release fixtures and benchmark success demonstrate deterministic API
   integration and regression behavior only. They are synthetic, uncalibrated,
   and do not validate a physical robot, workcell, payload, or deployment.

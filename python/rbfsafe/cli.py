@@ -12,6 +12,8 @@ from . import (
     AtlasUpdater,
     AtlasVersionStore,
     BoundedExecutionSession,
+    ContinuousFleetOccupancyBundle,
+    ContinuousFleetOccupancyOptions,
     ExecutionLedger,
     FleetScheduleArchive,
     HipacCorridor,
@@ -47,6 +49,8 @@ from . import (
     artifact_authentication_algorithm_name,
     artifact_transfer_authentication_name,
     artifact_transfer_operation_name,
+    analyze_continuous_fleet_occupancy,
+    continuous_fleet_occupancy_status_name,
     fleet_schedule_status_name,
     load_artifact_attestation,
     policy_feedback_label_name,
@@ -68,7 +72,10 @@ from . import (
     transparency_gossip_conflict_type_name,
     transparency_gossip_status_name,
     verify_artifact_file,
+    verify_robot_trajectory_occupancy,
 )
+
+_MAX_INSPECTABLE_JSON_BYTES = 268_435_456
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "atlas",
         type=Path,
-        help="Atlas/database/archive directory or attestation/calibration JSON file",
+        help="Atlas/database/archive directory or supported JSON artifact",
     )
     parser.add_argument("--plot", type=Path, help="write a 2-D slice image")
     parser.add_argument("--query", nargs="+", type=float, metavar="Q", help="query one configuration")
@@ -255,6 +262,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="exact command configuration to evaluate",
     )
     parser.add_argument(
+        "--occupancy-robot",
+        action="append",
+        default=[],
+        metavar="DEPLOYMENT=ROBOT_JSON",
+        help=(
+            "replay one continuous occupancy against the exact robot model; "
+            "repeat once for every deployment"
+        ),
+    )
+    parser.add_argument(
+        "--occupancy-minimum-separation",
+        type=float,
+        help="reanalyze a continuous fleet occupancy bundle with this separation margin",
+    )
+    parser.add_argument(
         "--dispatch-monotonic-ns",
         type=int,
         help="caller-supplied monotonic dispatch time for exact command evaluation",
@@ -330,12 +352,100 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     file_document: dict[str, object] = {}
     try:
-        if args.atlas.is_file() and args.atlas.stat().st_size <= 67_108_864:
+        if (
+            args.atlas.is_file()
+            and args.atlas.stat().st_size <= _MAX_INSPECTABLE_JSON_BYTES
+        ):
             candidate = json.loads(args.atlas.read_text(encoding="utf-8"))
             if isinstance(candidate, dict):
                 file_document = candidate
     except (OSError, UnicodeError, json.JSONDecodeError):
         pass
+    if (
+        file_document.get("format")
+        == "rbfsafe-continuous-fleet-occupancy-bundle"
+    ):
+        bundle = ContinuousFleetOccupancyBundle.load(args.atlas)
+        report = bundle.report
+        if args.occupancy_minimum_separation is not None:
+            if (
+                not math.isfinite(args.occupancy_minimum_separation)
+                or args.occupancy_minimum_separation < 0.0
+            ):
+                parser.error(
+                    "--occupancy-minimum-separation must be finite and non-negative"
+                )
+            options = ContinuousFleetOccupancyOptions()
+            options.minimum_separation = args.occupancy_minimum_separation
+            report = analyze_continuous_fleet_occupancy(
+                bundle.occupancies, options
+            )
+
+        verified_deployments: set[str] = set()
+        robot_paths: dict[str, Path] = {}
+        for specification in args.occupancy_robot:
+            if "=" not in specification:
+                parser.error(
+                    "--occupancy-robot must use DEPLOYMENT=ROBOT_JSON"
+                )
+            deployment, robot_path = specification.split("=", 1)
+            if not deployment or not robot_path or deployment in robot_paths:
+                parser.error(
+                    "--occupancy-robot deployment and path must be non-empty and unique"
+                )
+            robot_paths[deployment] = Path(robot_path)
+        if robot_paths:
+            expected_deployments = {
+                occupancy.deployment_id for occupancy in bundle.occupancies
+            }
+            if set(robot_paths) != expected_deployments:
+                parser.error(
+                    "--occupancy-robot must provide exactly one model for every deployment"
+                )
+            for occupancy in bundle.occupancies:
+                robot = SerialRobotModel.from_json(
+                    robot_paths[occupancy.deployment_id]
+                )
+                verify_robot_trajectory_occupancy(robot, occupancy)
+                verified_deployments.add(occupancy.deployment_id)
+
+        print(
+            "RBF-Safe continuous-fleet-occupancy-bundle "
+            f"schema={bundle.storage_schema}"
+        )
+        print(f"bundle_id={bundle.id}")
+        print(
+            f"timeline={report.timeline_id} "
+            f"workspace_frame={report.workspace_frame_id}"
+        )
+        print(
+            "status="
+            + continuous_fleet_occupancy_status_name(report.status)
+        )
+        print(
+            f"occupancies={len(bundle.occupancies)} "
+            f"slices={sum(len(item.slices) for item in bundle.occupancies)} "
+            f"conflicts={len(report.conflicts)}"
+        )
+        print(
+            f"minimum_separation={report.minimum_separation} "
+            f"slice_pair_evaluations={report.slice_pair_evaluations} "
+            f"link_pair_evaluations={report.link_pair_evaluations}"
+        )
+        print(
+            "robot_replay_verified="
+            + str(len(verified_deployments) == len(bundle.occupancies)).lower()
+        )
+        print("evidence=unknown")
+        print("authorizes_execution=false")
+        return 0
+    if (
+        args.occupancy_robot
+        or args.occupancy_minimum_separation is not None
+    ):
+        parser.error(
+            "continuous occupancy options require a continuous fleet occupancy bundle"
+        )
     if file_document.get("format") == "rbfsafe-verifiable-provenance-bundle":
         required = (
             args.trust_history,
