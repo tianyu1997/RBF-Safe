@@ -54,12 +54,15 @@ the 4.0 translation-only API and schema-1 reader. RBF-Safe 4.2 additively
 introduces `RBFSafe::coordination`, `OccupancyPublication`,
 `VerifiedOccupancyPublication`, exact-byte sign/verify functions, successor
 validation, schema-1 publication persistence, and a public exact-byte
-occupancy-bundle loader. Public
-headers under `include/rbfsafe`,
-installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
-`data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots record the
-historical contracts; `tools/check_api_surface.py` selects the snapshot for the
-library's current major version.
+occupancy-bundle loader. RBF-Safe 4.3 additively introduces
+`OccupancyPublicationHistory`, immutable history records, bounded history load
+options, exact stored-payload replay, expected-head publication, deterministic
+history relation/audit values, and schema-1 history directories. Public
+headers under `include/rbfsafe`, installed CMake targets, and names exported
+from `rbfsafe.__init__` are tracked by the current
+`data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots
+record the historical contracts; `tools/check_api_surface.py` selects the
+snapshot for the library's current major version.
 
 ## Compatibility promise
 
@@ -100,7 +103,7 @@ The following installed target names are stable in 4.x:
 - `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, `RBFSafe::trust`,
   `RBFSafe::remote`, `RBFSafe::identity`, `RBFSafe::deployment`,
   `RBFSafe::execution`, `RBFSafe::transparency`, `RBFSafe::witness`,
-  `RBFSafe::provenance`, `RBFSafe::occupancy`, and aggregate
+  `RBFSafe::provenance`, `RBFSafe::occupancy`, `RBFSafe::coordination`, and aggregate
   `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 
@@ -124,7 +127,9 @@ Continuous occupancies, conflict witnesses, fleet separation reports, and
 bundles remain `Unknown`, including
 `CertifiedSeparatedUnderSweptEnvelopes`.
 Authenticated occupancy publications and verification results also remain
-`Unknown`; a valid Ed25519 signature never becomes execution evidence.
+`Unknown`; occupancy publication histories, records, and prefix/fork audits
+remain `Unknown` as well. A valid Ed25519 signature or consistent local
+history never becomes execution evidence.
 The application must still enforce its separately reviewed tracking,
 uncertainty, clock, transport, device, and emergency-stop assumptions.
 

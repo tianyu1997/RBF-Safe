@@ -405,6 +405,49 @@ rbfsafe::Result<void> replay_occupancy_publication_fixture(const std::filesystem
     return rbfsafe::Result<void>::success();
 }
 
+rbfsafe::Result<void> replay_occupancy_publication_history_fixture(const std::filesystem::path& fixture_root,
+                                                                   std::uint64_t& logical_hash) {
+    const auto history_root = fixture_root.parent_path() / "occupancy_publication_history_schema1";
+    constexpr std::string_view trust_bundle_id =
+        "89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d";
+    constexpr std::string_view root_publication_id =
+        "90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251";
+    constexpr std::string_view head_publication_id =
+        "83a6952083ac661aacff43168473c1938e29adfe738275d2230458dd6074dfb9";
+    auto history = rbfsafe::OccupancyPublicationHistory::open(
+        history_root, "fixture-cell-occupancy-stream-v1", "fixture-occupancy-publisher", trust_bundle_id,
+        root_publication_id, head_publication_id);
+    if (!history)
+        return history.error();
+    auto verified = history.value().verify(head_publication_id, 31);
+    if (!verified)
+        return verified.error();
+    auto audit = rbfsafe::audit_occupancy_publication_histories(history.value(), history.value());
+    if (!audit)
+        return audit.error();
+    if (history.value().records().size() != 2 ||
+        history.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        history.value().authorizes_execution() ||
+        audit.value().relation != rbfsafe::OccupancyPublicationHistoryRelation::Identical ||
+        audit.value().fork_detected() || audit.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        audit.value().authorizes_execution()) {
+        return rbfsafe::Result<void>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release occupancy publication-history replay was inconsistent");
+    }
+    hash_field(logical_hash, "pinned-replayable-occupancy-publication-history-but-non-authorizing");
+    hash_field(logical_hash, history.value().root_publication_id());
+    hash_field(logical_hash, history.value().current_publication_id());
+    hash_field(logical_hash, history.value().trust_bundle_id());
+    hash_field(logical_hash, std::to_string(history.value().records().size()));
+    for (const auto& record : history.value().records())
+        hash_field(logical_hash, record.id);
+    hash_field(logical_hash, verified.value().id);
+    hash_field(logical_hash, rbfsafe::occupancy_publication_history_relation_name(audit.value().relation));
+    hash_field(logical_hash, audit.value().id);
+    return rbfsafe::Result<void>::success();
+}
+
 rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t iterations,
                                       std::uint64_t& logical_hash) {
     auto robot = rbfsafe::SerialRobotModel::from_json(fixture.robot);
@@ -1621,6 +1664,12 @@ int main(int argc, char** argv) {
     auto occupancy_publication = replay_occupancy_publication_fixture(options.fixtures, logical_hash);
     if (!occupancy_publication) {
         std::cerr << occupancy_publication.error().describe() << '\n';
+        return 1;
+    }
+    auto occupancy_publication_history =
+        replay_occupancy_publication_history_fixture(options.fixtures, logical_hash);
+    if (!occupancy_publication_history) {
+        std::cerr << occupancy_publication_history.error().describe() << '\n';
         return 1;
     }
     const std::string actual_digest = hex64(logical_hash);

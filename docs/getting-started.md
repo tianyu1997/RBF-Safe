@@ -837,3 +837,67 @@ For sequence 2 and later, authenticate both statements and call
 the externally retained head. Never derive the expected parent from the
 untrusted successor itself. See
 [authenticated occupancy publication](authenticated-occupancy-publication.md).
+
+## 21. Persist and audit an occupancy publication history
+
+RBF-Safe 4.3 stores one immutable, caller-pinned stream under one exact public
+trust snapshot. Create the history from an already signed root publication,
+then retain its returned head outside the history directory:
+
+```python
+history = rbfsafe.OccupancyPublicationHistory.create(
+    "occupancy-history",
+    root_publication,
+    "fleet-occupancy-root.json",
+    trust_bundle,
+    root_publication.stream_id,
+    root_publication.publisher_service_id,
+    trust_bundle.id,
+    root_publication.id,
+)
+retained_head = history.current_publication_id
+
+record = history.publish(
+    next_publication,
+    "fleet-occupancy-next.json",
+    retained_head,
+)
+assert record.publication_id == next_publication.id
+retained_head = history.current_publication_id
+assert history.verify(retained_head, 48).publication_id == next_publication.id
+```
+
+Every open requires the exact stream, publisher, trust-bundle ID, root
+publication ID, and optionally the externally retained expected head:
+
+```python
+replayed = rbfsafe.OccupancyPublicationHistory.open(
+    "occupancy-history",
+    root_publication.stream_id,
+    root_publication.publisher_service_id,
+    trust_bundle.id,
+    root_publication.id,
+    retained_head,
+)
+```
+
+Compare two independently obtained histories to detect whether they are
+identical, one is a strict extension, or they fork after a common prefix:
+
+```python
+audit = rbfsafe.audit_occupancy_publication_histories(first, second)
+if audit.relation == rbfsafe.OccupancyPublicationHistoryRelation.FORKED:
+    raise RuntimeError("publisher history fork detected")
+```
+
+The native inspector accepts the same caller pins:
+
+```bash
+rbfsafe-inspect occupancy-history STREAM PUBLISHER TRUST_ID ROOT_ID HEAD_ID 48
+```
+
+History replay authenticates retained software statements and detects only
+histories that the caller supplies. It does not distribute heads, establish
+global consensus, provide trusted time, or authorize robot execution. See
+[occupancy publication histories](occupancy-publication-history.md) and the
+[schema-1 format](occupancy-publication-history-format.md).

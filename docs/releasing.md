@@ -152,6 +152,15 @@ substitution, schema/checksum/tamper/truncation/symlink rejection, byte limits,
 cancellation, overwrite protection, and fixed cross-platform identities.
 Confirm publications and verification results remain non-authorizing
 `Unknown`.
+Run the occupancy publication history C++/Python quickstarts and fixed
+schema-1 directory through both inspectors. Verify exact
+stream/publisher/trust/root/head pins; complete signature, digest, decoded
+occupancy, window, sequence, and parent replay; expected-head append/open;
+writer contention; committed-record crash semantics; identical, forward-
+extension, reverse-extension, and fork relations; corruption, symlink,
+unknown-schema, byte/count limits, and cancellation. Confirm full-directory
+rollback requires an externally retained head and that every history/audit
+result remains non-authorizing `Unknown`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -189,7 +198,7 @@ reviewed-deployment-profile, calibration-profile, or
 calibration-lifecycle, bounded-execution-session, execution-ledger, or
 transparency-log, transparency-gossip-archive, or
 verifiable-provenance-bundle, continuous-fleet-occupancy-bundle, or
-authenticated-occupancy-publication schema
+authenticated-occupancy-publication, or occupancy-publication-history schema
 changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
 error. A library version change must never silently reinterpret an existing

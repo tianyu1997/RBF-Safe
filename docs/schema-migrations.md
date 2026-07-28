@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 4.2 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 4.3 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 4.2 |
+| Format | Read | Write | Migration in 4.3 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -32,6 +32,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Verifiable provenance bundle | 1 | 1 | Explicit new hardware-statement/time-source artifact; no vendor evidence, trusted adapter, clock, historical assertion, or execution authority is inferred |
 | Continuous fleet occupancy bundle | 1, 2 | 1 from legacy translation builder; 2 from bounded-frame builder/mixed input | Schema 1 remains exact fixed-translation evidence; rotation or uncertainty is never inferred |
 | Authenticated occupancy publication | 1 | 1 | Independent signed statement; an unsigned occupancy bundle is never upgraded implicitly |
+| Occupancy publication history | 1 | 1 | Independent pinned stream history; standalone publications are never enrolled or ordered implicitly |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -237,3 +238,13 @@ implicit conversion: create a publication only with an explicitly trusted
 publication key, reviewed stream/publisher identity, closed tick window, and
 retained parent. A checksum, occupancy digest, or unsigned bundle cannot
 invent publisher authentication, trust, freshness, or a current stream head.
+
+Occupancy-publication-history schema 1 is specified in
+[Occupancy publication-history format](occupancy-publication-history-format.md).
+It is not a wrapper automatically inferred from publication files. Create a
+history only with an explicit root publication, its exact payload and trust
+bundle, and caller pins. Later publications are appended only under the
+retained expected head. Existing standalone publications remain unchanged and
+are not scanned, reordered, or imported automatically. A trust-bundle change
+starts another schema-1 history rather than silently rotating the pinned
+trust snapshot.

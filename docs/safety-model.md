@@ -398,6 +398,32 @@ obstacle freedom, self-collision freedom, clock synchronization, trajectory
 tracking, dynamics, moving-frame behavior, time-varying localization, or
 execution.
 
+## Authenticated occupancy-history claims
+
+The v4.2 publication verifier proves that one exact occupancy byte string was
+signed by an active publish-authorized Ed25519 key under the exact
+caller-pinned trust bundle and matches the caller's stream, publisher, parent,
+and evaluation tick. This authenticates a software statement; it does not
+make the enclosed occupancy status an execution certificate.
+
+The v4.3 history additionally proves that every committed record selects exact
+stored payload/publication bytes, independently replays under one pinned trust
+snapshot, and extends the previous record and publication. Expected-head
+append prevents a stale cooperating writer from silently overwriting newer
+state. Opening with a caller-retained head detects replacement by a different
+or shorter valid chain.
+
+Comparing two valid histories can prove that one is their common prefix or
+that they contain different valid successors after a common prefix. A
+`Forked` report is an observed split, not consensus, blame assignment, or
+proof of global freshness. An unseen branch cannot be detected, and an
+attacker who can replace both the directory and the caller's external head
+anchor remains outside this model.
+
+Histories fix one exact trust bundle. They do not authenticate trust rotation,
+replicate heads, establish time, or decide which branch should be used. Every
+history record and audit remains `Unknown` and non-authorizing.
+
 The execution, transparency, witness, provenance, and occupancy layers do not
 prove that an endpoint key belongs to physical hardware, that the clock or
 observation is trustworthy, that a command was transmitted or executed, that
@@ -406,7 +432,7 @@ scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v4.2
+## Explicit exclusions in v4.3
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -432,8 +458,9 @@ responsibilities.
   audit, hardware provenance statement/report, external-time assertion/report,
   provenance bundle, combined provenance `ready` status, continuous
   occupancy, fleet separation report, occupancy bundle, authenticated
-  occupancy publication, and verified publication result are not
-  runtime-execution approvals.
+  occupancy publication, verified publication result, occupancy publication
+  history/record, and history prefix/fork audit are not runtime-execution
+  approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic
@@ -499,9 +526,11 @@ responsibilities.
   consensus, clock guarantees, obstacle clearance, controller interlocks, or
   tracking enforcement. The v4.2 coordination layer authenticates exact
   bundle bytes only relative to caller-pinned trust, stream, parent, and tick.
-  It does not persist a globally current head, distribute trust, synchronize
-  clocks, resolve forks, or turn a signature into an authorization decision
-  or execution certificate.
+  The v4.3 local history persists and replays one caller-pinned trust snapshot
+  and can compare two observed branches, but it does not establish a globally
+  current head, distribute or rotate trust, synchronize clocks, exchange
+  branches, run consensus, resolve a fork, or turn a signature/history into an
+  authorization decision or execution certificate.
 - Named release fixtures and benchmark success demonstrate deterministic API
   integration and regression behavior only. They are synthetic, uncalibrated,
   and do not validate a physical robot, workcell, payload, or deployment.

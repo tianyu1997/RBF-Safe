@@ -32,6 +32,10 @@ Include, when available:
   trust-bundle/parent IDs, sequence, validity and evaluation ticks, payload
   digest/length, and a redacted or synthetic reproducer; never include the
   signing key;
+- for occupancy-history issues, the schema, pinned root and externally
+  retained expected-head publication IDs, conflicting record/publication IDs,
+  relation result, resource limits, and synthetic manifest/record layout;
+  never include signing keys or sensitive production occupancy;
 - a minimal reproducer and whether the result is deterministic;
 - expected impact and any known deployed use.
 
@@ -46,3 +50,10 @@ scene, algorithm, and parameter identities. They do not replace controller
 limits, emergency stops, independent collision monitoring, calibration
 checks, or application-specific risk assessment. See
 [docs/safety-model.md](docs/safety-model.md).
+
+An occupancy publication history protects only the retained directory and the
+caller-supplied pins. Whole-directory rollback is detectable only when the
+expected head is retained in a separate rollback domain. Fork auditing detects
+only histories supplied to the audit; it is not a gossip network or global
+consensus service. Successful replay and audit remain `Unknown`,
+non-authorizing evidence.

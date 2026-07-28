@@ -78,10 +78,19 @@ and signs or verifies a monotonic parent-linked publication under an exact
 public trust bundle. The verifier additionally requires caller-pinned stream,
 publisher, trust-bundle, parent, and logical evaluation tick.
 
-The target does not own transport, a persistent publication archive, head
-distribution, peer discovery, clock synchronization, consensus, controller
-I/O, or hardware enforcement. Applications retain the accepted parent and
-trust head externally. Every publication result remains `Unknown`.
+The 4.3 history backend stores an exact trust snapshot, immutable publication
+records, signed publication files, and their exact occupancy bytes. Creation
+publishes a fully replayed sibling directory atomically. Append uses a
+cross-process writer lock and caller-retained expected head, then commits the
+record after its payload and publication. Loading reconstructs and verifies
+the complete linear chain. A deterministic two-history audit reports prefix
+extension or an observed fork.
+
+The target does not own transport, head distribution, peer discovery, clock
+synchronization, trust rotation inside a history, consensus, controller I/O,
+or hardware enforcement. Applications retain root/head pins externally and
+must bring both histories to the audit to detect a fork. Every publication,
+history, and audit result remains `Unknown`.
 
 ### Corridor
 

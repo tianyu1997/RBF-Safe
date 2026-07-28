@@ -33,10 +33,12 @@ int main() {
     const rbfsafe::VerifiableProvenanceBundleLoadOptions provenance_load_options;
     const rbfsafe::ContinuousFleetOccupancyBundleLoadOptions occupancy_load_options;
     const rbfsafe::OccupancyPublication occupancy_publication;
+    const rbfsafe::OccupancyPublicationHistoryLoadOptions occupancy_history_load_options;
+    const rbfsafe::OccupancyPublicationHistoryRecord occupancy_history_record;
     const rbfsafe::DeploymentFrameBounds deployment_frame;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
-    return RBFSAFE_VERSION_MAJOR == 4 && RBFSAFE_VERSION_MINOR == 2 && RBFSAFE_VERSION_PATCH == 0 &&
+    return RBFSAFE_VERSION_MAJOR == 4 && RBFSAFE_VERSION_MINOR == 3 && RBFSAFE_VERSION_PATCH == 0 &&
                    interval.contains(0.0) && options.maximum_region_tests > 0 &&
                    hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
                    update_options.maximum_validations > 0 && obb_atlas_options.maximum_validations > 0 &&
@@ -59,6 +61,11 @@ int main() {
                    deployment_frame.exact() &&
                    occupancy_publication.evidence() == rbfsafe::EvidenceLevel::Unknown &&
                    !occupancy_publication.authorizes_execution() &&
+                   occupancy_history_load_options.maximum_publications > 0 &&
+                   occupancy_history_record.evidence() == rbfsafe::EvidenceLevel::Unknown &&
+                   !occupancy_history_record.authorizes_execution() &&
+                   std::string(rbfsafe::occupancy_publication_history_relation_name(
+                       rbfsafe::OccupancyPublicationHistoryRelation::Forked)) == "forked" &&
                    rbfsafe::continuous_fleet_occupancy_status_name(
                        rbfsafe::ContinuousFleetOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes) ==
                        "CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES" &&

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 4.2.0
+    VERSION 4.3.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES C CXX)
@@ -287,6 +287,7 @@ rbfsafe_configure_target(rbfsafe_identity)
 
 add_library(rbfsafe_coordination
     src/coordination.cpp
+    src/coordination_history.cpp
     src/coordination_persistence.cpp)
 add_library(RBFSafe::coordination ALIAS rbfsafe_coordination)
 set_target_properties(rbfsafe_coordination PROPERTIES EXPORT_NAME coordination)
@@ -482,6 +483,12 @@ if(RBFSAFE_BUILD_EXAMPLES)
     target_link_libraries(rbfsafe_occupancy_publication_quickstart
         PRIVATE RBFSafe::coordination)
     rbfsafe_configure_target(rbfsafe_occupancy_publication_quickstart)
+
+    add_executable(rbfsafe_occupancy_publication_history_quickstart
+        examples/occupancy_publication_history_quickstart.cpp)
+    target_link_libraries(rbfsafe_occupancy_publication_history_quickstart
+        PRIVATE RBFSafe::coordination)
+    rbfsafe_configure_target(rbfsafe_occupancy_publication_history_quickstart)
     if(RBFSAFE_BUILD_OMPL)
         add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
         target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
@@ -604,6 +611,8 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/continuous_fleet_occupancy_schema2)
     install(DIRECTORY data/occupancy_publication_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/occupancy_publication_schema1)
+    install(DIRECTORY data/occupancy_publication_history_schema1/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/occupancy_publication_history_schema1)
     install(DIRECTORY data/policy_calibration_profile_schema1/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/fixtures/policy_calibration_profile_schema1)
     install(DIRECTORY data/policy_calibration_lifecycle_schema1/

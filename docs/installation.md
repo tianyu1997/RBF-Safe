@@ -108,7 +108,11 @@ application-owned.
 `RBFSafe::occupancy` derives and replays bounded continuous swept-link
 occupancy bundles. `RBFSafe::coordination` combines that target with
 `RBFSafe::identity` to authenticate exact occupancy bytes under explicit
-caller pins. It adds no network, clock, consensus, or key-storage dependency.
+caller pins and to persist expected-head guarded publication histories.
+Histories replay every publication, preserve the exact signed payload bytes,
+and compare independently observed chains for extensions or forks. They add no
+network, clock, consensus, remote-head distribution, or key-storage
+dependency.
 
 `RBFSafe::policy` also provides policy-calibration profiles and calibrated
 gating. In 3.5 it additionally provides aggregate operational drift
@@ -125,6 +129,9 @@ Run `rbfsafe_public_identity_quickstart <new-root-bundle-file>
 <new-journal-directory> <new-trust-history-directory>` to exercise Ed25519
 transfer signing, exact-successor authorization, caller-supplied offline
 verification, trust-history replay, and public provenance persistence.
+Run `rbfsafe_occupancy_publication_history_quickstart
+<occupancy-payload> <new-history-directory>` to create, append, reopen, and
+audit a deterministic occupancy publication history.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:
