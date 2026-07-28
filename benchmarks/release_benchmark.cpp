@@ -369,6 +369,51 @@ rbfsafe::Result<void> replay_continuous_occupancy_fixture(const std::filesystem:
     return rbfsafe::Result<void>::success();
 }
 
+rbfsafe::Result<void>
+replay_continuous_robot_scene_occupancy_fixture(const std::filesystem::path& fixture_root,
+                                                std::uint64_t& logical_hash) {
+    const auto root = fixture_root.parent_path() / "continuous_robot_scene_occupancy_schema1";
+    auto robot = rbfsafe::SerialRobotModel::from_json(root / "robot.json");
+    if (!robot)
+        return robot.error();
+    auto bundle = rbfsafe::ContinuousRobotSceneOccupancyBundle::load(root / "occupancy.json");
+    if (!bundle)
+        return bundle.error();
+    std::size_t robot_slices = 0;
+    for (const auto& occupancy : bundle.value().robot_occupancies()) {
+        auto verified = rbfsafe::verify_robot_trajectory_occupancy(robot.value(), occupancy);
+        if (!verified)
+            return verified.error();
+        robot_slices += occupancy.slices.size();
+    }
+    std::size_t obstacle_slices = 0;
+    for (const auto& occupancy : bundle.value().obstacle_occupancies()) {
+        auto verified = rbfsafe::verify_moving_obstacle_occupancy(occupancy);
+        if (!verified)
+            return verified.error();
+        obstacle_slices += occupancy.slices.size();
+    }
+    if (bundle.value().report().status !=
+            rbfsafe::ContinuousRobotSceneOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes ||
+        !bundle.value().report().conflicts.empty() ||
+        bundle.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        bundle.value().authorizes_execution()) {
+        return rbfsafe::Result<void>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release continuous robot-scene occupancy fixture replay was inconsistent");
+    }
+    hash_field(logical_hash, "continuous-moving-obstacle-swept-aabb-separated-but-non-authorizing");
+    hash_field(logical_hash, bundle.value().id());
+    hash_field(logical_hash, bundle.value().report().id);
+    hash_field(logical_hash, std::to_string(bundle.value().robot_occupancies().size()));
+    hash_field(logical_hash, std::to_string(bundle.value().obstacle_occupancies().size()));
+    hash_field(logical_hash, std::to_string(robot_slices));
+    hash_field(logical_hash, std::to_string(obstacle_slices));
+    hash_field(logical_hash,
+               rbfsafe::continuous_robot_scene_occupancy_status_name(bundle.value().report().status));
+    return rbfsafe::Result<void>::success();
+}
+
 rbfsafe::Result<void> replay_occupancy_publication_fixture(const std::filesystem::path& fixture_root,
                                                            std::uint64_t& logical_hash) {
     const auto publication_root = fixture_root.parent_path() / "occupancy_publication_schema1";
@@ -1659,6 +1704,12 @@ int main(int argc, char** argv) {
     auto occupancy = replay_continuous_occupancy_fixture(options.fixtures, logical_hash);
     if (!occupancy) {
         std::cerr << occupancy.error().describe() << '\n';
+        return 1;
+    }
+    auto robot_scene_occupancy =
+        replay_continuous_robot_scene_occupancy_fixture(options.fixtures, logical_hash);
+    if (!robot_scene_occupancy) {
+        std::cerr << robot_scene_occupancy.error().describe() << '\n';
         return 1;
     }
     auto occupancy_publication = replay_occupancy_publication_fixture(options.fixtures, logical_hash);

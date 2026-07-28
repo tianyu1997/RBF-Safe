@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 4.3 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 4.4 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 4.3 |
+| Format | Read | Write | Migration in 4.4 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -33,6 +33,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Continuous fleet occupancy bundle | 1, 2 | 1 from legacy translation builder; 2 from bounded-frame builder/mixed input | Schema 1 remains exact fixed-translation evidence; rotation or uncertainty is never inferred |
 | Authenticated occupancy publication | 1 | 1 | Independent signed statement; an unsigned occupancy bundle is never upgraded implicitly |
 | Occupancy publication history | 1 | 1 | Independent pinned stream history; standalone publications are never enrolled or ordered implicitly |
+| Continuous robot-scene occupancy bundle | 1 | 1 | Independent moving-obstacle format; static scenes and fleet bundles are never upgraded implicitly |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -230,6 +231,15 @@ obtain a reviewed `DeploymentFrameBounds` input and rebuild the occupancy
 from the exact robot and trajectory. Mixed schema-1/schema-2 inputs are
 permitted only inside a schema-2 bundle and remain distinguishable by each
 record's storage schema and algorithm version.
+
+Continuous-robot-scene-occupancy-bundle schema 1 is specified in
+[Continuous robot-scene occupancy format](continuous-robot-scene-occupancy-format.md).
+It is independent from static `SceneSnapshot` JSON and robot-only fleet
+occupancy. A static AABB has no trajectory, timeline, or interpolation
+contract; a fleet bundle has no obstacle identity or swept obstacle records.
+Create a new bundle only from explicit timestamped obstacle bounds and exact
+robot occupancies covering the same complete window. No migration invents
+prediction, sensing confidence, tracking uncertainty, or trusted time.
 
 Authenticated-occupancy-publication schema 1 is specified in
 [Authenticated occupancy publication](authenticated-occupancy-publication-format.md).

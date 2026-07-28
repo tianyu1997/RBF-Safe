@@ -3,6 +3,38 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.4.0] - 2026-07-28
+
+### Added
+
+- Deterministic `MovingObstacleOccupancy` records for timestamped
+  piecewise-linear workspace AABB trajectories, with outward-rounded swept
+  unions, optional obstacle padding, stable slice identities, replay
+  verification, resource limits, and cancellation.
+- `analyze_continuous_robot_scene_occupancy` with exact timeline, workspace
+  frame, and complete-window matching; unique robot/obstacle identities;
+  conservative robot-link versus obstacle-slice overlap and separation-margin
+  witnesses; canonical ordering; and bounded work.
+- Checksummed schema-1 `ContinuousRobotSceneOccupancyBundle` persistence with
+  semantic analysis replay, atomic non-overwriting publication, symlink and
+  corruption rejection, byte/path loaders, C++/Python APIs, native/Python
+  inspection, quickstarts, and a fixed cross-platform fixture.
+
+### Compatibility and safety
+
+- All 4.3 APIs and every prior storage schema remain supported. The new bundle
+  format is independent; static `SceneSnapshot` obstacles, robot fleet
+  bundles, and authenticated occupancy histories are never upgraded or mixed
+  implicitly.
+- Obstacle waypoints are caller-supplied deterministic bounds, not trusted
+  perception or prediction. Exact clock semantics, interpolation validity,
+  localization, tracking uncertainty beyond explicit padding, self/static
+  collision freedom, dynamics, control, and hardware enforcement remain
+  external.
+- Moving-obstacle occupancies, reports, conflicts, and bundles remain
+  `Unknown` and non-authorizing, including the
+  `CertifiedSeparatedUnderSweptEnvelopes` status.
+
 ## [4.3.0] - 2026-07-28
 
 ### Added

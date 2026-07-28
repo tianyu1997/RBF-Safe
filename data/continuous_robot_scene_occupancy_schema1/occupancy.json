@@ -1,0 +1,339 @@
+{
+  "checksum": "65753181f7744dec780a45d4d8c50fc006b7341e8578a854773e9f5c2ae9fdbc",
+  "format": "rbfsafe-continuous-robot-scene-occupancy-bundle",
+  "library_version": "4.4.0",
+  "payload": {
+    "id": "653772769983773f589ae739e4d633ca1224e68b0273dbd3847e3308876e4b3f",
+    "obstacle_occupancies": [
+      {
+        "algorithm": "piecewise-linear-workspace-aabb-swept-union",
+        "algorithm_version": "1",
+        "id": "8a6eb2fd8f38e994ce0a04373d683e7d2b641fd0a2d80d82b110de9e7e16bfcd",
+        "obstacle_id": "cart-a",
+        "obstacle_padding": 0.02,
+        "slices": [
+          {
+            "begin_tick": "0",
+            "end_tick": "16",
+            "id": "d5fd03fb3c90e4bd96d7dabc9cf07fa225d0d355dd3803788095831b16789cc2",
+            "swept_bounds": {
+              "lower": [
+                4.9799999999999995,
+                -0.27000000000000007,
+                -0.27000000000000007
+              ],
+              "upper": [
+                6.5200000000000005,
+                0.27000000000000007,
+                0.27000000000000007
+              ]
+            },
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "16",
+            "end_tick": "32",
+            "id": "fd54b7dafe711e15227e3cb4f7bf48f8ab5b751fd8fcfc3aa6431a09fbdffbaa",
+            "swept_bounds": {
+              "lower": [
+                4.9799999999999995,
+                -0.27000000000000007,
+                -0.27000000000000007
+              ],
+              "upper": [
+                6.5200000000000005,
+                0.27000000000000007,
+                0.27000000000000007
+              ]
+            },
+            "trajectory_segment_index": "1"
+          }
+        ],
+        "storage_schema": "1",
+        "timeline_id": "fixture-scene-clock-v1",
+        "trajectory": [
+          {
+            "bounds": {
+              "lower": [
+                5,
+                -0.25,
+                -0.25
+              ],
+              "upper": [
+                5.5,
+                0.25,
+                0.25
+              ]
+            },
+            "tick": "0"
+          },
+          {
+            "bounds": {
+              "lower": [
+                6,
+                -0.25,
+                -0.25
+              ],
+              "upper": [
+                6.5,
+                0.25,
+                0.25
+              ]
+            },
+            "tick": "16"
+          },
+          {
+            "bounds": {
+              "lower": [
+                5,
+                -0.25,
+                -0.25
+              ],
+              "upper": [
+                5.5,
+                0.25,
+                0.25
+              ]
+            },
+            "tick": "32"
+          }
+        ],
+        "workspace_frame_id": "fixture-scene-world"
+      }
+    ],
+    "report": {
+      "begin_tick": "0",
+      "conflicts": [],
+      "end_tick": "32",
+      "id": "8264e583a0edc29442489f16b2f2217e75a83363c851642641f9ab78aa1d22ce",
+      "link_evaluations": "8",
+      "minimum_separation": 1,
+      "obstacle_occupancy_ids": [
+        "8a6eb2fd8f38e994ce0a04373d683e7d2b641fd0a2d80d82b110de9e7e16bfcd"
+      ],
+      "robot_occupancy_ids": [
+        "d110a4d399a8b4ef0835037428a727dcb5ce5ca75b96d3a88f2346a47e1b49a2"
+      ],
+      "slice_pair_evaluations": "4",
+      "status": 0,
+      "timeline_id": "fixture-scene-clock-v1",
+      "workspace_frame_id": "fixture-scene-world"
+    },
+    "robot_occupancies": [
+      {
+        "algorithm": "ifk-aa-piecewise-linear-swept-link-aabb",
+        "algorithm_version": "1",
+        "deployment_id": "arm-a",
+        "id": "d110a4d399a8b4ef0835037428a727dcb5ce5ca75b96d3a88f2346a47e1b49a2",
+        "link_padding": 0,
+        "maximum_normalized_joint_width": 0.050000000000000003,
+        "maximum_subdivision_depth": "16",
+        "robot_digest": "3c7ec874345f27baa1a829a629e32dc5a94ba446a9d8b8d12de995641b4e0784",
+        "slices": [
+          {
+            "begin_tick": "0",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": -0.20000000000000001,
+                  "upper": -0.10000000000000001
+                },
+                {
+                  "lower": 0.050000000000000003,
+                  "upper": 0.10000000000000001
+                }
+              ]
+            },
+            "end_tick": "8",
+            "id": "b1133302e498af3b11a725f6c8381d029fe6b679b2b15e3020ceb52f704f14d9",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0500000000006828,
+                  -0.050000000001534782,
+                  -0.050000000001534782
+                ],
+                "upper": [
+                  -2.9499999999981235,
+                  0.050000000001534782,
+                  0.050000000001534782
+                ]
+              },
+              {
+                "lower": [
+                  -3.0500000000018765,
+                  -0.25012668637375729,
+                  -0.050000000003249792
+                ],
+                "upper": [
+                  -1.9525070154351079,
+                  0.050000000001534782,
+                  0.050000000003249792
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "8",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": -0.10000000000000001,
+                  "upper": 0
+                },
+                {
+                  "lower": 0,
+                  "upper": 0.050000000000000003
+                }
+              ]
+            },
+            "end_tick": "16",
+            "id": "152188b97f06960f780e97d89f1c53bced96e07e385abbb306b3ee5dfc7c051f",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0500000000006828,
+                  -0.050000000001534782,
+                  -0.050000000001534782
+                ],
+                "upper": [
+                  -2.9499999999981235,
+                  0.050000000001534782,
+                  0.050000000001534782
+                ]
+              },
+              {
+                "lower": [
+                  -3.0500000000018765,
+                  -0.15116668229371741,
+                  -0.050000000003249029
+                ],
+                "upper": [
+                  -1.947500781136321,
+                  0.051208343752360712,
+                  0.050000000003249029
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "16",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": 0,
+                  "upper": 0.10000000000000003
+                },
+                {
+                  "lower": -0.050000000000000017,
+                  "upper": 0
+                }
+              ]
+            },
+            "end_tick": "24",
+            "id": "151a61d69ea6d98d4122c9065cf03c42667912e093e849b18e8fa1dd54df5f43",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0500000000006828,
+                  -0.050000000001534782,
+                  -0.050000000001534782
+                ],
+                "upper": [
+                  -2.9499999999981235,
+                  0.050000000001534782,
+                  0.050000000001534782
+                ]
+              },
+              {
+                "lower": [
+                  -3.0500000000018765,
+                  -0.051208343752360719,
+                  -0.050000000003249029
+                ],
+                "upper": [
+                  -1.947500781136321,
+                  0.15116668229371744,
+                  0.050000000003249029
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "24",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": 0.10000000000000003,
+                  "upper": 0.20000000000000001
+                },
+                {
+                  "lower": -0.10000000000000001,
+                  "upper": -0.050000000000000017
+                }
+              ]
+            },
+            "end_tick": "32",
+            "id": "83ffe0e2d88bc04bee04a1e64865d91c081a157b839d75a5ba0609d29cd3684c",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0500000000006828,
+                  -0.050000000001534782,
+                  -0.050000000001534782
+                ],
+                "upper": [
+                  -2.9499999999981235,
+                  0.050000000001534782,
+                  0.050000000001534782
+                ]
+              },
+              {
+                "lower": [
+                  -3.0500000000018765,
+                  -0.050000000001534782,
+                  -0.050000000003249792
+                ],
+                "upper": [
+                  -1.9525070154351079,
+                  0.25012668637375729,
+                  0.050000000003249792
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          }
+        ],
+        "storage_schema": "1",
+        "timeline_id": "fixture-scene-clock-v1",
+        "trajectory": [
+          {
+            "configuration": [
+              -0.20000000000000001,
+              0.10000000000000001
+            ],
+            "tick": "0"
+          },
+          {
+            "configuration": [
+              0.20000000000000001,
+              -0.10000000000000001
+            ],
+            "tick": "32"
+          }
+        ],
+        "workspace_frame_id": "fixture-scene-world",
+        "workspace_translation": [
+          -4,
+          0,
+          0
+        ]
+      }
+    ],
+    "storage_schema": "1"
+  },
+  "schema": 1
+}

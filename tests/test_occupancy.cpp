@@ -18,6 +18,17 @@ rbfsafe::SerialRobotModel prismatic_robot() {
 
 std::vector<rbfsafe::TimedConfiguration> trajectory() { return {{0, {0.0}}, {16, {1.0}}}; }
 
+rbfsafe::WorkspaceAabb workspace_box(double lower_x, double upper_x) {
+    return {{lower_x, -0.1, -0.1}, {upper_x, 0.1, 0.1}};
+}
+
+std::vector<rbfsafe::TimedWorkspaceAabb> moving_obstacle_trajectory(double first_x, double middle_x,
+                                                                    double final_x) {
+    return {{0, workspace_box(first_x, first_x + 0.2)},
+            {8, workspace_box(middle_x, middle_x + 0.2)},
+            {16, workspace_box(final_x, final_x + 0.2)}};
+}
+
 std::string read_text(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
@@ -477,6 +488,281 @@ int main() {
         CHECK(occupancy.workspace_translation_uncertainty == fixture_uncertainty);
         CHECK(verify_robot_trajectory_occupancy(fixture2_robot.value(), occupancy));
     }
+
+    MovingObstacleOccupancyBuildOptions obstacle_build_options;
+    obstacle_build_options.obstacle_padding = 0.02;
+    auto far_obstacle =
+        build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "cart-far",
+                                        moving_obstacle_trajectory(4.0, 5.0, 4.0), obstacle_build_options);
+    auto repeated_obstacle =
+        build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "cart-far",
+                                        moving_obstacle_trajectory(4.0, 5.0, 4.0), obstacle_build_options);
+    CHECK(far_obstacle);
+    CHECK(repeated_obstacle);
+    CHECK(far_obstacle.value().valid());
+    CHECK(far_obstacle.value().id == repeated_obstacle.value().id);
+    CHECK(far_obstacle.value().slices.size() == 2);
+    CHECK(far_obstacle.value().algorithm_version == "1");
+    CHECK(far_obstacle.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!far_obstacle.value().authorizes_execution());
+    CHECK(verify_moving_obstacle_occupancy(far_obstacle.value()));
+    for (std::size_t segment = 0; segment < far_obstacle.value().slices.size(); ++segment) {
+        const auto& slice = far_obstacle.value().slices[segment];
+        CHECK(slice.begin_tick == far_obstacle.value().trajectory[segment].tick);
+        CHECK(slice.end_tick == far_obstacle.value().trajectory[segment + 1].tick);
+        for (std::size_t sample = 0; sample <= 100; ++sample) {
+            const double fraction = static_cast<double>(sample) / 100.0;
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                const double lower =
+                    far_obstacle.value().trajectory[segment].bounds.lower[axis] +
+                    fraction * (far_obstacle.value().trajectory[segment + 1].bounds.lower[axis] -
+                                far_obstacle.value().trajectory[segment].bounds.lower[axis]);
+                const double upper =
+                    far_obstacle.value().trajectory[segment].bounds.upper[axis] +
+                    fraction * (far_obstacle.value().trajectory[segment + 1].bounds.upper[axis] -
+                                far_obstacle.value().trajectory[segment].bounds.upper[axis]);
+                CHECK(lower >= slice.swept_bounds.lower[axis]);
+                CHECK(upper <= slice.swept_bounds.upper[axis]);
+            }
+        }
+    }
+
+    auto separated_scene =
+        analyze_continuous_robot_scene_occupancy(std::array{first.value()}, std::array{far_obstacle.value()});
+    CHECK(separated_scene);
+    CHECK(separated_scene.value().valid());
+    CHECK(separated_scene.value().status ==
+          ContinuousRobotSceneOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes);
+    CHECK(separated_scene.value().conflicts.empty());
+    CHECK(separated_scene.value().begin_tick == 0);
+    CHECK(separated_scene.value().end_tick == 16);
+    CHECK(separated_scene.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!separated_scene.value().authorizes_execution());
+    CHECK(continuous_robot_scene_occupancy_status_name(separated_scene.value().status) ==
+          "CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES");
+
+    auto near_obstacle = build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "cart-near",
+                                                         moving_obstacle_trajectory(-2.0, -1.5, -1.0));
+    CHECK(near_obstacle);
+    auto conflict_scene = analyze_continuous_robot_scene_occupancy(std::array{first.value()},
+                                                                   std::array{near_obstacle.value()});
+    CHECK(conflict_scene);
+    CHECK(conflict_scene.value().status == ContinuousRobotSceneOccupancyStatus::PotentialConflict);
+    CHECK(!conflict_scene.value().conflicts.empty());
+    CHECK(conflict_scene.value().conflicts.front().reason ==
+          ContinuousOccupancyConflictReason::SweptEnvelopeOverlap);
+    CHECK(continuous_robot_scene_occupancy_status_name(conflict_scene.value().status) ==
+          "POTENTIAL_CONFLICT");
+
+    auto close_obstacle = build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "cart-close",
+                                                          moving_obstacle_trajectory(-1.7, -1.7, -1.7));
+    CHECK(close_obstacle);
+    ContinuousRobotSceneOccupancyOptions scene_margin_options;
+    scene_margin_options.minimum_separation = 0.5;
+    auto margin_scene = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{close_obstacle.value()}, scene_margin_options);
+    CHECK(margin_scene);
+    CHECK(margin_scene.value().status == ContinuousRobotSceneOccupancyStatus::PotentialConflict);
+    CHECK(margin_scene.value().conflicts.front().reason ==
+          ContinuousOccupancyConflictReason::SeparationMarginViolated);
+    CHECK(margin_scene.value().conflicts.front().clearance_lower_bound < 0.5);
+
+    auto second_far_obstacle =
+        build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "cart-z",
+                                        moving_obstacle_trajectory(8.0, 9.0, 8.0), obstacle_build_options);
+    CHECK(second_far_obstacle);
+    auto ordered_scene = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{second_far_obstacle.value(), far_obstacle.value()});
+    auto reordered_scene = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{far_obstacle.value(), second_far_obstacle.value()});
+    CHECK(ordered_scene);
+    CHECK(reordered_scene);
+    CHECK(ordered_scene.value().id == reordered_scene.value().id);
+    CHECK(ordered_scene.value().obstacle_occupancy_ids == reordered_scene.value().obstacle_occupancy_ids);
+
+    auto invalid_obstacle_ticks = moving_obstacle_trajectory(4.0, 5.0, 4.0);
+    invalid_obstacle_ticks[1].tick = 0;
+    CHECK(
+        !build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "bad-ticks", invalid_obstacle_ticks));
+    auto invalid_obstacle_bounds = moving_obstacle_trajectory(4.0, 5.0, 4.0);
+    invalid_obstacle_bounds[1].bounds.lower[0] = std::numeric_limits<double>::quiet_NaN();
+    CHECK(!build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "bad-bounds",
+                                           invalid_obstacle_bounds));
+    auto invalid_obstacle_options = obstacle_build_options;
+    invalid_obstacle_options.obstacle_padding = -0.1;
+    CHECK(!build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "bad-options",
+                                           moving_obstacle_trajectory(4.0, 5.0, 4.0),
+                                           invalid_obstacle_options));
+    auto obstacle_slice_limit = obstacle_build_options;
+    obstacle_slice_limit.maximum_slices = 1;
+    auto obstacle_limited =
+        build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "limited",
+                                        moving_obstacle_trajectory(4.0, 5.0, 4.0), obstacle_slice_limit);
+    CHECK(!obstacle_limited);
+    CHECK(obstacle_limited.error().code == StatusCode::ResourceLimit);
+    auto cancelled_obstacle_options = obstacle_build_options;
+    cancelled_obstacle_options.cancellation.cancel();
+    auto cancelled_obstacle = build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "cancelled",
+                                                              moving_obstacle_trajectory(4.0, 5.0, 4.0),
+                                                              cancelled_obstacle_options);
+    CHECK(!cancelled_obstacle);
+    CHECK(cancelled_obstacle.error().code == StatusCode::Cancelled);
+    auto overflow_obstacle =
+        moving_obstacle_trajectory(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(),
+                                   std::numeric_limits<double>::max());
+    CHECK(!build_moving_obstacle_occupancy("cell-clock-v1", "cell-world", "overflow", overflow_obstacle,
+                                           obstacle_build_options));
+
+    auto tampered_obstacle = far_obstacle.value();
+    tampered_obstacle.slices.front().swept_bounds.upper[0] += 0.1;
+    CHECK(!tampered_obstacle.valid());
+    CHECK(!verify_moving_obstacle_occupancy(tampered_obstacle));
+    auto limited_obstacle_replay = MovingObstacleOccupancyReplayOptions{};
+    limited_obstacle_replay.maximum_slices = 1;
+    auto obstacle_replay_limited =
+        verify_moving_obstacle_occupancy(far_obstacle.value(), limited_obstacle_replay);
+    CHECK(!obstacle_replay_limited);
+    CHECK(obstacle_replay_limited.error().code == StatusCode::ResourceLimit);
+
+    auto wrong_obstacle_timeline = build_moving_obstacle_occupancy(
+        "other-clock", "cell-world", "wrong-timeline", moving_obstacle_trajectory(4.0, 5.0, 4.0));
+    auto wrong_obstacle_frame = build_moving_obstacle_occupancy("cell-clock-v1", "other-world", "wrong-frame",
+                                                                moving_obstacle_trajectory(4.0, 5.0, 4.0));
+    auto short_obstacle_trajectory = moving_obstacle_trajectory(4.0, 5.0, 4.0);
+    short_obstacle_trajectory.front().tick = 1;
+    auto wrong_obstacle_window = build_moving_obstacle_occupancy("cell-clock-v1", "cell-world",
+                                                                 "wrong-window", short_obstacle_trajectory);
+    CHECK(wrong_obstacle_timeline);
+    CHECK(wrong_obstacle_frame);
+    CHECK(wrong_obstacle_window);
+    CHECK(!analyze_continuous_robot_scene_occupancy(std::array{first.value()},
+                                                    std::array{wrong_obstacle_timeline.value()}));
+    CHECK(!analyze_continuous_robot_scene_occupancy(std::array{first.value()},
+                                                    std::array{wrong_obstacle_frame.value()}));
+    CHECK(!analyze_continuous_robot_scene_occupancy(std::array{first.value()},
+                                                    std::array{wrong_obstacle_window.value()}));
+    auto duplicate_obstacle = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{far_obstacle.value(), repeated_obstacle.value()});
+    CHECK(!duplicate_obstacle);
+    CHECK(duplicate_obstacle.error().code == StatusCode::InvalidArgument);
+
+    auto bounded_scene_analysis = ContinuousRobotSceneOccupancyOptions{};
+    bounded_scene_analysis.maximum_slice_pair_evaluations = 1;
+    auto scene_pair_limited = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{far_obstacle.value()}, bounded_scene_analysis);
+    CHECK(!scene_pair_limited);
+    CHECK(scene_pair_limited.error().code == StatusCode::ResourceLimit);
+    bounded_scene_analysis = {};
+    bounded_scene_analysis.maximum_link_evaluations = 1;
+    auto scene_link_limited = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{far_obstacle.value()}, bounded_scene_analysis);
+    CHECK(!scene_link_limited);
+    CHECK(scene_link_limited.error().code == StatusCode::ResourceLimit);
+    bounded_scene_analysis = {};
+    bounded_scene_analysis.maximum_conflicts = 1;
+    auto scene_conflict_limited = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{near_obstacle.value()}, bounded_scene_analysis);
+    CHECK(!scene_conflict_limited);
+    CHECK(scene_conflict_limited.error().code == StatusCode::ResourceLimit);
+    bounded_scene_analysis = {};
+    bounded_scene_analysis.cancellation.cancel();
+    auto scene_cancelled = analyze_continuous_robot_scene_occupancy(
+        std::array{first.value()}, std::array{far_obstacle.value()}, bounded_scene_analysis);
+    CHECK(!scene_cancelled);
+    CHECK(scene_cancelled.error().code == StatusCode::Cancelled);
+
+    auto scene_bundle = ContinuousRobotSceneOccupancyBundle::create(
+        {first.value()}, {second_far_obstacle.value(), far_obstacle.value()});
+    auto reordered_scene_bundle = ContinuousRobotSceneOccupancyBundle::create(
+        {first.value()}, {far_obstacle.value(), second_far_obstacle.value()});
+    CHECK(scene_bundle);
+    CHECK(reordered_scene_bundle);
+    CHECK(scene_bundle.value().valid());
+    CHECK(scene_bundle.value().id() == reordered_scene_bundle.value().id());
+    CHECK(scene_bundle.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!scene_bundle.value().authorizes_execution());
+    const auto scene_bundle_path = directory / "robot-scene-occupancy.json";
+    CHECK(scene_bundle.value().save(scene_bundle_path));
+    auto loaded_scene_bundle = ContinuousRobotSceneOccupancyBundle::load(scene_bundle_path);
+    CHECK(loaded_scene_bundle);
+    CHECK(loaded_scene_bundle.value().id() == scene_bundle.value().id());
+    CHECK(verify_robot_trajectory_occupancy(robot, loaded_scene_bundle.value().robot_occupancies().front()));
+    for (const auto& obstacle : loaded_scene_bundle.value().obstacle_occupancies())
+        CHECK(verify_moving_obstacle_occupancy(obstacle));
+    CHECK(!scene_bundle.value().save(scene_bundle_path));
+    CHECK(scene_bundle.value().save(scene_bundle_path, SaveOptions{true}));
+
+    const auto scene_bundle_text = read_text(scene_bundle_path);
+    const auto scene_bundle_bytes =
+        std::as_bytes(std::span<const char>(scene_bundle_text.data(), scene_bundle_text.size()));
+    auto loaded_scene_bytes = load_continuous_robot_scene_occupancy_bundle(scene_bundle_bytes);
+    CHECK(loaded_scene_bytes);
+    CHECK(loaded_scene_bytes.value().id() == scene_bundle.value().id());
+    auto scene_load_limit = ContinuousRobotSceneOccupancyBundleLoadOptions{};
+    scene_load_limit.maximum_obstacle_occupancies = 1;
+    auto scene_obstacle_limited =
+        ContinuousRobotSceneOccupancyBundle::load(scene_bundle_path, scene_load_limit);
+    CHECK(!scene_obstacle_limited);
+    CHECK(scene_obstacle_limited.error().code == StatusCode::ResourceLimit);
+    scene_load_limit = {};
+    scene_load_limit.maximum_payload_bytes = 8;
+    auto scene_payload_limited =
+        ContinuousRobotSceneOccupancyBundle::load(scene_bundle_path, scene_load_limit);
+    CHECK(!scene_payload_limited);
+    CHECK(scene_payload_limited.error().code == StatusCode::ResourceLimit);
+    scene_load_limit = {};
+    scene_load_limit.cancellation.cancel();
+    auto scene_load_cancelled =
+        ContinuousRobotSceneOccupancyBundle::load(scene_bundle_path, scene_load_limit);
+    CHECK(!scene_load_cancelled);
+    CHECK(scene_load_cancelled.error().code == StatusCode::Cancelled);
+
+    auto scene_checksum_tamper = scene_bundle_text;
+    const auto scene_checksum_position = scene_checksum_tamper.find("\"checksum\": \"");
+    CHECK(scene_checksum_position != std::string::npos);
+    const auto scene_digest_position = scene_checksum_position + 13;
+    scene_checksum_tamper[scene_digest_position] =
+        scene_checksum_tamper[scene_digest_position] == 'a' ? 'b' : 'a';
+    const auto scene_tamper_path = directory / "robot-scene-tamper.json";
+    write_text(scene_tamper_path, scene_checksum_tamper);
+    auto scene_checksum_rejected = ContinuousRobotSceneOccupancyBundle::load(scene_tamper_path);
+    CHECK(!scene_checksum_rejected);
+    CHECK(scene_checksum_rejected.error().code == StatusCode::CorruptData);
+    const auto scene_truncated_path = directory / "robot-scene-truncated.json";
+    write_text(scene_truncated_path, scene_bundle_text.substr(0, scene_bundle_text.size() / 2));
+    CHECK(!ContinuousRobotSceneOccupancyBundle::load(scene_truncated_path));
+    auto unknown_scene_schema = scene_bundle_text;
+    const auto scene_schema_position = unknown_scene_schema.rfind("\"schema\": 1");
+    CHECK(scene_schema_position != std::string::npos);
+    unknown_scene_schema.replace(scene_schema_position, 11, "\"schema\": 2");
+    const auto scene_schema_path = directory / "robot-scene-schema.json";
+    write_text(scene_schema_path, unknown_scene_schema);
+    auto scene_schema_rejected = ContinuousRobotSceneOccupancyBundle::load(scene_schema_path);
+    CHECK(!scene_schema_rejected);
+    CHECK(scene_schema_rejected.error().code == StatusCode::IncompatibleFormat);
+    const auto scene_symlink_path = directory / "robot-scene-indirect.json";
+    symlink_error.clear();
+    std::filesystem::create_symlink(scene_bundle_path, scene_symlink_path, symlink_error);
+    if (!symlink_error) {
+        auto scene_indirect = ContinuousRobotSceneOccupancyBundle::load(scene_symlink_path);
+        CHECK(!scene_indirect);
+        CHECK(scene_indirect.error().code == StatusCode::CorruptData);
+    }
+
+    const auto scene_fixture_directory =
+        std::filesystem::path(RBFSAFE_TEST_DATA_DIR) / "continuous_robot_scene_occupancy_schema1";
+    auto scene_fixture =
+        ContinuousRobotSceneOccupancyBundle::load(scene_fixture_directory / "occupancy.json");
+    auto scene_fixture_robot = SerialRobotModel::from_json(scene_fixture_directory / "robot.json");
+    CHECK(scene_fixture);
+    CHECK(scene_fixture_robot);
+    CHECK(scene_fixture.value().id() == "653772769983773f589ae739e4d633ca1224e68b0273dbd3847e3308876e4b3f");
+    CHECK(scene_fixture.value().report().id ==
+          "8264e583a0edc29442489f16b2f2217e75a83363c851642641f9ab78aa1d22ce");
+    for (const auto& occupancy : scene_fixture.value().robot_occupancies())
+        CHECK(verify_robot_trajectory_occupancy(scene_fixture_robot.value(), occupancy));
+    for (const auto& occupancy : scene_fixture.value().obstacle_occupancies())
+        CHECK(verify_moving_obstacle_occupancy(occupancy));
 
     std::filesystem::remove_all(directory);
     return 0;

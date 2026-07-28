@@ -300,6 +300,26 @@ inspection. The `CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES` status remains
 non-authorizing `Unknown`; the fixture has no obstacles, physical clock,
 tracking, controller, or hardware claim.
 
+`data/continuous_robot_scene_occupancy_schema1` is the fixed RBF-Safe 4.4
+moving-obstacle fixture. One translated synthetic planar 2R robot and one
+padded piecewise-linear workspace AABB trajectory cover the exact same
+timeline, frame, and ticks 0 through 32. Four robot slices and two obstacle
+slices remain separated by the stored margin. Its exact identities are:
+
+- robot-scene bundle:
+  `653772769983773f589ae739e4d633ca1224e68b0273dbd3847e3308876e4b3f`;
+- robot-scene report:
+  `8264e583a0edc29442489f16b2f2217e75a83363c851642641f9ab78aa1d22ce`;
+  and
+- serialized file SHA-256:
+  `e007f7045c2cdda640e6bf77c5e89c685306b5edeb9fcb4a641d2c21031b176c`.
+
+C++ and Python tests load the same bytes, replay the robot against the
+included model, reconstruct every moving-obstacle swept union, replay the
+analysis, and run both inspectors. The obstacle trajectory is synthetic
+caller input, not a trusted sensing, prediction, clock, collision, tracking,
+controller, or execution claim.
+
 `data/occupancy_publication_schema1` is the fixed RBF-Safe 4.2 authenticated
 publication for the exact schema-2 occupancy bytes above. It uses one active
 publication-only Ed25519 service key, a root stream statement valid for ticks
@@ -439,3 +459,11 @@ verifies its externally pinned head at a covered tick, and audits the history
 against itself. Only stable identities, the record count, and the discrete
 relation enter the digest. History and audit results remain non-authorizing
 `Unknown`.
+
+The reviewed RBF-Safe 4.4 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `757bd4b61f0658e8`. It
+additionally loads the fixed continuous robot-scene occupancy bundle, replays
+the exact robot and moving-obstacle construction, and binds stable bundle/
+report identities, record/slice counts, and separation status into the
+digest. Caller-supplied obstacle bounds and every result remain
+non-authorizing `Unknown`.

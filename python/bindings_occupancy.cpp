@@ -20,6 +20,12 @@ void bind_occupancy(py::module_& module) {
         .def_readwrite("tick", &TimedConfiguration::tick)
         .def_readwrite("configuration", &TimedConfiguration::configuration);
 
+    py::class_<TimedWorkspaceAabb>(module, "TimedWorkspaceAabb")
+        .def(py::init<std::uint64_t, WorkspaceAabb>(), py::arg("tick") = 0,
+             py::arg("bounds") = WorkspaceAabb{})
+        .def_readwrite("tick", &TimedWorkspaceAabb::tick)
+        .def_readwrite("bounds", &TimedWorkspaceAabb::bounds);
+
     py::class_<DeploymentFrameBounds>(module, "DeploymentFrameBounds")
         .def(py::init<>())
         .def_readwrite("rotation", &DeploymentFrameBounds::rotation)
@@ -81,6 +87,43 @@ void bind_occupancy(py::module_& module) {
         .def_property_readonly("evidence", &RobotTrajectoryOccupancy::evidence)
         .def_property_readonly("authorizes_execution", &RobotTrajectoryOccupancy::authorizes_execution);
 
+    py::class_<MovingObstacleOccupancySlice>(module, "MovingObstacleOccupancySlice")
+        .def_readonly("id", &MovingObstacleOccupancySlice::id)
+        .def_readonly("trajectory_segment_index", &MovingObstacleOccupancySlice::trajectory_segment_index)
+        .def_readonly("begin_tick", &MovingObstacleOccupancySlice::begin_tick)
+        .def_readonly("end_tick", &MovingObstacleOccupancySlice::end_tick)
+        .def_readonly("swept_bounds", &MovingObstacleOccupancySlice::swept_bounds);
+
+    py::class_<MovingObstacleOccupancyBuildOptions>(module, "MovingObstacleOccupancyBuildOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_input_waypoints",
+                       &MovingObstacleOccupancyBuildOptions::maximum_input_waypoints)
+        .def_readwrite("maximum_slices", &MovingObstacleOccupancyBuildOptions::maximum_slices)
+        .def_readwrite("obstacle_padding", &MovingObstacleOccupancyBuildOptions::obstacle_padding)
+        .def_readwrite("cancellation", &MovingObstacleOccupancyBuildOptions::cancellation);
+
+    py::class_<MovingObstacleOccupancyReplayOptions>(module, "MovingObstacleOccupancyReplayOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_input_waypoints",
+                       &MovingObstacleOccupancyReplayOptions::maximum_input_waypoints)
+        .def_readwrite("maximum_slices", &MovingObstacleOccupancyReplayOptions::maximum_slices)
+        .def_readwrite("cancellation", &MovingObstacleOccupancyReplayOptions::cancellation);
+
+    py::class_<MovingObstacleOccupancy>(module, "MovingObstacleOccupancy")
+        .def_readonly("storage_schema", &MovingObstacleOccupancy::storage_schema)
+        .def_readonly("id", &MovingObstacleOccupancy::id)
+        .def_readonly("timeline_id", &MovingObstacleOccupancy::timeline_id)
+        .def_readonly("workspace_frame_id", &MovingObstacleOccupancy::workspace_frame_id)
+        .def_readonly("obstacle_id", &MovingObstacleOccupancy::obstacle_id)
+        .def_readonly("algorithm", &MovingObstacleOccupancy::algorithm)
+        .def_readonly("algorithm_version", &MovingObstacleOccupancy::algorithm_version)
+        .def_readonly("obstacle_padding", &MovingObstacleOccupancy::obstacle_padding)
+        .def_readonly("trajectory", &MovingObstacleOccupancy::trajectory)
+        .def_readonly("slices", &MovingObstacleOccupancy::slices)
+        .def("valid", &MovingObstacleOccupancy::valid)
+        .def_property_readonly("evidence", &MovingObstacleOccupancy::evidence)
+        .def_property_readonly("authorizes_execution", &MovingObstacleOccupancy::authorizes_execution);
+
     py::enum_<ContinuousOccupancyConflictReason>(module, "ContinuousOccupancyConflictReason")
         .value("SWEPT_ENVELOPE_OVERLAP", ContinuousOccupancyConflictReason::SweptEnvelopeOverlap)
         .value("SEPARATION_MARGIN_VIOLATED", ContinuousOccupancyConflictReason::SeparationMarginViolated);
@@ -127,6 +170,55 @@ void bind_occupancy(py::module_& module) {
         .def("valid", &ContinuousFleetOccupancyReport::valid)
         .def_property_readonly("evidence", &ContinuousFleetOccupancyReport::evidence)
         .def_property_readonly("authorizes_execution", &ContinuousFleetOccupancyReport::authorizes_execution);
+
+    py::class_<ContinuousRobotSceneOccupancyConflict>(module, "ContinuousRobotSceneOccupancyConflict")
+        .def_readonly("robot_occupancy_id", &ContinuousRobotSceneOccupancyConflict::robot_occupancy_id)
+        .def_readonly("obstacle_occupancy_id", &ContinuousRobotSceneOccupancyConflict::obstacle_occupancy_id)
+        .def_readonly("robot_slice_id", &ContinuousRobotSceneOccupancyConflict::robot_slice_id)
+        .def_readonly("obstacle_slice_id", &ContinuousRobotSceneOccupancyConflict::obstacle_slice_id)
+        .def_readonly("robot_link_index", &ContinuousRobotSceneOccupancyConflict::robot_link_index)
+        .def_readonly("overlap_begin_tick", &ContinuousRobotSceneOccupancyConflict::overlap_begin_tick)
+        .def_readonly("overlap_end_tick", &ContinuousRobotSceneOccupancyConflict::overlap_end_tick)
+        .def_readonly("reason", &ContinuousRobotSceneOccupancyConflict::reason)
+        .def_readonly("clearance_lower_bound", &ContinuousRobotSceneOccupancyConflict::clearance_lower_bound)
+        .def_readonly("required_margin", &ContinuousRobotSceneOccupancyConflict::required_margin);
+
+    py::enum_<ContinuousRobotSceneOccupancyStatus>(module, "ContinuousRobotSceneOccupancyStatus")
+        .value("CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES",
+               ContinuousRobotSceneOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes)
+        .value("POTENTIAL_CONFLICT", ContinuousRobotSceneOccupancyStatus::PotentialConflict);
+
+    py::class_<ContinuousRobotSceneOccupancyOptions>(module, "ContinuousRobotSceneOccupancyOptions")
+        .def(py::init<>())
+        .def_readwrite("minimum_separation", &ContinuousRobotSceneOccupancyOptions::minimum_separation)
+        .def_readwrite("maximum_robot_occupancies",
+                       &ContinuousRobotSceneOccupancyOptions::maximum_robot_occupancies)
+        .def_readwrite("maximum_obstacle_occupancies",
+                       &ContinuousRobotSceneOccupancyOptions::maximum_obstacle_occupancies)
+        .def_readwrite("maximum_conflicts", &ContinuousRobotSceneOccupancyOptions::maximum_conflicts)
+        .def_readwrite("maximum_slice_pair_evaluations",
+                       &ContinuousRobotSceneOccupancyOptions::maximum_slice_pair_evaluations)
+        .def_readwrite("maximum_link_evaluations",
+                       &ContinuousRobotSceneOccupancyOptions::maximum_link_evaluations)
+        .def_readwrite("cancellation", &ContinuousRobotSceneOccupancyOptions::cancellation);
+
+    py::class_<ContinuousRobotSceneOccupancyReport>(module, "ContinuousRobotSceneOccupancyReport")
+        .def_readonly("id", &ContinuousRobotSceneOccupancyReport::id)
+        .def_readonly("timeline_id", &ContinuousRobotSceneOccupancyReport::timeline_id)
+        .def_readonly("workspace_frame_id", &ContinuousRobotSceneOccupancyReport::workspace_frame_id)
+        .def_readonly("begin_tick", &ContinuousRobotSceneOccupancyReport::begin_tick)
+        .def_readonly("end_tick", &ContinuousRobotSceneOccupancyReport::end_tick)
+        .def_readonly("status", &ContinuousRobotSceneOccupancyReport::status)
+        .def_readonly("minimum_separation", &ContinuousRobotSceneOccupancyReport::minimum_separation)
+        .def_readonly("robot_occupancy_ids", &ContinuousRobotSceneOccupancyReport::robot_occupancy_ids)
+        .def_readonly("obstacle_occupancy_ids", &ContinuousRobotSceneOccupancyReport::obstacle_occupancy_ids)
+        .def_readonly("conflicts", &ContinuousRobotSceneOccupancyReport::conflicts)
+        .def_readonly("slice_pair_evaluations", &ContinuousRobotSceneOccupancyReport::slice_pair_evaluations)
+        .def_readonly("link_evaluations", &ContinuousRobotSceneOccupancyReport::link_evaluations)
+        .def("valid", &ContinuousRobotSceneOccupancyReport::valid)
+        .def_property_readonly("evidence", &ContinuousRobotSceneOccupancyReport::evidence)
+        .def_property_readonly("authorizes_execution",
+                               &ContinuousRobotSceneOccupancyReport::authorizes_execution);
 
     py::class_<ContinuousFleetOccupancyBundleLoadOptions>(module, "ContinuousFleetOccupancyBundleLoadOptions")
         .def(py::init<>())
@@ -187,6 +279,83 @@ void bind_occupancy(py::module_& module) {
             },
             py::arg("path"), py::arg("options") = SaveOptions{});
 
+    py::class_<ContinuousRobotSceneOccupancyBundleLoadOptions>(
+        module, "ContinuousRobotSceneOccupancyBundleLoadOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_robot_occupancies",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_robot_occupancies)
+        .def_readwrite("maximum_obstacle_occupancies",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_obstacle_occupancies)
+        .def_readwrite("maximum_robot_input_waypoints",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_robot_input_waypoints)
+        .def_readwrite("maximum_obstacle_input_waypoints",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_obstacle_input_waypoints)
+        .def_readwrite("maximum_dimension",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_dimension)
+        .def_readwrite("maximum_robot_slices",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_robot_slices)
+        .def_readwrite("maximum_obstacle_slices",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_obstacle_slices)
+        .def_readwrite("maximum_link_envelopes",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_link_envelopes)
+        .def_readwrite("maximum_conflicts",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_conflicts)
+        .def_readwrite("maximum_slice_pair_evaluations",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_slice_pair_evaluations)
+        .def_readwrite("maximum_link_evaluations",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_link_evaluations)
+        .def_readwrite("maximum_payload_bytes",
+                       &ContinuousRobotSceneOccupancyBundleLoadOptions::maximum_payload_bytes)
+        .def_readwrite("cancellation", &ContinuousRobotSceneOccupancyBundleLoadOptions::cancellation);
+
+    py::class_<ContinuousRobotSceneOccupancyBundle>(module, "ContinuousRobotSceneOccupancyBundle")
+        .def_static(
+            "create",
+            [](std::vector<RobotTrajectoryOccupancy> robot_occupancies,
+               std::vector<MovingObstacleOccupancy> obstacle_occupancies,
+               const ContinuousRobotSceneOccupancyOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return ContinuousRobotSceneOccupancyBundle::create(
+                        std::move(robot_occupancies), std::move(obstacle_occupancies), options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot_occupancies"), py::arg("obstacle_occupancies"),
+            py::arg("options") = ContinuousRobotSceneOccupancyOptions{})
+        .def_static(
+            "load",
+            [](const std::filesystem::path& path,
+               const ContinuousRobotSceneOccupancyBundleLoadOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return ContinuousRobotSceneOccupancyBundle::load(path, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("path"), py::arg("options") = ContinuousRobotSceneOccupancyBundleLoadOptions{})
+        .def_property_readonly("storage_schema", &ContinuousRobotSceneOccupancyBundle::storage_schema)
+        .def_property_readonly("id", &ContinuousRobotSceneOccupancyBundle::id)
+        .def_property_readonly("robot_occupancies", &ContinuousRobotSceneOccupancyBundle::robot_occupancies)
+        .def_property_readonly("obstacle_occupancies",
+                               &ContinuousRobotSceneOccupancyBundle::obstacle_occupancies)
+        .def_property_readonly("report", &ContinuousRobotSceneOccupancyBundle::report)
+        .def("valid", &ContinuousRobotSceneOccupancyBundle::valid)
+        .def_property_readonly("evidence", &ContinuousRobotSceneOccupancyBundle::evidence)
+        .def_property_readonly("authorizes_execution",
+                               &ContinuousRobotSceneOccupancyBundle::authorizes_execution)
+        .def(
+            "save",
+            [](const ContinuousRobotSceneOccupancyBundle& bundle, const std::filesystem::path& path,
+               const SaveOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return bundle.save(path, options);
+                }();
+                unwrap_void(std::move(result));
+            },
+            py::arg("path"), py::arg("options") = SaveOptions{});
+
     module.def(
         "build_robot_trajectory_occupancy",
         [](const SerialRobotModel& robot, std::string timeline_id, std::string workspace_frame_id,
@@ -234,6 +403,32 @@ void bind_occupancy(py::module_& module) {
         py::arg("robot"), py::arg("occupancy"), py::arg("options") = ContinuousOccupancyReplayOptions{});
 
     module.def(
+        "build_moving_obstacle_occupancy",
+        [](std::string timeline_id, std::string workspace_frame_id, std::string obstacle_id,
+           std::vector<TimedWorkspaceAabb> trajectory, const MovingObstacleOccupancyBuildOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::build_moving_obstacle_occupancy(std::move(timeline_id),
+                                                                std::move(workspace_frame_id),
+                                                                std::move(obstacle_id), trajectory, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("timeline_id"), py::arg("workspace_frame_id"), py::arg("obstacle_id"), py::arg("trajectory"),
+        py::arg("options") = MovingObstacleOccupancyBuildOptions{});
+
+    module.def(
+        "verify_moving_obstacle_occupancy",
+        [](const MovingObstacleOccupancy& occupancy, const MovingObstacleOccupancyReplayOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::verify_moving_obstacle_occupancy(occupancy, options);
+            }();
+            unwrap_void(std::move(result));
+        },
+        py::arg("occupancy"), py::arg("options") = MovingObstacleOccupancyReplayOptions{});
+
+    module.def(
         "analyze_continuous_fleet_occupancy",
         [](std::vector<RobotTrajectoryOccupancy> occupancies,
            const ContinuousFleetOccupancyOptions& options) {
@@ -244,8 +439,23 @@ void bind_occupancy(py::module_& module) {
             return unwrap(std::move(result));
         },
         py::arg("occupancies"), py::arg("options") = ContinuousFleetOccupancyOptions{});
+    module.def(
+        "analyze_continuous_robot_scene_occupancy",
+        [](std::vector<RobotTrajectoryOccupancy> robot_occupancies,
+           std::vector<MovingObstacleOccupancy> obstacle_occupancies,
+           const ContinuousRobotSceneOccupancyOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::analyze_continuous_robot_scene_occupancy(robot_occupancies,
+                                                                         obstacle_occupancies, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("robot_occupancies"), py::arg("obstacle_occupancies"),
+        py::arg("options") = ContinuousRobotSceneOccupancyOptions{});
     module.def("continuous_occupancy_conflict_reason_name", &continuous_occupancy_conflict_reason_name);
     module.def("continuous_fleet_occupancy_status_name", &continuous_fleet_occupancy_status_name);
+    module.def("continuous_robot_scene_occupancy_status_name", &continuous_robot_scene_occupancy_status_name);
 }
 
 } // namespace rbfsafe::python_binding
