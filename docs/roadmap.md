@@ -147,16 +147,23 @@
   identity binding, schema-2 persistence with schema-1 compatibility, and
   C++/Python/inspection tooling. Every result remains `Unknown` and
   non-authorizing.
-- **v4.2 (current) - Authenticated occupancy publication:** exact serialized
+- **v4.2 - Authenticated occupancy publication:** exact serialized
   occupancy-byte binding; Ed25519 signatures under caller-pinned active
   publication keys and trust bundles; monotonic parent-linked streams;
   closed logical-tick validity windows; exact stream/publisher/trust/parent/
   tick verification; bounded checksummed schema-1 persistence; fixed
   fixtures; and C++/Python/inspection tooling. Every result remains
   `Unknown` and non-authorizing.
-- **v4.3+ candidates:** persistent/fork-audited fleet publication histories,
-  continuous moving obstacles, coordinated reservation protocols, and
-  independently certified hardware/deployment inputs.
+- **v4.3 (current) - Persistent and fork-audited occupancy streams:**
+  caller-pinned stream/trust/root/head histories; exact stored payload and
+  signature replay; immutable expected-head append with cross-process
+  exclusion; bounded schema-1 persistence; deterministic identical/extension/
+  fork audits; fixed fixtures; and C++/Python/inspection tooling. Every result
+  remains `Unknown` and non-authorizing.
+- **v4.4+ candidates:** continuous moving obstacles, authenticated trust
+  rotation across publication histories, coordinated reservation protocols,
+  remote head exchange/gossip, and independently certified
+  hardware/deployment inputs.
 
 RBF-Safe remains safety infrastructure rather than another motion planner.
 Paper experiments and RapidBoxForest legacy caches stay outside the standalone

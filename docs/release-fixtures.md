@@ -321,6 +321,32 @@ inspectors. The fixture demonstrates authenticated software provenance only;
 it has no network, consensus, trusted time, collision, tracking, hardware, or
 execution claim.
 
+`data/occupancy_publication_history_schema1` is the fixed RBF-Safe 4.3
+two-record history. It retains the exact public trust snapshot, two signed
+publication files, and two exact occupancy payload files. Its stable
+identities are:
+
+- root publication:
+  `90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251`;
+- head publication:
+  `83a6952083ac661aacff43168473c1938e29adfe738275d2230458dd6074dfb9`;
+- root record:
+  `d61cfb66d7473dd731559758e6f6b29327f9e326d3346817dd05c9db95b4cedb`;
+- head record:
+  `34fad28d5893818a1cfd79e3195e9ff757fff1764fed10fae326e7f4ef12fcf9`;
+- trust bundle:
+  `89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d`;
+  and
+- manifest identity:
+  `c84abd70869f00209234a7e84263322caaab3270b6ebba0bc4db04bca9348049`.
+
+Tests reopen the fixture under exact stream, publisher, trust, root, and
+expected-head pins; replay both signatures and payloads; verify the head at a
+covered tick; and exercise identical, extension, reverse-extension, and fork
+audits. The fixed history contains public test material only. It does not
+provide head distribution, network replication, consensus, trusted time,
+collision certification, or execution authority.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -405,3 +431,11 @@ additionally authenticates the fixed occupancy publication against its exact
 payload, public trust bundle, stream, publisher, root parent, and evaluation
 tick, then binds only stable identities and discrete values into the digest.
 Publication and verification results remain non-authorizing `Unknown`.
+
+The reviewed RBF-Safe 4.3 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `5fec5ce7cd17c84f`. It
+additionally replays the fixed two-record occupancy publication history,
+verifies its externally pinned head at a covered tick, and audits the history
+against itself. Only stable identities, the record count, and the discrete
+relation enter the digest. History and audit results remain non-authorizing
+`Unknown`.

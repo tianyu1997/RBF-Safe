@@ -92,6 +92,16 @@ if(TARGET rbfsafe_inspect)
             -
             16)
     add_test(
+        NAME rbfsafe_occupancy_publication_history_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/occupancy_publication_history_schema1
+            fixture-cell-occupancy-stream-v1
+            fixture-occupancy-publisher
+            89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d
+            90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251
+            83a6952083ac661aacff43168473c1938e29adfe738275d2230458dd6074dfb9
+            31)
+    add_test(
         NAME rbfsafe_execution_ledger_fixture_inspect
         COMMAND rbfsafe_inspect
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/execution_ledger_schema1

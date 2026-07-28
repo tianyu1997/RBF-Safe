@@ -99,6 +99,29 @@ authorizes execution. See
 [the complete contract](authenticated-occupancy-publication.md) and
 [storage format](authenticated-occupancy-publication-format.md).
 
+## Occupancy publication history
+
+`OccupancyPublicationHistory::create/open` requires caller-pinned stream,
+publisher, trust-bundle, root-publication, and expected-head identities. A
+history stores one exact public trust snapshot plus immutable record,
+publication, and payload files. Loading independently authenticates every
+publication from its stored bytes and reconstructs the head.
+
+`publish(publication, payload, expected_head)` serializes writers with a
+directory lock, reopens under the expected head, verifies exact succession,
+and commits the record last. `publication`, `current_publication`, and
+`verify(publication_id, evaluation_tick)` provide bounded historical lookup
+and tick-specific authentication.
+
+`audit_occupancy_publication_histories` compares two valid histories under the
+same pinned root and returns `Identical`, `FirstExtendsSecond`,
+`SecondExtendsFirst`, or `Forked`, with a deterministic common-prefix report.
+It detects only branches supplied to the call and does not choose a canonical
+branch. History schema 1 fixes one trust bundle; trust rotation, remote
+replication, consensus, and head distribution remain external. See
+[the complete contract](occupancy-publication-history.md) and
+[storage format](occupancy-publication-history-format.md).
+
 ## Revocation-aware execution ledger
 
 Include `<rbfsafe/execution_ledger.h>` and link `RBFSafe::execution`.

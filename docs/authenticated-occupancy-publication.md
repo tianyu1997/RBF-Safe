@@ -174,3 +174,6 @@ boundary.
 
 The storage contract is specified in
 [Authenticated occupancy publication format](authenticated-occupancy-publication-format.md).
+RBF-Safe 4.3 adds an optional immutable,
+[expected-head guarded publication history](occupancy-publication-history.md)
+without changing the schema-1 standalone publication bytes.

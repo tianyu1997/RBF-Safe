@@ -97,7 +97,10 @@ The coordination layer signs the exact serialized occupancy bytes with an
 Ed25519 publication key, binds a monotonic parent-linked publisher stream and
 closed logical-tick validity window, and verifies only under explicit caller
 pins for the stream, publisher, trust bundle, parent, and evaluation tick.
-Authenticated publications remain non-authorizing.
+Its local history stores exact payload/publication bytes behind immutable
+records, rejects stale writers under a caller-retained head, replays the full
+chain, and compares independently observed histories for extension or fork.
+Authenticated publications and histories remain non-authorizing.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -192,8 +195,10 @@ certificate.
   persistence, and C++/Python/inspection tools.
 - Public `RBFSafe::coordination` exact-byte occupancy publications, active
   publish-key Ed25519 authentication, caller-pinned trust/stream/parent/tick
-  verification, monotonic succession checks, checksummed schema-1
-  persistence, fixed fixtures, and C++/Python/inspection tools.
+  verification, monotonic succession checks, expected-head immutable local
+  histories, exact payload replay, deterministic prefix/fork audit,
+  checksummed schema-1 persistence, fixed fixtures, and
+  C++/Python/inspection tools.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
@@ -203,7 +208,7 @@ continuous-time obstacle motion, authenticated policy inference and metadata,
 moving/time-varying fleet frames, network fleet coordination or consensus,
 concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v4.2. TLS, endpoint/credential policy, trustworthy local clocks,
+remain outside v4.3. TLS, endpoint/credential policy, trustworthy local clocks,
 tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
 transport/discovery services, vendor evidence acquisition and adapter
 validation, private-key storage, and network I/O remain application
@@ -401,6 +406,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Continuous fleet occupancy schemas 1 and 2](docs/continuous-fleet-occupancy-format.md)
 - [Authenticated occupancy publication](docs/authenticated-occupancy-publication.md)
 - [Authenticated occupancy publication schema 1](docs/authenticated-occupancy-publication-format.md)
+- [Occupancy publication histories](docs/occupancy-publication-history.md)
+- [Occupancy publication-history schema 1](docs/occupancy-publication-history-format.md)
 - [Schema support and migrations](docs/schema-migrations.md)
 - [Release fixtures and benchmark](docs/release-fixtures.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)

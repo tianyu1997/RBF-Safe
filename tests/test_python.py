@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.2.0"
+    assert rbfsafe.__version__ == "4.3.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -3076,4 +3076,248 @@ def test_authenticated_occupancy_publication(
             trust_bundle.id,
             "",
             16,
+        )
+
+
+def test_occupancy_publication_history(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "continuous_fleet_occupancy_schema2"
+        / "occupancy.json"
+    )
+    fixed_history_directory = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "occupancy_publication_history_schema1"
+    )
+    fixed_history = rbfsafe.OccupancyPublicationHistory.open(
+        fixed_history_directory,
+        "fixture-cell-occupancy-stream-v1",
+        "fixture-occupancy-publisher",
+        "89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d",
+        "90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251",
+        "83a6952083ac661aacff43168473c1938e29adfe738275d2230458dd6074dfb9",
+    )
+    assert len(fixed_history.records) == 2
+    assert (
+        fixed_history.records[-1].id
+        == "34fad28d5893818a1cfd79e3195e9ff757fff1764fed10fae326e7f4ef12fcf9"
+    )
+    assert (
+        fixed_history.verify(fixed_history.current_publication_id, 31).publication_id
+        == fixed_history.current_publication_id
+    )
+    key_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+    key = rbfsafe.make_service_public_key(
+        "python-history-publisher",
+        key_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        False,
+    )
+    trust = rbfsafe.ServiceTrustBundle.create(1, "", [key])
+    root = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        payload,
+        trust,
+        "python-history-stream-v1",
+        "python-history-publisher",
+        key.id,
+        key_pair.secret_key,
+        1,
+        "",
+        0,
+        32,
+    )
+    successor = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        payload,
+        trust,
+        "python-history-stream-v1",
+        "python-history-publisher",
+        key.id,
+        key_pair.secret_key,
+        2,
+        root.id,
+        1,
+        31,
+    )
+
+    history = rbfsafe.OccupancyPublicationHistory.create(
+        tmp_path / "history",
+        root,
+        payload,
+        trust,
+        "python-history-stream-v1",
+        "python-history-publisher",
+        trust.id,
+        root.id,
+    )
+    root_only = rbfsafe.OccupancyPublicationHistory.create(
+        tmp_path / "root-only",
+        root,
+        payload,
+        trust,
+        "python-history-stream-v1",
+        "python-history-publisher",
+        trust.id,
+        root.id,
+    )
+    assert history.valid()
+    assert len(history.records) == 1
+    assert history.current_publication().id == root.id
+    assert history.publication(root.id).id == root.id
+    assert history.trust_bundle().id == trust.id
+    assert history.verify(root.id, 16).publication_id == root.id
+    assert history.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not history.authorizes_execution
+
+    record = history.publish(successor, payload, root.id)
+    assert record.valid()
+    assert record.sequence == 2
+    reopened = rbfsafe.OccupancyPublicationHistory.open(
+        tmp_path / "history",
+        "python-history-stream-v1",
+        "python-history-publisher",
+        trust.id,
+        root.id,
+        successor.id,
+    )
+    assert len(reopened.records) == 2
+    assert reopened.verify(successor.id, 31).publication_id == successor.id
+
+    identical = rbfsafe.audit_occupancy_publication_histories(history, reopened)
+    assert (
+        identical.relation
+        == rbfsafe.OccupancyPublicationHistoryRelation.IDENTICAL
+    )
+    extension = rbfsafe.audit_occupancy_publication_histories(
+        history, root_only
+    )
+    assert (
+        extension.relation
+        == rbfsafe.OccupancyPublicationHistoryRelation.FIRST_EXTENDS_SECOND
+    )
+    assert (
+        rbfsafe.occupancy_publication_history_relation_name(extension.relation)
+        == "first_extends_second"
+    )
+
+    fork_history = rbfsafe.OccupancyPublicationHistory.create(
+        tmp_path / "fork",
+        root,
+        payload,
+        trust,
+        "python-history-stream-v1",
+        "python-history-publisher",
+        trust.id,
+        root.id,
+    )
+    fork_successor = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        payload,
+        trust,
+        "python-history-stream-v1",
+        "python-history-publisher",
+        key.id,
+        key_pair.secret_key,
+        2,
+        root.id,
+        2,
+        30,
+    )
+    fork_history.publish(fork_successor, payload, root.id)
+    fork = rbfsafe.audit_occupancy_publication_histories(
+        history, fork_history
+    )
+    assert fork.relation == rbfsafe.OccupancyPublicationHistoryRelation.FORKED
+    assert fork.fork_detected
+    assert fork.common_prefix_count == 1
+    assert fork.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not fork.authorizes_execution
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(tmp_path / "history"),
+                "--expected-occupancy-stream",
+                "python-history-stream-v1",
+                "--expected-occupancy-publisher",
+                "python-history-publisher",
+                "--expected-occupancy-trust-bundle",
+                trust.id,
+                "--expected-occupancy-root",
+                root.id,
+                "--expected-occupancy-head",
+                successor.id,
+                "--occupancy-evaluation-tick",
+                "31",
+                "--compare-occupancy-history",
+                str(tmp_path / "fork"),
+                "--expected-compare-occupancy-head",
+                fork_successor.id,
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "occupancy-publication-history schema=1" in output
+    assert "publications=2" in output
+    assert "history_relation=forked" in output
+    assert "fork_detected=true" in output
+    assert "expected_head_verified=true" in output
+    assert "replay_verified=true" in output
+    assert "authorizes_execution=false" in output
+    with pytest.raises(SystemExit):
+        main(
+            [
+                str(tmp_path / "history"),
+                "--expected-occupancy-stream",
+                "python-history-stream-v1",
+            ]
+        )
+    with pytest.raises(SystemExit):
+        main(
+            [
+                str(tmp_path / "history"),
+                "--expected-occupancy-stream",
+                "python-history-stream-v1",
+                "--expected-occupancy-publisher",
+                "python-history-publisher",
+                "--expected-occupancy-trust-bundle",
+                trust.id,
+                "--expected-occupancy-root",
+                root.id,
+                "--expected-occupancy-head",
+                successor.id,
+                "--trust-history",
+                str(tmp_path / "unrelated-trust-history"),
+            ]
+        )
+
+    options = rbfsafe.OccupancyPublicationHistoryLoadOptions()
+    options.maximum_publications = 1
+    with pytest.raises(MemoryError):
+        rbfsafe.OccupancyPublicationHistory.open(
+            tmp_path / "history",
+            "python-history-stream-v1",
+            "python-history-publisher",
+            trust.id,
+            root.id,
+            successor.id,
+            options,
+        )
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.OccupancyPublicationHistory.open(
+            tmp_path / "history",
+            "python-history-stream-v1",
+            "python-history-publisher",
+            trust.id,
+            root.id,
+            root.id,
         )

@@ -95,6 +95,151 @@ void bind_coordination(py::module_& module) {
         .def_property_readonly("evidence", &VerifiedOccupancyPublication::evidence)
         .def_property_readonly("authorizes_execution", &VerifiedOccupancyPublication::authorizes_execution);
 
+    py::enum_<OccupancyPublicationHistoryRelation>(module, "OccupancyPublicationHistoryRelation")
+        .value("IDENTICAL", OccupancyPublicationHistoryRelation::Identical)
+        .value("FIRST_EXTENDS_SECOND", OccupancyPublicationHistoryRelation::FirstExtendsSecond)
+        .value("SECOND_EXTENDS_FIRST", OccupancyPublicationHistoryRelation::SecondExtendsFirst)
+        .value("FORKED", OccupancyPublicationHistoryRelation::Forked)
+        .export_values();
+
+    py::class_<OccupancyPublicationHistoryRecord>(module, "OccupancyPublicationHistoryRecord")
+        .def_readonly("storage_schema", &OccupancyPublicationHistoryRecord::storage_schema)
+        .def_readonly("sequence", &OccupancyPublicationHistoryRecord::sequence)
+        .def_readonly("id", &OccupancyPublicationHistoryRecord::id)
+        .def_readonly("parent_record_id", &OccupancyPublicationHistoryRecord::parent_record_id)
+        .def_readonly("publication_id", &OccupancyPublicationHistoryRecord::publication_id)
+        .def_readonly("authentication_tag", &OccupancyPublicationHistoryRecord::authentication_tag)
+        .def_readonly("payload_digest", &OccupancyPublicationHistoryRecord::payload_digest)
+        .def_readonly("payload_bytes", &OccupancyPublicationHistoryRecord::payload_bytes)
+        .def("valid", &OccupancyPublicationHistoryRecord::valid)
+        .def_property_readonly("evidence", &OccupancyPublicationHistoryRecord::evidence)
+        .def_property_readonly("authorizes_execution",
+                               &OccupancyPublicationHistoryRecord::authorizes_execution);
+
+    py::class_<OccupancyPublicationHistoryAudit>(module, "OccupancyPublicationHistoryAudit")
+        .def_readonly("storage_schema", &OccupancyPublicationHistoryAudit::storage_schema)
+        .def_readonly("id", &OccupancyPublicationHistoryAudit::id)
+        .def_readonly("relation", &OccupancyPublicationHistoryAudit::relation)
+        .def_readonly("stream_id", &OccupancyPublicationHistoryAudit::stream_id)
+        .def_readonly("publisher_service_id", &OccupancyPublicationHistoryAudit::publisher_service_id)
+        .def_readonly("trust_bundle_id", &OccupancyPublicationHistoryAudit::trust_bundle_id)
+        .def_readonly("root_publication_id", &OccupancyPublicationHistoryAudit::root_publication_id)
+        .def_readonly("first_head_publication_id",
+                      &OccupancyPublicationHistoryAudit::first_head_publication_id)
+        .def_readonly("second_head_publication_id",
+                      &OccupancyPublicationHistoryAudit::second_head_publication_id)
+        .def_readonly("first_publication_count", &OccupancyPublicationHistoryAudit::first_publication_count)
+        .def_readonly("second_publication_count", &OccupancyPublicationHistoryAudit::second_publication_count)
+        .def_readonly("common_prefix_count", &OccupancyPublicationHistoryAudit::common_prefix_count)
+        .def_readonly("common_publication_id", &OccupancyPublicationHistoryAudit::common_publication_id)
+        .def("valid", &OccupancyPublicationHistoryAudit::valid)
+        .def_property_readonly("fork_detected", &OccupancyPublicationHistoryAudit::fork_detected)
+        .def_property_readonly("evidence", &OccupancyPublicationHistoryAudit::evidence)
+        .def_property_readonly("authorizes_execution",
+                               &OccupancyPublicationHistoryAudit::authorizes_execution);
+
+    py::class_<OccupancyPublicationHistoryLoadOptions>(module, "OccupancyPublicationHistoryLoadOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_publications", &OccupancyPublicationHistoryLoadOptions::maximum_publications)
+        .def_readwrite("maximum_manifest_bytes",
+                       &OccupancyPublicationHistoryLoadOptions::maximum_manifest_bytes)
+        .def_readwrite("maximum_record_bytes", &OccupancyPublicationHistoryLoadOptions::maximum_record_bytes)
+        .def_readwrite("maximum_publication_bytes",
+                       &OccupancyPublicationHistoryLoadOptions::maximum_publication_bytes)
+        .def_readwrite("maximum_trust_bundle_bytes",
+                       &OccupancyPublicationHistoryLoadOptions::maximum_trust_bundle_bytes)
+        .def_readwrite("maximum_total_payload_bytes",
+                       &OccupancyPublicationHistoryLoadOptions::maximum_total_payload_bytes)
+        .def_readwrite("maximum_trust_keys", &OccupancyPublicationHistoryLoadOptions::maximum_trust_keys)
+        .def_readwrite("occupancy", &OccupancyPublicationHistoryLoadOptions::occupancy);
+
+    py::class_<OccupancyPublicationHistory>(module, "OccupancyPublicationHistory")
+        .def_static(
+            "create",
+            [](const std::filesystem::path& directory, const OccupancyPublication& root_publication,
+               const std::filesystem::path& root_payload_path, const ServiceTrustBundle& trust_bundle,
+               std::string expected_stream_id, std::string expected_publisher_service_id,
+               std::string expected_trust_bundle_id, std::string expected_root_publication_id,
+               const OccupancyPublicationHistoryLoadOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return OccupancyPublicationHistory::create(
+                        directory, root_publication, root_payload_path, trust_bundle, expected_stream_id,
+                        expected_publisher_service_id, expected_trust_bundle_id, expected_root_publication_id,
+                        options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("directory"), py::arg("root_publication"), py::arg("root_payload_path"),
+            py::arg("trust_bundle"), py::arg("expected_stream_id"), py::arg("expected_publisher_service_id"),
+            py::arg("expected_trust_bundle_id"), py::arg("expected_root_publication_id"),
+            py::arg("options") = OccupancyPublicationHistoryLoadOptions{})
+        .def_static(
+            "open",
+            [](const std::filesystem::path& directory, std::string expected_stream_id,
+               std::string expected_publisher_service_id, std::string expected_trust_bundle_id,
+               std::string expected_root_publication_id, std::string expected_head_publication_id,
+               const OccupancyPublicationHistoryLoadOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return OccupancyPublicationHistory::open(
+                        directory, expected_stream_id, expected_publisher_service_id,
+                        expected_trust_bundle_id, expected_root_publication_id, expected_head_publication_id,
+                        options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("directory"), py::arg("expected_stream_id"), py::arg("expected_publisher_service_id"),
+            py::arg("expected_trust_bundle_id"), py::arg("expected_root_publication_id"),
+            py::arg("expected_head_publication_id"),
+            py::arg("options") = OccupancyPublicationHistoryLoadOptions{})
+        .def_property_readonly("directory", &OccupancyPublicationHistory::directory)
+        .def_property_readonly("storage_schema", &OccupancyPublicationHistory::storage_schema)
+        .def_property_readonly("stream_id", &OccupancyPublicationHistory::stream_id)
+        .def_property_readonly("publisher_service_id", &OccupancyPublicationHistory::publisher_service_id)
+        .def_property_readonly("trust_bundle_id", &OccupancyPublicationHistory::trust_bundle_id)
+        .def_property_readonly("root_publication_id", &OccupancyPublicationHistory::root_publication_id)
+        .def_property_readonly("current_publication_id", &OccupancyPublicationHistory::current_publication_id)
+        .def_property_readonly("timeline_id", &OccupancyPublicationHistory::timeline_id)
+        .def_property_readonly("workspace_frame_id", &OccupancyPublicationHistory::workspace_frame_id)
+        .def_property_readonly("records", &OccupancyPublicationHistory::records)
+        .def("valid", &OccupancyPublicationHistory::valid)
+        .def_property_readonly("evidence", &OccupancyPublicationHistory::evidence)
+        .def_property_readonly("authorizes_execution", &OccupancyPublicationHistory::authorizes_execution)
+        .def("trust_bundle",
+             [](const OccupancyPublicationHistory& history) { return unwrap(history.trust_bundle()); })
+        .def("current_publication",
+             [](const OccupancyPublicationHistory& history) { return unwrap(history.current_publication()); })
+        .def("publication",
+             [](const OccupancyPublicationHistory& history, const std::string& publication_id) {
+                 return unwrap(history.publication(publication_id));
+             })
+        .def(
+            "verify",
+            [](const OccupancyPublicationHistory& history, const std::string& publication_id,
+               std::uint64_t evaluation_tick) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return history.verify(publication_id, evaluation_tick);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("publication_id"), py::arg("evaluation_tick"))
+        .def(
+            "publish",
+            [](OccupancyPublicationHistory& history, const OccupancyPublication& publication,
+               const std::filesystem::path& payload_path, const std::string& expected_head_publication_id,
+               std::size_t maximum_publications) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return history.publish(publication, payload_path, expected_head_publication_id,
+                                           maximum_publications);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("publication"), py::arg("payload_path"), py::arg("expected_head_publication_id"),
+            py::arg("maximum_publications") = 100'000);
+
     module.def(
         "sign_continuous_fleet_occupancy_publication",
         [](const std::filesystem::path& occupancy_payload_path, const ServiceTrustBundle& trust_bundle,
@@ -145,6 +290,20 @@ void bind_coordination(py::module_& module) {
             unwrap_void(rbfsafe::verify_occupancy_publication_successor(previous, successor));
         },
         py::arg("previous"), py::arg("successor"));
+
+    module.def("occupancy_publication_history_relation_name", &occupancy_publication_history_relation_name,
+               py::arg("relation"));
+
+    module.def(
+        "audit_occupancy_publication_histories",
+        [](const OccupancyPublicationHistory& first, const OccupancyPublicationHistory& second) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::audit_occupancy_publication_histories(first, second);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("first"), py::arg("second"));
 }
 
 } // namespace rbfsafe::python_binding

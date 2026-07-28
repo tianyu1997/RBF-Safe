@@ -47,6 +47,10 @@ Version 4.2 additively adds `RBFSafe::coordination`, exact-byte Ed25519
 occupancy publication, caller-pinned monotonic stream verification, and an
 independent schema-1 publication format while retaining every earlier
 occupancy API and format.
+Version 4.3 additively adds caller-pinned immutable occupancy publication
+histories, exact stored-payload replay, expected-head append, deterministic
+prefix/fork audit, and an independent schema-1 history directory while
+retaining every 4.2 publication file and API.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 4.x line. Additive API changes may appear in
@@ -294,6 +298,14 @@ cryptographic and payload verification requires explicit caller pins and the
 external exact payload. No unsigned bundle is upgraded, and no current parent,
 trust head, or evaluation tick is inferred.
 
+The v4.3 occupancy-publication-history schema 1 is an independent directory
+format. Its manifest fixes one stream, publisher, trust bundle, root,
+timeline, and frame. Immutable records select exact publication files and
+occupancy payload bytes; loading replays every signature, byte binding, and
+parent. The head is reconstructed and must match a caller-retained pin.
+Schema 1 does not rotate trust, infer a globally current head, or migrate a
+standalone publication implicitly.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -325,6 +337,7 @@ service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
 bounded-execution-session/execution-ledger/transparency-log/
 transparency-gossip-archive/continuous-fleet-occupancy schema-1/schema-2 fixtures,
 authenticated-occupancy-publication schema-1 fixtures,
+occupancy-publication-history schema-1 fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

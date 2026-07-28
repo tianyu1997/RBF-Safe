@@ -3,6 +3,37 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.3.0] - 2026-07-28
+
+### Added
+
+- `OccupancyPublicationHistory` with caller-pinned stream, publisher, exact
+  trust snapshot, root, and current head; immutable records; exact stored
+  occupancy bytes; independent signature/payload replay; and lookup/head
+  verification.
+- Expected-head optimistic concurrency, cross-process writer exclusion,
+  append commit records, bounded counts/metadata/total payloads, cancellation,
+  symlink rejection, corruption checks, and schema-1 directory persistence.
+- Deterministic two-history audits reporting identical, first-extends-second,
+  second-extends-first, or forked, with common-prefix evidence and a stable
+  audit ID.
+- C++/Python APIs and quickstarts, native/Python inspection and comparison,
+  downstream package coverage, release-benchmark replay, and a fixed
+  cross-platform two-publication fixture.
+
+### Compatibility and safety
+
+- All 4.2 APIs and occupancy-publication schema-1 files remain supported.
+  History schema 1 stores one exact trust bundle; trust rotation starts a
+  separate history.
+- A caller-retained expected head detects local rollback. Fork detection
+  requires two independently observed histories and does not select a globally
+  authoritative branch.
+- Histories, records, verifications, and fork audits remain `Unknown` and
+  non-authorizing. Transport, replication, consensus, trustworthy clocks,
+  collision certification, controller I/O, and execution authority remain
+  outside this release.
+
 ## [4.2.0] - 2026-07-28
 
 ### Added

@@ -1,0 +1,15 @@
+{
+  "format": "rbfsafe-occupancy-publication-history",
+  "identity": "c84abd70869f00209234a7e84263322caaab3270b6ebba0bc4db04bca9348049",
+  "library_version": "4.3.0",
+  "payload": {
+    "publisher_service_id": "fixture-occupancy-publisher",
+    "root_publication_id": "90f3620a182c6f34088cfc1b4cc15a676eeed9d69ea37222b4a04a0ddc494251",
+    "storage_schema": 1,
+    "stream_id": "fixture-cell-occupancy-stream-v1",
+    "timeline_id": "fixture-cell-clock-v1",
+    "trust_bundle_id": "89e2700e95a4558f0e238a1b505f92ecbccf5435c3a263c485a086a6daf8661d",
+    "workspace_frame_id": "fixture-cell-world"
+  },
+  "schema": 1
+}
