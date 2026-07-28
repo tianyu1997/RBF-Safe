@@ -29,7 +29,9 @@ signed controller completions, terminal event records, and offline audit.
 Version 3.13 adds exact deployment anchors, independently signed runtime
 observations, a deterministic Merkle transparency log, signed checkpoints,
 inclusion proofs, explicit prefix-consistency witnesses, and bounded
-expected-head persistence.
+expected-head persistence. Version 3.14 adds compact frontier/subtree
+consistency proofs, independently cosigned checkpoint quorums, authenticated
+gossip, split-view detection, and bounded append-only gossip archives.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in
@@ -242,7 +244,16 @@ observation leaf plus the signed checkpoint for the resulting tree. Record
 sequence/parent/checkpoint chains, Merkle roots, source attestations, resource
 limits, and caller-provided expected checkpoint are revalidated on load. The
 explicit consistency witness carries the ordered new-tree leaf IDs; no compact
-proof or implicit migration is defined.
+proof is inferred from it and no implicit migration is defined. Version 3.14
+adds a separate compact proof value without changing the schema-1 log bytes.
+
+The v3.14 transparency-gossip-archive schema 1 is an independent immutable
+record directory pinned to one exact log identity and trust bundle. Records
+carry complete witnessed checkpoints, optional compact proofs, authenticated
+sender/recipient sequence chains, and a global archive sequence/parent chain.
+Expected-head publication, bounded replay, and proof-graph audit do not alter
+the underlying transparency-log schema. Schema 1 does not rotate its pinned
+trust bundle in place.
 
 ## Identity compatibility
 
@@ -272,7 +283,8 @@ are deterministic across supported thread counts. Fixed schema-2 payload
 hashes, committed memory/store/fleet-archive/attestation/calibration-profile/
 calibration-lifecycle/artifact-transfer-journal/service-trust-bundle/
 service-trust-history/service-trust-checkpoint/reviewed-deployment-profile/
-bounded-execution-session/execution-ledger/transparency-log fixtures,
+bounded-execution-session/execution-ledger/transparency-log/
+transparency-gossip-archive fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.13.0"
+    assert rbfsafe.__version__ == "3.14.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -2141,6 +2141,227 @@ def test_bounded_execution_session(
         observation_record.checkpoint,
         consistency,
     )
+    compact_consistency = transparency.compact_consistency_proof(1)
+    assert len(compact_consistency.old_frontier) == 1
+    assert len(compact_consistency.appended_subtrees) == 1
+    rbfsafe.verify_transparency_compact_consistency(
+        transparency_identity,
+        anchor_record.checkpoint,
+        observation_record.checkpoint,
+        compact_consistency,
+    )
+
+    first_safety_witness = rbfsafe.sign_transparency_checkpoint_witness(
+        transparency_identity,
+        anchor_record.checkpoint,
+        bundle,
+        safety_key.service_id,
+        safety_key.id,
+        safety_pair.secret_key,
+    )
+    first_controls_witness = rbfsafe.sign_transparency_checkpoint_witness(
+        transparency_identity,
+        anchor_record.checkpoint,
+        bundle,
+        controls_key.service_id,
+        controls_key.id,
+        controls_pair.secret_key,
+    )
+    second_safety_witness = rbfsafe.sign_transparency_checkpoint_witness(
+        transparency_identity,
+        observation_record.checkpoint,
+        bundle,
+        safety_key.service_id,
+        safety_key.id,
+        safety_pair.secret_key,
+    )
+    second_controls_witness = rbfsafe.sign_transparency_checkpoint_witness(
+        transparency_identity,
+        observation_record.checkpoint,
+        bundle,
+        controls_key.service_id,
+        controls_key.id,
+        controls_pair.secret_key,
+    )
+    witness_policy = rbfsafe.TransparencyCheckpointWitnessPolicy()
+    witnessed_first = rbfsafe.assemble_witnessed_transparency_checkpoint(
+        transparency_identity,
+        anchor_record.checkpoint,
+        witness_policy,
+        [first_controls_witness, first_safety_witness],
+        bundle,
+    )
+    witnessed_second = rbfsafe.assemble_witnessed_transparency_checkpoint(
+        transparency_identity,
+        observation_record.checkpoint,
+        witness_policy,
+        [second_controls_witness, second_safety_witness],
+        bundle,
+    )
+    rbfsafe.verify_witnessed_transparency_checkpoint(
+        transparency_identity, witnessed_second, bundle
+    )
+    assert witnessed_second.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not witnessed_second.authorizes_execution
+
+    first_gossip = rbfsafe.sign_transparency_checkpoint_gossip(
+        transparency_identity,
+        witnessed_first,
+        None,
+        "python-transparency-auditor",
+        1,
+        "",
+        bundle,
+        safety_key.service_id,
+        safety_key.id,
+        safety_pair.secret_key,
+    )
+    second_gossip = rbfsafe.sign_transparency_checkpoint_gossip(
+        transparency_identity,
+        witnessed_second,
+        compact_consistency,
+        "python-transparency-auditor",
+        2,
+        first_gossip.id,
+        bundle,
+        safety_key.service_id,
+        safety_key.id,
+        safety_pair.secret_key,
+    )
+    rbfsafe.verify_transparency_checkpoint_gossip(
+        transparency_identity, second_gossip, bundle
+    )
+    gossip_audit = rbfsafe.audit_transparency_checkpoint_gossip(
+        transparency_identity, [second_gossip, first_gossip], bundle
+    )
+    assert gossip_audit.status == rbfsafe.TransparencyGossipStatus.CONSISTENT
+    assert gossip_audit.linked_checkpoint_pairs == 1
+    assert gossip_audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not gossip_audit.authorizes_execution
+
+    gossip_archive_path = tmp_path / "transparency-gossip-archive"
+    gossip_archive = rbfsafe.TransparencyGossipArchive.create(
+        gossip_archive_path, transparency_identity, bundle
+    )
+    first_gossip_record = gossip_archive.publish(first_gossip, "")
+    second_gossip_record = gossip_archive.publish(
+        second_gossip, first_gossip_record.id
+    )
+    assert second_gossip_record.parent_id == first_gossip_record.id
+    assert len(gossip_archive.records) == 2
+    assert (
+        gossip_archive.audit().status
+        == rbfsafe.TransparencyGossipStatus.CONSISTENT
+    )
+    reopened_gossip_archive = rbfsafe.TransparencyGossipArchive.open(
+        gossip_archive_path,
+        transparency_identity,
+        bundle,
+        bundle.id,
+        gossip_archive.current_record_id,
+    )
+    assert reopened_gossip_archive.current_record_id == second_gossip_record.id
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.TransparencyGossipArchive.open(
+            gossip_archive_path,
+            transparency_identity,
+            bundle,
+            bundle.id,
+            first_gossip_record.id,
+        )
+    assert (
+        main(
+            [
+                str(gossip_archive_path),
+                "--transparency-namespace",
+                transparency_identity.log_namespace,
+                "--transparency-service-id",
+                transparency_identity.signer_service_id,
+                "--transparency-key-id",
+                transparency_identity.signer_key_id,
+                "--transparency-public-key",
+                transparency_identity.signer_public_key.hex(),
+                "--expected-gossip-trust-bundle",
+                bundle.id,
+                "--expected-gossip-head",
+                gossip_archive.current_record_id,
+                "--trust-history",
+                str(history_path),
+                "--trust-checkpoint",
+                str(checkpoint_path),
+                "--expected-trust-root",
+                bundle.id,
+                "--expected-trust-checkpoint",
+                checkpoint.id,
+            ]
+        )
+        == 0
+    )
+    gossip_archive_output = capsys.readouterr().out
+    assert "transparency-gossip-archive schema=1" in gossip_archive_output
+    assert "records=2 authenticated=2 checkpoints=2" in gossip_archive_output
+    assert "status=consistent" in gossip_archive_output
+    assert "audit_evidence=unknown" in gossip_archive_output
+    assert "runtime_executable=false" in gossip_archive_output
+
+    fork_transparency = rbfsafe.TransparencyLog.create(
+        tmp_path / "fork-transparency-log", transparency_identity
+    )
+    fork_first = fork_transparency.publish_deployment_anchor(
+        anchor, transparency_pair.secret_key, ""
+    )
+    assert fork_first.checkpoint.id == anchor_record.checkpoint.id
+    fork_second = fork_transparency.publish_deployment_anchor(
+        anchor, transparency_pair.secret_key, fork_first.checkpoint.id
+    )
+    assert fork_second.checkpoint.tree_size == observation_record.checkpoint.tree_size
+    assert fork_second.checkpoint.id != observation_record.checkpoint.id
+    fork_safety_witness = rbfsafe.sign_transparency_checkpoint_witness(
+        transparency_identity,
+        fork_second.checkpoint,
+        bundle,
+        safety_key.service_id,
+        safety_key.id,
+        safety_pair.secret_key,
+    )
+    fork_controls_witness = rbfsafe.sign_transparency_checkpoint_witness(
+        transparency_identity,
+        fork_second.checkpoint,
+        bundle,
+        controls_key.service_id,
+        controls_key.id,
+        controls_pair.secret_key,
+    )
+    witnessed_fork = rbfsafe.assemble_witnessed_transparency_checkpoint(
+        transparency_identity,
+        fork_second.checkpoint,
+        witness_policy,
+        [fork_controls_witness, fork_safety_witness],
+        bundle,
+    )
+    fork_gossip = rbfsafe.sign_transparency_checkpoint_gossip(
+        transparency_identity,
+        witnessed_fork,
+        fork_transparency.compact_consistency_proof(1),
+        "python-transparency-auditor",
+        1,
+        "",
+        bundle,
+        controls_key.service_id,
+        controls_key.id,
+        controls_pair.secret_key,
+    )
+    split_gossip_audit = rbfsafe.audit_transparency_checkpoint_gossip(
+        transparency_identity,
+        [first_gossip, second_gossip, fork_gossip],
+        bundle,
+    )
+    assert split_gossip_audit.status == rbfsafe.TransparencyGossipStatus.SPLIT_VIEW
+    assert any(
+        conflict.type
+        == rbfsafe.TransparencyGossipConflictType.SAME_SIZE_EQUIVOCATION
+        for conflict in split_gossip_audit.conflicts
+    )
     transparency_audit = transparency.audit()
     assert transparency_audit.verified_records == 2
     assert transparency_audit.deployment_anchor_count == 1
@@ -2218,6 +2439,56 @@ def test_bounded_execution_session(
         fixed_checkpoint,
         fixed_checkpoint.id,
     )
+    fixed_bundle = fixed_history.current_bundle()
+    fixed_gossip_archive = rbfsafe.TransparencyGossipArchive.open(
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "transparency_gossip_archive_schema1",
+        fixed_transparency_identity,
+        fixed_bundle,
+        fixed_bundle.id,
+        "fd5ac959b484ada7ea2ce15e7cc8bccf41d8b6eaa368d9dafc2aedcdb0036514",
+    )
+    assert len(fixed_gossip_archive.records) == 2
+    assert (
+        fixed_gossip_archive.audit().status
+        == rbfsafe.TransparencyGossipStatus.CONSISTENT
+    )
+    assert (
+        main(
+            [
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "data"
+                    / "transparency_gossip_archive_schema1"
+                ),
+                "--transparency-namespace",
+                fixed_transparency_identity.log_namespace,
+                "--transparency-service-id",
+                fixed_transparency_identity.signer_service_id,
+                "--transparency-key-id",
+                fixed_transparency_identity.signer_key_id,
+                "--transparency-public-key",
+                fixed_transparency_identity.signer_public_key.hex(),
+                "--expected-gossip-trust-bundle",
+                fixed_bundle.id,
+                "--expected-gossip-head",
+                fixed_gossip_archive.current_record_id,
+                "--trust-history",
+                str(fixture_root / "trust-history"),
+                "--trust-checkpoint",
+                str(fixture_root / "checkpoint.json"),
+                "--expected-trust-root",
+                fixed_checkpoint.root_bundle_id,
+                "--expected-trust-checkpoint",
+                fixed_checkpoint.id,
+            ]
+        )
+        == 0
+    )
+    fixed_gossip_output = capsys.readouterr().out
+    assert "transparency-gossip-archive schema=1" in fixed_gossip_output
+    assert "status=consistent" in fixed_gossip_output
     fixed_reviewed = rbfsafe.ReviewedDeploymentProfile.load(
         fixture_root / "profile.json",
         fixed_history,

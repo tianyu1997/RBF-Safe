@@ -215,6 +215,25 @@ void bind_transparency(py::module_& module) {
         .def_readonly("ordered_leaf_ids", &TransparencyConsistencyWitness::ordered_leaf_ids)
         .def("valid", &TransparencyConsistencyWitness::valid);
 
+    py::class_<TransparencyMerkleSubtree>(module, "TransparencyMerkleSubtree")
+        .def_readonly("level", &TransparencyMerkleSubtree::level)
+        .def_readonly("hash", &TransparencyMerkleSubtree::hash)
+        .def("valid", &TransparencyMerkleSubtree::valid);
+
+    py::class_<TransparencyCompactConsistencyProof>(module, "TransparencyCompactConsistencyProof")
+        .def_readonly("storage_schema", &TransparencyCompactConsistencyProof::storage_schema)
+        .def_readonly("id", &TransparencyCompactConsistencyProof::id)
+        .def_readonly("log_id", &TransparencyCompactConsistencyProof::log_id)
+        .def_readonly("old_checkpoint_id", &TransparencyCompactConsistencyProof::old_checkpoint_id)
+        .def_readonly("new_checkpoint_id", &TransparencyCompactConsistencyProof::new_checkpoint_id)
+        .def_readonly("old_tree_size", &TransparencyCompactConsistencyProof::old_tree_size)
+        .def_readonly("new_tree_size", &TransparencyCompactConsistencyProof::new_tree_size)
+        .def_readonly("old_root_hash", &TransparencyCompactConsistencyProof::old_root_hash)
+        .def_readonly("new_root_hash", &TransparencyCompactConsistencyProof::new_root_hash)
+        .def_readonly("old_frontier", &TransparencyCompactConsistencyProof::old_frontier)
+        .def_readonly("appended_subtrees", &TransparencyCompactConsistencyProof::appended_subtrees)
+        .def("valid", &TransparencyCompactConsistencyProof::valid);
+
     py::class_<TransparencyLogAuditReport>(module, "TransparencyLogAuditReport")
         .def_readonly("id", &TransparencyLogAuditReport::id)
         .def_readonly("log_id", &TransparencyLogAuditReport::log_id)
@@ -290,6 +309,12 @@ void bind_transparency(py::module_& module) {
                 return unwrap(log.consistency_witness(old_tree_size));
             },
             py::arg("old_tree_size"))
+        .def(
+            "compact_consistency_proof",
+            [](const TransparencyLog& log, std::uint64_t old_tree_size) {
+                return unwrap(log.compact_consistency_proof(old_tree_size));
+            },
+            py::arg("old_tree_size"))
         .def("audit", [](const TransparencyLog& log) { return unwrap(log.audit()); });
 
     module.def("valid_runtime_observation_policy", &valid_runtime_observation_policy);
@@ -350,6 +375,15 @@ void bind_transparency(py::module_& module) {
                 rbfsafe::verify_transparency_consistency(identity, old_checkpoint, new_checkpoint, witness));
         },
         py::arg("identity"), py::arg("old_checkpoint"), py::arg("new_checkpoint"), py::arg("witness"));
+    module.def(
+        "verify_transparency_compact_consistency",
+        [](const TransparencyLogIdentity& identity, const TransparencyLogCheckpoint& old_checkpoint,
+           const TransparencyLogCheckpoint& new_checkpoint,
+           const TransparencyCompactConsistencyProof& proof) {
+            unwrap_void(rbfsafe::verify_transparency_compact_consistency(identity, old_checkpoint,
+                                                                         new_checkpoint, proof));
+        },
+        py::arg("identity"), py::arg("old_checkpoint"), py::arg("new_checkpoint"), py::arg("proof"));
     module.def("transparency_leaf_kind_name", &transparency_leaf_kind_name);
 }
 

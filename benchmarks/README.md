@@ -11,6 +11,11 @@ the process. The public-key gate also signs an exact trust-bundle successor,
 assembles a two-signature distinct-service authorization set, publishes it
 against an expected head, replays the resulting schema-2 local history, and
 verifies a quorum-signed checkpoint.
+For witnessed transparency it also verifies an old-frontier/appended-subtree
+compact proof, assembles two-service checkpoint quorums, publishes
+authenticated sender-chain gossip to an expected-head archive, verifies a
+consistent proof graph, creates a valid same-size fork, and requires a
+deterministic split-view conflict.
 
 Timing values are reported but deliberately have no hard CI threshold: shared
 runner timing is not reproducible. The release gate instead bounds iteration
@@ -19,7 +24,7 @@ counts and requires deterministic shield, policy-gate, and feedback outcomes.
 floating-point-derived certificate IDs. It
 encodes canonical fixture identities, discrete counts, certification outcomes,
 shield acceptance, policy selection/labels, memory/trust/transfer, signed
-trust-history, quorum, and checkpoint outcomes,
+trust-history, quorum, checkpoint, compact-proof, gossip, and split-view outcomes,
 and update compatibility, then must match the committed
 `logical_digest.txt` on every platform.
 

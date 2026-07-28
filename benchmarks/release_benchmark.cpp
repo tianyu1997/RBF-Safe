@@ -82,6 +82,12 @@ struct CaseMetrics {
     std::size_t runtime_observation_attestations = 0;
     std::size_t transparency_inclusion_proofs = 0;
     std::size_t transparency_consistency_witnesses = 0;
+    std::size_t transparency_compact_consistency_proofs = 0;
+    std::size_t transparency_checkpoint_cosignatures = 0;
+    std::size_t transparency_gossip_archives = 0;
+    std::size_t transparency_gossip_records = 0;
+    std::size_t transparency_gossip_consistent_audits = 0;
+    std::size_t transparency_split_view_conflicts = 0;
     double build_ms = 0.0;
     double query_ms = 0.0;
     double update_ms = 0.0;
@@ -1000,13 +1006,17 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
         return observation_record.error();
     auto inclusion_proof = transparency_log.value().inclusion_proof(0);
     auto consistency_witness = transparency_log.value().consistency_witness(1);
-    if (!inclusion_proof || !consistency_witness ||
+    auto compact_consistency_proof = transparency_log.value().compact_consistency_proof(1);
+    if (!inclusion_proof || !consistency_witness || !compact_consistency_proof ||
         !rbfsafe::verify_transparency_inclusion(transparency_identity.value(),
                                                 observation_record.value().checkpoint,
                                                 anchor_record.value().leaf, inclusion_proof.value()) ||
         !rbfsafe::verify_transparency_consistency(
             transparency_identity.value(), anchor_record.value().checkpoint,
-            observation_record.value().checkpoint, consistency_witness.value())) {
+            observation_record.value().checkpoint, consistency_witness.value()) ||
+        !rbfsafe::verify_transparency_compact_consistency(
+            transparency_identity.value(), anchor_record.value().checkpoint,
+            observation_record.value().checkpoint, compact_consistency_proof.value())) {
         return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
                                                      "release fixture transparency proofs were inconsistent",
                                                      fixture.name);
@@ -1024,6 +1034,145 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
             rbfsafe::StatusCode::InternalError, "release fixture transparency log audit was inconsistent",
             fixture.name);
     }
+
+    rbfsafe::TransparencyCheckpointWitnessPolicy witness_policy;
+    auto first_service_witness = rbfsafe::sign_transparency_checkpoint_witness(
+        transparency_identity.value(), anchor_record.value().checkpoint, successor_bundle.value(),
+        successor_key.value().service_id, successor_key.value().id, successor_key_pair.value().secret_key);
+    auto first_governance_witness = rbfsafe::sign_transparency_checkpoint_witness(
+        transparency_identity.value(), anchor_record.value().checkpoint, successor_bundle.value(),
+        governance_key.value().service_id, governance_key.value().id, governance_key_pair.value().secret_key);
+    auto second_service_witness = rbfsafe::sign_transparency_checkpoint_witness(
+        transparency_identity.value(), observation_record.value().checkpoint, successor_bundle.value(),
+        successor_key.value().service_id, successor_key.value().id, successor_key_pair.value().secret_key);
+    auto second_governance_witness = rbfsafe::sign_transparency_checkpoint_witness(
+        transparency_identity.value(), observation_record.value().checkpoint, successor_bundle.value(),
+        governance_key.value().service_id, governance_key.value().id, governance_key_pair.value().secret_key);
+    if (!first_service_witness || !first_governance_witness || !second_service_witness ||
+        !second_governance_witness) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture transparency witness signatures were inconsistent", fixture.name);
+    }
+    auto witnessed_first = rbfsafe::assemble_witnessed_transparency_checkpoint(
+        transparency_identity.value(), anchor_record.value().checkpoint, witness_policy,
+        {first_governance_witness.value(), first_service_witness.value()}, successor_bundle.value());
+    auto witnessed_second = rbfsafe::assemble_witnessed_transparency_checkpoint(
+        transparency_identity.value(), observation_record.value().checkpoint, witness_policy,
+        {second_governance_witness.value(), second_service_witness.value()}, successor_bundle.value());
+    if (!witnessed_first || !witnessed_second ||
+        !rbfsafe::verify_witnessed_transparency_checkpoint(
+            transparency_identity.value(), witnessed_first.value(), successor_bundle.value()) ||
+        !rbfsafe::verify_witnessed_transparency_checkpoint(
+            transparency_identity.value(), witnessed_second.value(), successor_bundle.value()) ||
+        witnessed_second.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        witnessed_second.value().authorizes_execution()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture witnessed checkpoints were inconsistent",
+            fixture.name);
+    }
+    auto first_gossip = rbfsafe::sign_transparency_checkpoint_gossip(
+        transparency_identity.value(), witnessed_first.value(), std::nullopt, "release-transparency-auditor",
+        1, "", successor_bundle.value(), successor_key.value().service_id, successor_key.value().id,
+        successor_key_pair.value().secret_key);
+    auto second_gossip = rbfsafe::sign_transparency_checkpoint_gossip(
+        transparency_identity.value(), witnessed_second.value(), compact_consistency_proof.value(),
+        "release-transparency-auditor", 2, first_gossip ? first_gossip.value().id : std::string{},
+        successor_bundle.value(), successor_key.value().service_id, successor_key.value().id,
+        successor_key_pair.value().secret_key);
+    if (!first_gossip || !second_gossip) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release fixture authenticated transparency gossip was inconsistent", fixture.name);
+    }
+
+    ScopedDirectory gossip_directory(temporary_root /
+                                     ("rbfsafe-release-gossip-" + fixture.name + "-" +
+                                      std::to_string(Clock::now().time_since_epoch().count())));
+    auto gossip_archive = rbfsafe::TransparencyGossipArchive::create(
+        gossip_directory.path(), transparency_identity.value(), successor_bundle.value());
+    if (!gossip_archive)
+        return gossip_archive.error();
+    auto first_gossip_record = gossip_archive.value().publish(first_gossip.value(), "");
+    auto second_gossip_record =
+        first_gossip_record
+            ? gossip_archive.value().publish(second_gossip.value(), first_gossip_record.value().id)
+            : rbfsafe::Result<rbfsafe::TransparencyGossipRecord>::failure(
+                  rbfsafe::StatusCode::InternalError, "first release gossip record was not published");
+    auto consistent_gossip_audit = gossip_archive.value().audit();
+    if (!first_gossip_record || !second_gossip_record || !consistent_gossip_audit ||
+        consistent_gossip_audit.value().status != rbfsafe::TransparencyGossipStatus::Consistent ||
+        consistent_gossip_audit.value().linked_checkpoint_pairs != 1 ||
+        consistent_gossip_audit.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        consistent_gossip_audit.value().authorizes_execution()) {
+        return rbfsafe::Result<CaseMetrics>::failure(
+            rbfsafe::StatusCode::InternalError, "release fixture consistent transparency gossip audit failed",
+            fixture.name);
+    }
+
+    ScopedDirectory fork_directory(temporary_root /
+                                   ("rbfsafe-release-transparency-fork-" + fixture.name + "-" +
+                                    std::to_string(Clock::now().time_since_epoch().count())));
+    auto fork_log = rbfsafe::TransparencyLog::create(fork_directory.path(), transparency_identity.value());
+    if (!fork_log)
+        return fork_log.error();
+    auto fork_first = fork_log.value().publish_deployment_anchor(
+        deployment_transparency_anchor.value(), transparency_key_pair.value().secret_key, "");
+    auto fork_second =
+        fork_first ? fork_log.value().publish_deployment_anchor(deployment_transparency_anchor.value(),
+                                                                transparency_key_pair.value().secret_key,
+                                                                fork_first.value().checkpoint.id)
+                   : rbfsafe::Result<rbfsafe::TransparencyLogRecord>::failure(
+                         rbfsafe::StatusCode::InternalError,
+                         "first release transparency fork record was not published");
+    if (!fork_first || !fork_second ||
+        fork_first.value().checkpoint.id != anchor_record.value().checkpoint.id ||
+        fork_second.value().checkpoint.tree_size != observation_record.value().checkpoint.tree_size ||
+        fork_second.value().checkpoint.id == observation_record.value().checkpoint.id) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture transparency fork was inconsistent",
+                                                     fixture.name);
+    }
+    auto fork_service_witness = rbfsafe::sign_transparency_checkpoint_witness(
+        transparency_identity.value(), fork_second.value().checkpoint, successor_bundle.value(),
+        successor_key.value().service_id, successor_key.value().id, successor_key_pair.value().secret_key);
+    auto fork_governance_witness = rbfsafe::sign_transparency_checkpoint_witness(
+        transparency_identity.value(), fork_second.value().checkpoint, successor_bundle.value(),
+        governance_key.value().service_id, governance_key.value().id, governance_key_pair.value().secret_key);
+    auto witnessed_fork =
+        fork_service_witness && fork_governance_witness
+            ? rbfsafe::assemble_witnessed_transparency_checkpoint(
+                  transparency_identity.value(), fork_second.value().checkpoint, witness_policy,
+                  {fork_governance_witness.value(), fork_service_witness.value()}, successor_bundle.value())
+            : rbfsafe::Result<rbfsafe::WitnessedTransparencyCheckpoint>::failure(
+                  rbfsafe::StatusCode::InternalError, "release transparency fork witnesses were not signed");
+    auto fork_compact_proof = fork_log.value().compact_consistency_proof(1);
+    auto fork_gossip =
+        witnessed_fork && fork_compact_proof
+            ? rbfsafe::sign_transparency_checkpoint_gossip(
+                  transparency_identity.value(), witnessed_fork.value(), fork_compact_proof.value(),
+                  "release-transparency-auditor", 1, "", successor_bundle.value(),
+                  governance_key.value().service_id, governance_key.value().id,
+                  governance_key_pair.value().secret_key)
+            : rbfsafe::Result<rbfsafe::TransparencyCheckpointGossip>::failure(
+                  rbfsafe::StatusCode::InternalError, "release transparency fork gossip was not constructed");
+    if (!fork_gossip)
+        return fork_gossip.error();
+    auto fork_gossip_record =
+        gossip_archive.value().publish(fork_gossip.value(), gossip_archive.value().current_record_id());
+    auto split_view_audit = gossip_archive.value().audit();
+    auto reopened_gossip_archive = rbfsafe::TransparencyGossipArchive::open(
+        gossip_directory.path(), transparency_identity.value(), successor_bundle.value(),
+        successor_bundle.value().id(), gossip_archive.value().current_record_id());
+    if (!fork_gossip_record || !split_view_audit || !reopened_gossip_archive ||
+        split_view_audit.value().status != rbfsafe::TransparencyGossipStatus::SplitView ||
+        split_view_audit.value().conflicts.size() != 1 ||
+        split_view_audit.value().conflicts.front().type !=
+            rbfsafe::TransparencyGossipConflictType::SameSizeEquivocation) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture transparency split-view audit failed",
+                                                     fixture.name);
+    }
     metrics.execution_sessions = 1;
     metrics.execution_session_approvals = execution_approvals.value().approvals.size();
     metrics.execution_endpoint_acknowledgements = 2;
@@ -1038,6 +1187,14 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     metrics.runtime_observation_attestations = independent_observation->attestations.size();
     metrics.transparency_inclusion_proofs = 1;
     metrics.transparency_consistency_witnesses = 1;
+    metrics.transparency_compact_consistency_proofs = 2;
+    metrics.transparency_checkpoint_cosignatures = witnessed_first.value().cosignatures.size() +
+                                                   witnessed_second.value().cosignatures.size() +
+                                                   witnessed_fork.value().cosignatures.size();
+    metrics.transparency_gossip_archives = 1;
+    metrics.transparency_gossip_records = gossip_archive.value().records().size();
+    metrics.transparency_gossip_consistent_audits = 1;
+    metrics.transparency_split_view_conflicts = split_view_audit.value().conflicts.size();
     metrics.memory_artifacts = memory.summary().artifacts;
 
     const rbfsafe::WorkspaceAabb operating_envelope{{-1.0e6, -1.0e6, -1.0e6}, {1.0e6, 1.0e6, 1.0e6}};
@@ -1159,6 +1316,13 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, std::to_string(metrics.runtime_observation_attestations));
     hash_field(logical_hash, std::to_string(metrics.transparency_inclusion_proofs));
     hash_field(logical_hash, std::to_string(metrics.transparency_consistency_witnesses));
+    hash_field(logical_hash, "compact-consistency-witness-quorum-gossip-split-view-detected");
+    hash_field(logical_hash, std::to_string(metrics.transparency_compact_consistency_proofs));
+    hash_field(logical_hash, std::to_string(metrics.transparency_checkpoint_cosignatures));
+    hash_field(logical_hash, std::to_string(metrics.transparency_gossip_archives));
+    hash_field(logical_hash, std::to_string(metrics.transparency_gossip_records));
+    hash_field(logical_hash, std::to_string(metrics.transparency_gossip_consistent_audits));
+    hash_field(logical_hash, std::to_string(metrics.transparency_split_view_conflicts));
     hash_field(logical_hash, "fleet-conflict-free-under-declared-envelopes");
     hash_field(logical_hash, std::to_string(metrics.fleet_schedule_checks));
     hash_field(logical_hash, "fleet-schedule-archive-valid");
@@ -1212,6 +1376,14 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << ",\"runtime_observation_attestations\":" << item.runtime_observation_attestations
                   << ",\"transparency_inclusion_proofs\":" << item.transparency_inclusion_proofs
                   << ",\"transparency_consistency_witnesses\":" << item.transparency_consistency_witnesses
+                  << ",\"transparency_compact_consistency_proofs\":"
+                  << item.transparency_compact_consistency_proofs
+                  << ",\"transparency_checkpoint_cosignatures\":" << item.transparency_checkpoint_cosignatures
+                  << ",\"transparency_gossip_archives\":" << item.transparency_gossip_archives
+                  << ",\"transparency_gossip_records\":" << item.transparency_gossip_records
+                  << ",\"transparency_gossip_consistent_audits\":"
+                  << item.transparency_gossip_consistent_audits
+                  << ",\"transparency_split_view_conflicts\":" << item.transparency_split_view_conflicts
                   << ",\"certified_path_ratio\":" << item.certified_path_ratio
                   << ",\"build_ms\":" << item.build_ms << ",\"query_ms\":" << item.query_ms
                   << ",\"update_ms\":" << item.update_ms << '}';
@@ -1257,6 +1429,13 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
                   << " runtime_observation_attestations=" << item.runtime_observation_attestations
                   << " transparency_inclusion_proofs=" << item.transparency_inclusion_proofs
                   << " transparency_consistency_witnesses=" << item.transparency_consistency_witnesses
+                  << " transparency_compact_consistency_proofs="
+                  << item.transparency_compact_consistency_proofs
+                  << " transparency_checkpoint_cosignatures=" << item.transparency_checkpoint_cosignatures
+                  << " transparency_gossip_archives=" << item.transparency_gossip_archives
+                  << " transparency_gossip_records=" << item.transparency_gossip_records
+                  << " transparency_gossip_consistent_audits=" << item.transparency_gossip_consistent_audits
+                  << " transparency_split_view_conflicts=" << item.transparency_split_view_conflicts
                   << " query_ms=" << item.query_ms << " update_ms=" << item.update_ms << '\n';
     }
 }

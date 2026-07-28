@@ -40,6 +40,7 @@ from . import (
     TrajectoryAuditor,
     TrajectoryAuditOptions,
     TrajectoryAuditStatus,
+    TransparencyGossipArchive,
     TransparencyLog,
     TransparencyLogIdentity,
     artifact_authentication_algorithm_name,
@@ -60,6 +61,8 @@ from . import (
     service_key_state_name,
     service_trust_rotation_event_type_name,
     transparency_leaf_kind_name,
+    transparency_gossip_conflict_type_name,
+    transparency_gossip_status_name,
     verify_artifact_file,
 )
 
@@ -221,6 +224,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--expected-transparency-checkpoint",
         help="caller-retained current transparency checkpoint ID",
+    )
+    parser.add_argument(
+        "--expected-gossip-trust-bundle",
+        help="caller-retained exact trust-bundle ID for a transparency gossip archive",
+    )
+    parser.add_argument(
+        "--expected-gossip-head",
+        help="caller-retained current record ID for a transparency gossip archive",
     )
     parser.add_argument(
         "--execution-command-index",
@@ -918,17 +929,115 @@ def main(argv: list[str] | None = None) -> int:
         args.transparency_service_id,
         args.transparency_key_id,
         args.transparency_public_key,
-        args.expected_transparency_checkpoint,
     )
+    transparency_formats = {
+        "rbfsafe-transparency-log",
+        "rbfsafe-transparency-gossip-archive",
+    }
     if (
         any(value is not None for value in transparency_arguments)
+        and manifest.get("format") not in transparency_formats
+    ):
+        parser.error(
+            "transparency identity options apply only to transparency log or gossip directories"
+        )
+    if (
+        args.expected_transparency_checkpoint is not None
         and manifest.get("format") != "rbfsafe-transparency-log"
     ):
         parser.error(
-            "transparency identity options apply only to a transparency-log directory"
+            "--expected-transparency-checkpoint applies only to a transparency log"
         )
+    gossip_arguments = (
+        args.expected_gossip_trust_bundle,
+        args.expected_gossip_head,
+    )
+    if (
+        any(value is not None for value in gossip_arguments)
+        and manifest.get("format") != "rbfsafe-transparency-gossip-archive"
+    ):
+        parser.error(
+            "gossip identity options apply only to a transparency-gossip archive"
+        )
+    if manifest.get("format") == "rbfsafe-transparency-gossip-archive":
+        required = (
+            *transparency_arguments,
+            args.expected_gossip_trust_bundle,
+            args.expected_gossip_head,
+            args.trust_history,
+            args.trust_checkpoint,
+            args.expected_trust_root,
+            args.expected_trust_checkpoint,
+        )
+        if any(value is None for value in required):
+            parser.error(
+                "transparency-gossip audit requires the four --transparency-* "
+                "identity options, --expected-gossip-trust-bundle, "
+                "--expected-gossip-head, --trust-history, --trust-checkpoint, "
+                "--expected-trust-root, and --expected-trust-checkpoint"
+            )
+        try:
+            public_key = bytes.fromhex(args.transparency_public_key)
+        except ValueError:
+            parser.error("--transparency-public-key must be lowercase hexadecimal")
+        if (
+            len(public_key) != 32
+            or args.transparency_public_key != args.transparency_public_key.lower()
+        ):
+            parser.error(
+                "--transparency-public-key must contain 64 lowercase hexadecimal characters"
+            )
+        identity = TransparencyLogIdentity.create(
+            args.transparency_namespace,
+            args.transparency_service_id,
+            args.transparency_key_id,
+            public_key,
+        )
+        checkpoint = ServiceTrustCheckpoint.load(args.trust_checkpoint)
+        history = ServiceTrustHistory.open(
+            args.trust_history,
+            args.expected_trust_root,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        trust_bundle = history.bundle(args.expected_gossip_trust_bundle)
+        archive = TransparencyGossipArchive.open(
+            args.atlas,
+            identity,
+            trust_bundle,
+            args.expected_gossip_trust_bundle,
+            args.expected_gossip_head,
+        )
+        audit = archive.audit()
+        print("RBF-Safe transparency-gossip-archive schema=1")
+        print(
+            f"log={identity.id} trust_bundle={archive.trust_bundle_id} "
+            f"trust_sequence={archive.trust_bundle_sequence}"
+        )
+        print(
+            f"head={archive.current_record_id or '-'} records={len(archive.records)} "
+            f"authenticated={audit.authenticated_gossip_count} "
+            f"checkpoints={audit.unique_checkpoint_count}"
+        )
+        print(
+            f"status={transparency_gossip_status_name(audit.status)} "
+            f"linked_pairs={audit.linked_checkpoint_pairs} "
+            f"unlinked_pairs={audit.unlinked_checkpoint_pairs} "
+            f"conflicts={len(audit.conflicts)}"
+        )
+        for conflict in audit.conflicts:
+            print(
+                f"conflict={conflict.id} "
+                f"type={transparency_gossip_conflict_type_name(conflict.type)} "
+                f"first={conflict.first_checkpoint_id} "
+                f"second={conflict.second_checkpoint_id}"
+            )
+        print("audit_evidence=unknown")
+        print("runtime_executable=false")
+        return 0
     if manifest.get("format") == "rbfsafe-transparency-log":
-        if any(value is None for value in transparency_arguments):
+        log_arguments = (*transparency_arguments, args.expected_transparency_checkpoint)
+        if any(value is None for value in log_arguments):
             parser.error(
                 "transparency-log audit requires --transparency-namespace, "
                 "--transparency-service-id, --transparency-key-id, "

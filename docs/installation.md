@@ -59,8 +59,9 @@ targets `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`,
 `RBFSafe::update`, `RBFSafe::corridor`, `RBFSafe::ik`, and
 `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`,
 `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`,
-`RBFSafe::trust`, `RBFSafe::remote`, and `RBFSafe::identity` are
-available when the aggregate target is unnecessary.
+`RBFSafe::trust`, `RBFSafe::remote`, `RBFSafe::identity`,
+`RBFSafe::deployment`, `RBFSafe::execution`, `RBFSafe::transparency`, and
+`RBFSafe::witness` are available when the aggregate target is unnecessary.
 
 `RBFSafe::corridor` is part of the core installation and introduces no third-
 party dependency. It provides OBB, Portal, and HiPaC APIs. The aggregate

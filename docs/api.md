@@ -78,14 +78,36 @@ controller service are rejected by default.
 `TransparencyLog` stores deployment anchors and observation sets as
 deterministic Merkle leaves. `publish_deployment_anchor` and
 `publish_runtime_observation` require the expected current checkpoint and the
-log signing secret. `inclusion_proof`, `consistency_witness`, and `audit`
-verify retained history; `open` additionally requires the exact caller-pinned
-log identity and expected checkpoint. The schema-1 consistency witness is an
-explicit bounded ordered leaf list, not a compact RFC 6962 proof.
+log signing secret. `inclusion_proof`, `consistency_witness`,
+`compact_consistency_proof`, and `audit` verify retained history; `open`
+additionally requires the exact caller-pinned log identity and expected
+checkpoint. The original consistency witness remains an explicit bounded
+ordered leaf list. The 3.14 compact proof instead carries the old
+complete-subtree frontier and aligned appended subtrees.
 
 Every anchor, observation, attestation set, log, proof, checkpoint, and audit
 is `Unknown` and non-authorizing. See
 [the transparency format and trust boundary](transparency-log-format.md).
+
+## Witnessed transparency and checkpoint gossip
+
+Include `<rbfsafe/witness.h>` and link `RBFSafe::witness`.
+`sign_transparency_checkpoint_witness` binds an independent Ed25519 witness to
+one exact log checkpoint and caller-supplied trust bundle.
+`assemble_witnessed_transparency_checkpoint` enforces a canonical quorum; the
+default requires two distinct services and excludes the log signer.
+
+`sign_transparency_checkpoint_gossip` authenticates a witnessed checkpoint,
+optional compact proof, sender sequence/parent, recipient, and exact trust
+bundle. `audit_transparency_checkpoint_gossip` verifies all messages, builds a
+compact-proof reachability graph, and returns `Consistent`, `Incomplete`, or
+`SplitView`, with explicit same-size-equivocation and invalid-proof conflicts.
+
+`TransparencyGossipArchive` provides bounded schema-1 immutable records,
+expected-head publication, cross-process writer exclusion, complete replay,
+and caller-pinned log/trust identity. It does not discover peers, send network
+messages, select a newest checkpoint, or rotate its pinned bundle. See
+[witnessed transparency and gossip](witnessed-transparency.md).
 
 ## Reviewed deployment profiles
 

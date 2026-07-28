@@ -1,0 +1,16 @@
+{
+  "format": "rbfsafe-transparency-gossip-archive",
+  "identity": "b4ce3206d39fc5fac4991f6bad347a83337330501fd8c4ffbdd9642a1e92f8ed",
+  "library_version": "3.14.0",
+  "log_identity": {
+    "id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+    "log_namespace": "rbfsafe-public-deployments-v1",
+    "signer_key_id": "02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8",
+    "signer_public_key": "6c8d14b047593d7117dc445957d8bdd6772c303d064297fdc8e329927d370bda",
+    "signer_service_id": "transparency-log",
+    "storage_schema": 1
+  },
+  "schema": 1,
+  "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+  "trust_bundle_sequence": "1"
+}

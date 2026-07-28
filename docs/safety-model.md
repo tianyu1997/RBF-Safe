@@ -348,14 +348,23 @@ passes local replay. Checkpoint distribution, gossip/witnessing, trustworthy
 time, hardware roots, sensor provenance, and network transport remain external.
 All transparency artifacts are `Unknown` and non-authorizing.
 
-The execution and transparency layers do not prove that an endpoint key belongs to physical hardware, that
+The v3.14 witness layer can authenticate independently cosigned checkpoints,
+prove append-only relations with compact frontier/subtree proofs, and flag
+same-size equivocation or invalid proof edges as a split-view alert. Missing
+proof paths remain explicitly `Incomplete`. This improves multi-view audit but
+does not establish a globally newest checkpoint, distributed consensus,
+trustworthy time, independent hardware custody, or physical observation.
+Gossip messages, conflicts, archives, and audit reports remain `Unknown` and
+non-authorizing.
+
+The execution, transparency, and witness layers do not prove that an endpoint key belongs to physical hardware, that
 the clock or observation is trustworthy, that a command was transmitted or
 executed, that tracking remained inside the certified geometry, or that the
 scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v3.13
+## Explicit exclusions in v3.14
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -372,8 +381,9 @@ responsibilities.
   certify dynamics, controller tracking, or runtime execution.
 - `contains`, `connected`, Safe IK, MoveIt plugin acceptance, a reviewed
   profile, a bounded session, ledger state/audit, transparency anchor,
-  independent observation, log record/checkpoint/proof/witness, and
-  transparency audit are not runtime-execution approvals.
+  independent observation, log record/checkpoint/proof/witness, checkpoint
+  cosignature, gossip message/archive/conflict, and transparency or gossip
+  audit are not runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic
@@ -404,10 +414,11 @@ responsibilities.
   log, or remote key-discovery client.
 - A schema-1 transparency log is a caller-pinned local publication and replay
   primitive, not a public network service, certificate authority, global
-  consensus mechanism, trustworthy timestamp, compact consistency-proof
-  protocol, or hardware attestation system. It cannot detect split views or a
-  complete rollback unless independently retained or witnessed checkpoints
-  disagree.
+  consensus mechanism, trustworthy timestamp, or hardware attestation system.
+  The separate v3.14 witness layer can detect inconsistent independently
+  supplied checkpoints, but cannot detect a view that no independent party
+  retained or exchanged, select a globally newest view, or prevent complete
+  coordinated rollback of the archive and all caller pins.
 - Deployment-profile identities, reviewer roles, timing bounds, monitor
   status, transport status, and artifact-authentication status are
   caller-governed declarations. A valid signature proves approval of exact

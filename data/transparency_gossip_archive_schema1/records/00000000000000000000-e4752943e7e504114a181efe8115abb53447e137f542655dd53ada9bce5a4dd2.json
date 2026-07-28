@@ -1,0 +1,81 @@
+{
+  "format": "rbfsafe-transparency-gossip-record",
+  "record": {
+    "gossip": {
+      "algorithm": 1,
+      "authentication_tag": "fb17ede3759452680d86be2c5809052ecb1379a930a71527959ebea11e5bfd0067e59cfe8f5e073ee22d134755e87dc0bbeab285877e73c949bea7e66fd96c0d",
+      "consistency_proof": null,
+      "id": "16b4410cf39807df9de4d99b1396fbee4ac22e28a2dadd6f05c71872b019ae51",
+      "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+      "parent_gossip_id": "",
+      "recipient_service_id": "transparency-auditor",
+      "sender_key_id": "cc0afcc3fffcd84ef5695ae89f6cf50278b6ef3b04df2358e80a811720484119",
+      "sender_sequence": "1",
+      "sender_service_id": "execution-review-safety",
+      "storage_schema": 1,
+      "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+      "trust_bundle_sequence": "1",
+      "witnessed_checkpoint": {
+        "checkpoint": {
+          "algorithm": 1,
+          "authentication_tag": "fbe4ca46ad054337bd7e2425289719cedc92c83c55bf22ad7200329a53dc6adcc127b21b119c32bc1022975eafdd20875740619eccc8d45f66609e54c726cb07",
+          "id": "d1ca9635ae9f02e8a2a7d224c8148cbc3c50b39f6a56effb4f4b64eb33e6cf43",
+          "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+          "previous_checkpoint_id": "",
+          "root_hash": "e62979692129eed798cca84c16be1e25d906681243051ae90205952b45542174",
+          "signer_key_id": "02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8",
+          "signer_service_id": "transparency-log",
+          "storage_schema": 1,
+          "tree_size": "1"
+        },
+        "cosignatures": [
+          {
+            "algorithm": 1,
+            "authentication_tag": "41ef73c1231398f79d68a1bd639b35b58161d412d94c17f5a2e178b86cc58335afcdbd892bd6a3601a05ee46abe5f82793f5d5b89eeed300351601d027489a0c",
+            "checkpoint_id": "d1ca9635ae9f02e8a2a7d224c8148cbc3c50b39f6a56effb4f4b64eb33e6cf43",
+            "id": "c94393f861c33265ff40223fc0680503790135416c4c84c8e39033c448765954",
+            "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+            "root_hash": "e62979692129eed798cca84c16be1e25d906681243051ae90205952b45542174",
+            "storage_schema": 1,
+            "tree_size": "1",
+            "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+            "trust_bundle_sequence": "1",
+            "witness_key_id": "9b49e066c347f583fef752cbf29cd06a42f89fb6c6fbd07698fed629f411ce25",
+            "witness_service_id": "execution-review-controls"
+          },
+          {
+            "algorithm": 1,
+            "authentication_tag": "33fa028982a0ca6cc36d0406d719dc966ca03ba281e35a5a628c7a54e958d6313a2ec06f8d0f7cde7ad3cd5bca89c3ca2833eed137b6df0e3fa3f22bdea6a00b",
+            "checkpoint_id": "d1ca9635ae9f02e8a2a7d224c8148cbc3c50b39f6a56effb4f4b64eb33e6cf43",
+            "id": "2ef9dac66813854d860cbf11a0f21d0b844cca8066e2a87a6e2f5fe8c429ac14",
+            "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+            "root_hash": "e62979692129eed798cca84c16be1e25d906681243051ae90205952b45542174",
+            "storage_schema": 1,
+            "tree_size": "1",
+            "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+            "trust_bundle_sequence": "1",
+            "witness_key_id": "cc0afcc3fffcd84ef5695ae89f6cf50278b6ef3b04df2358e80a811720484119",
+            "witness_service_id": "execution-review-safety"
+          }
+        ],
+        "id": "a73b263689659f2a926987cfb197f5632db3e98a3043fa3a1e9330816abe2c54",
+        "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+        "policy": {
+          "exclude_log_signer": true,
+          "minimum_witnesses": "2",
+          "require_distinct_services": true
+        },
+        "storage_schema": 1,
+        "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780",
+        "trust_bundle_sequence": "1"
+      }
+    },
+    "id": "e4752943e7e504114a181efe8115abb53447e137f542655dd53ada9bce5a4dd2",
+    "log_id": "e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4",
+    "parent_id": "",
+    "sequence": "0",
+    "storage_schema": 1,
+    "trust_bundle_id": "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780"
+  },
+  "schema": 1
+}

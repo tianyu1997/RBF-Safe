@@ -87,7 +87,10 @@ schema 1: it contains the complete ordered leaf-ID list for the newer tree.
 Verification recomputes the old root from the exact prefix and the new root
 from the complete list. This is an `O(n)` full-prefix witness, not a compact
 RFC 6962 consistency proof. Load and caller budgets bound its practical use.
-A future schema may add compact proofs without changing schema 1.
+RBF-Safe 3.14 adds `TransparencyCompactConsistencyProof` as a separate public
+value without changing schema-1 log bytes. It carries an old Merkle frontier
+and aligned appended subtrees; see
+[witnessed transparency](witnessed-transparency.md).
 
 ## Directory layout and publication
 
@@ -126,11 +129,11 @@ A caller that retains checkpoint `C2` will reject a directory rolled back to
 are all rolled back together, RBF-Safe cannot detect the rollback.
 
 A log signer can equivocate by signing different roots for the same tree size.
-RBF-Safe verifies any supplied checkpoint, inclusion proof, and consistency
-witness but does not provide a network service, witness cosigning, gossip,
-global uniqueness, availability, trusted wall-clock time, or legal
-non-repudiation. Deployments that require split-view detection must distribute
-and compare signed checkpoint IDs through independent authenticated channels.
+The separate v3.14 witness module can independently cosign supplied
+checkpoints, authenticate transport-neutral gossip objects, and detect
+contradictory supplied views. It still does not provide peer discovery,
+network delivery, global uniqueness, availability, trusted wall-clock time,
+hardware key provenance, or legal non-repudiation.
 
 The fixed `data/transparency_log_schema1` fixture contains two synthetic
 records: one reviewed deployment anchor and one two-source runtime-observation

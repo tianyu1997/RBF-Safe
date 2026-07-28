@@ -117,19 +117,24 @@
   revalidation before each authorization; explicit expiration, cancellation,
   and key/profile/scene revocation records; independently attested controller
   completion observations; and offline audit without adding hardware I/O.
-- **v3.13 (current) - Deployment and runtime transparency:** exact
+- **v3.13 - Deployment and runtime transparency:** exact
   reviewed-profile/trust-history deployment anchors; independent
   source-signed observations bound to one outstanding ledger command;
   deterministic Merkle leaves; signed checkpoints; inclusion and explicit
   prefix-consistency witnesses; expected-head, bounded schema-1 persistence;
   fixed fixtures; and C++/Python/inspection tooling. Every transparency value
   remains `Unknown` and non-authorizing.
-- **v3.14 candidate - Witnessed checkpoint distribution:** compact
-  append-only consistency proofs, independently cosigned checkpoints,
-  authenticated checkpoint gossip and split-view detection, plus optional
-  hardware-backed observation provenance and trustworthy-time adapters. These
-  adapters must preserve the distinction between observed state and certified
-  physical execution.
+- **v3.14 (current) - Witnessed checkpoint distribution:** compact
+  append-only frontier/subtree consistency proofs, independently cosigned
+  checkpoint quorums, authenticated sender chains, proof-DAG audit,
+  same-size-equivocation and invalid-proof split-view detection, bounded
+  append-only schema-1 archives, fixed fixtures, and C++/Python/inspection
+  tooling.
+- **v3.15 candidate - Verifiable provenance and time inputs:** pluggable,
+  explicitly scoped hardware-key attestation statements, signed external time
+  assertions, freshness policy, provenance-chain replay, and adapters that
+  remain separate from geometric and physical-execution certification. No
+  device vendor or time source is trusted implicitly.
 - **v4.x candidates:** richer continuous-time multi-robot occupancy proofs,
   distributed fleet coordination, and certified hardware/deployment profiles.
 

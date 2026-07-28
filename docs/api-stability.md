@@ -38,7 +38,9 @@ current-checkpoint revalidation, and schema-1 ledger persistence. RBF-Safe
 3.13 additively introduces `RBFSafe::transparency`, deployment anchors,
 independent runtime-observation attestations, signed Merkle checkpoints,
 inclusion/prefix-consistency values, bounded schema-1 log persistence, and
-audit APIs. Public
+audit APIs. RBF-Safe 3.14 additively introduces compact consistency proofs,
+`RBFSafe::witness`, independent checkpoint cosignature quorums, authenticated
+gossip, split-view audit, and bounded schema-1 gossip archives. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
@@ -83,7 +85,7 @@ The following installed target names are stable in 3.x:
 - `RBFSafe::regions`, `RBFSafe::planning`, `RBFSafe::optimization`;
 - `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, `RBFSafe::trust`,
   `RBFSafe::remote`, `RBFSafe::identity`, `RBFSafe::deployment`,
-  `RBFSafe::execution`, `RBFSafe::transparency`, and aggregate
+  `RBFSafe::execution`, `RBFSafe::transparency`, `RBFSafe::witness`, and aggregate
   `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 
@@ -95,11 +97,12 @@ machine-readable contract.
 ## Evidence compatibility
 
 Numeric values and ordering of `EvidenceLevel` are stable throughout 3.x.
-Consumers must compare enum values rather than parsing display names. In 3.13,
+Consumers must compare enum values rather than parsing display names. In 3.14,
 only an exact closed-window `ExecutionCommandAuthorization` may issue
 `RuntimeExecutable`; reviewed profiles, bounded sessions, ledgers, summaries,
-transparency anchors/observations/logs/proofs/checkpoints, and audit reports
-remain `Unknown`.
+transparency anchors/observations/logs/proofs/checkpoints, witness
+cosignatures, gossip messages/archives/conflicts, and audit reports remain
+`Unknown`.
 The application must still enforce its separately reviewed tracking,
 uncertainty, clock, transport, device, and emergency-stop assumptions.
 

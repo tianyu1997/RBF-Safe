@@ -29,9 +29,10 @@ int main() {
     const rbfsafe::BoundedExecutionSessionLoadOptions execution_load_options;
     const rbfsafe::ExecutionLedgerLoadOptions execution_ledger_load_options;
     const rbfsafe::TransparencyLogLoadOptions transparency_load_options;
+    const rbfsafe::TransparencyGossipArchiveLoadOptions gossip_load_options;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
-    return RBFSAFE_VERSION_MAJOR == 3 && RBFSAFE_VERSION_MINOR == 13 && RBFSAFE_VERSION_PATCH == 0 &&
+    return RBFSAFE_VERSION_MAJOR == 3 && RBFSAFE_VERSION_MINOR == 14 && RBFSAFE_VERSION_PATCH == 0 &&
                    interval.contains(0.0) && options.maximum_region_tests > 0 &&
                    hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
                    update_options.maximum_validations > 0 && obb_atlas_options.maximum_validations > 0 &&
@@ -48,10 +49,12 @@ int main() {
                    trust_bundle_options.maximum_keys > 0 && trust_history_options.maximum_bundles > 0 &&
                    execution_load_options.maximum_commands > 0 &&
                    execution_ledger_load_options.maximum_records > 0 &&
-                   transparency_load_options.maximum_records > 0 &&
+                   transparency_load_options.maximum_records > 0 && gossip_load_options.maximum_records > 0 &&
                    rbfsafe::execution_ledger_status_name(rbfsafe::ExecutionLedgerStatus::Open) == "open" &&
                    rbfsafe::transparency_leaf_kind_name(rbfsafe::TransparencyLeafKind::RuntimeObservation) ==
                        "runtime_observation" &&
+                   rbfsafe::transparency_gossip_status_name(rbfsafe::TransparencyGossipStatus::Consistent) ==
+                       "consistent" &&
                    rbfsafe::artifact_transfer_operation_name(rbfsafe::ArtifactTransferOperation::Fetch) ==
                        "fetch" &&
                    rbfsafe::artifact_authentication_algorithm_name(

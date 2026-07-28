@@ -3,6 +3,38 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.14.0] - 2026-07-27
+
+### Added
+
+- Public `RBFSafe::witness` target with independently signed transparency
+  checkpoint cosignatures, configurable quorum policy, canonical witness
+  ordering, exact log/checkpoint/root/trust-bundle binding, and signer
+  separation.
+- Compact append-only consistency proofs built from an old Merkle frontier and
+  aligned appended subtrees. Proof size and verification work are logarithmic
+  in the represented tree ranges and do not disclose every historical leaf.
+- Authenticated checkpoint gossip with per-sender sequence/parent chains,
+  proof-DAG audit, explicit `Consistent`, `Incomplete`, and `SplitView`
+  outcomes, same-size equivocation detection, and invalid-proof conflicts.
+- Bounded schema-1 append-only gossip archives with caller-pinned log identity,
+  exact trust bundle and expected head, immutable atomic records,
+  cross-process writer exclusion, corruption checks, C++/Python APIs, native
+  and Python inspection, deterministic quickstart, and fixed fixture.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.14.0. Existing transparency logs and all earlier 3.x storage
+  schemas remain readable and unchanged.
+- The release benchmark now verifies compact consistency, witness quorum,
+  authenticated gossip, expected-head archive reopen, and split-view audit.
+  Only discrete counts and statuses enter the cross-platform logical digest.
+- Witnesses and gossip remain software statements under a caller-pinned trust
+  bundle. They are `Unknown`, never authorize execution, and do not claim
+  transport security, trustworthy time, hardware-backed key provenance,
+  physical observation, or distributed consensus.
+
 ## [3.13.0] - 2026-07-27
 
 ### Added

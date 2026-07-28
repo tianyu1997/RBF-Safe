@@ -51,6 +51,10 @@ bool is_transparency_log(const std::filesystem::path& path) {
     return bounded_file_contains(path / "manifest.json", "\"rbfsafe-transparency-log\"");
 }
 
+bool is_transparency_gossip_archive(const std::filesystem::path& path) {
+    return bounded_file_contains(path / "manifest.json", "\"rbfsafe-transparency-gossip-archive\"");
+}
+
 int hex_digit(char value) {
     if (value >= '0' && value <= '9')
         return value - '0';
@@ -92,8 +96,81 @@ int main(int argc, char** argv) {
                      "<reviewed-profile> <atlas> <trust-history> <expected-root> <checkpoint> "
                      "<expected-checkpoint>\n"
                   << "       rbfsafe-inspect <transparency-log> <namespace> <signer-service> "
-                     "<signer-key-id> <signer-public-key-hex> <expected-checkpoint>\n";
+                     "<signer-key-id> <signer-public-key-hex> <expected-checkpoint>\n"
+                  << "       rbfsafe-inspect <transparency-gossip-archive> <namespace> "
+                     "<signer-service> <signer-key-id> <signer-public-key-hex> "
+                     "<expected-gossip-head> <trust-history> <expected-root> <checkpoint> "
+                     "<expected-checkpoint> <expected-bundle>\n";
         return 2;
+    }
+    if (is_transparency_gossip_archive(std::filesystem::path(argv[1]))) {
+        if (argc != 12) {
+            std::cerr << "transparency-gossip inspection requires namespace, signer service, "
+                         "signer key ID, signer public-key hex, expected gossip head, trust history, "
+                         "expected trust root, trust checkpoint, expected checkpoint, and expected bundle\n";
+            return 2;
+        }
+        std::array<std::byte, rbfsafe::kEd25519PublicKeyBytes> public_key{};
+        if (!decode_public_key(argv[5], public_key)) {
+            std::cerr << "transparency signer public key must contain 64 lowercase hex characters\n";
+            return 2;
+        }
+        auto identity = rbfsafe::TransparencyLogIdentity::create(argv[2], argv[3], argv[4], public_key);
+        if (!identity) {
+            std::cerr << identity.error().describe() << '\n';
+            return 1;
+        }
+        auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[9]));
+        if (!checkpoint) {
+            std::cerr << checkpoint.error().describe() << '\n';
+            return 1;
+        }
+        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[7]), argv[8],
+                                                          checkpoint.value(), argv[10]);
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        auto bundle = history.value().bundle(argv[11]);
+        if (!bundle) {
+            std::cerr << bundle.error().describe() << '\n';
+            return 1;
+        }
+        auto archive = rbfsafe::TransparencyGossipArchive::open(
+            std::filesystem::path(argv[1]), identity.value(), bundle.value(), argv[11], argv[6]);
+        if (!archive) {
+            std::cerr << archive.error().describe() << '\n';
+            return 1;
+        }
+        auto audit = archive.value().audit();
+        if (!audit) {
+            std::cerr << audit.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe transparency gossip archive\n"
+                  << "schema: 1\n"
+                  << "log: " << identity.value().id << '\n'
+                  << "trust bundle: " << archive.value().trust_bundle_id() << '\n'
+                  << "trust sequence: " << archive.value().trust_bundle_sequence() << '\n'
+                  << "head: "
+                  << (archive.value().current_record_id().empty() ? "-" : archive.value().current_record_id())
+                  << '\n'
+                  << "records: " << archive.value().records().size() << '\n'
+                  << "authenticated gossip: " << audit.value().authenticated_gossip_count << '\n'
+                  << "checkpoints: " << audit.value().unique_checkpoint_count << '\n'
+                  << "status: " << rbfsafe::transparency_gossip_status_name(audit.value().status) << '\n'
+                  << "linked pairs: " << audit.value().linked_checkpoint_pairs << '\n'
+                  << "unlinked pairs: " << audit.value().unlinked_checkpoint_pairs << '\n'
+                  << "conflicts: " << audit.value().conflicts.size() << '\n';
+        for (const auto& conflict : audit.value().conflicts) {
+            std::cout << "conflict: " << conflict.id
+                      << " type=" << rbfsafe::transparency_gossip_conflict_type_name(conflict.type)
+                      << " first=" << conflict.first_checkpoint_id
+                      << " second=" << conflict.second_checkpoint_id << '\n';
+        }
+        std::cout << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_transparency_log(std::filesystem::path(argv[1]))) {
         if (argc != 7) {

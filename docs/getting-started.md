@@ -675,13 +675,15 @@ execution. See
 
 The transparency quickstart consumes the bounded-session fixture, creates a
 fresh ledger with one outstanding command, obtains two independent
-observation signatures, and publishes two records to a new log:
+observation signatures, publishes two records to a new log, independently
+cosigns both checkpoints, and publishes authenticated gossip:
 
 ```bash
 python examples/transparency_log_quickstart.py \
   data/bounded_execution_session_schema1 \
   new-observation-ledger \
-  new-transparency-log
+  new-transparency-log \
+  new-gossip-archive
 ```
 
 Retain the printed namespace, signer service/key/public key, and newest
@@ -701,10 +703,24 @@ audit = log.audit()
 assert audit.verified_records == 2
 assert audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
 assert not audit.authorizes_execution()
+
+bundle = retained_history.bundle(retained_gossip_bundle_id)
+gossip = rbfsafe.TransparencyGossipArchive.open(
+    "new-gossip-archive",
+    identity,
+    bundle,
+    retained_gossip_bundle_id,
+    retained_gossip_head,
+)
+gossip_audit = gossip.audit()
+assert gossip_audit.status == rbfsafe.TransparencyGossipStatus.CONSISTENT
+assert not gossip_audit.authorizes_execution
 ```
 
 The example seeds and fixture keys are deterministic test material. Production
 systems must use protected keys, authenticated checkpoint distribution,
-independent observers, trustworthy monotonic time, and their own network/gossip
-layer. A valid log proves retained software history, not physical execution.
-See [deployment and runtime transparency](transparency-log-format.md).
+independent observers, trustworthy monotonic time, and their own gossip
+transport/discovery layer. A valid log or witness archive proves retained
+software statements, not physical execution. See
+[deployment and runtime transparency](transparency-log-format.md) and
+[witnessed transparency](witnessed-transparency.md).
