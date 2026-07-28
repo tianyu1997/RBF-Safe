@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.13 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 3.14 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.13 |
+| Format | Read | Write | Migration in 3.14 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -28,6 +28,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Bounded execution session | 1 | 1 | New exact-session artifact; no profile, trajectory, acknowledgement, clock, or execution authority is inferred |
 | Execution ledger | 1 | 1 | New append-only exact-session history; no command progress, revocation, completion, or current checkpoint is inferred |
 | Transparency log | 1 | 1 | New append-only deployment/observation history; no global freshness, physical observation, prior publication, or execution evidence is inferred |
+| Transparency gossip archive | 1 | 1 | Independent witnessed-checkpoint exchange history; no peer discovery, global freshness, hardware provenance, time, or execution authority is inferred |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -64,7 +65,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.13 remain available throughout 3.x.
+- Readers for schemas supported by 3.14 remain available throughout 3.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.

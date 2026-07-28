@@ -209,6 +209,29 @@ struct TransparencyConsistencyWitness {
     bool valid() const;
 };
 
+struct TransparencyMerkleSubtree {
+    std::uint8_t level = 0;
+    std::string hash;
+
+    bool valid() const;
+};
+
+struct TransparencyCompactConsistencyProof {
+    std::uint32_t storage_schema = 1;
+    std::string id;
+    std::string log_id;
+    std::string old_checkpoint_id;
+    std::string new_checkpoint_id;
+    std::uint64_t old_tree_size = 0;
+    std::uint64_t new_tree_size = 0;
+    std::string old_root_hash;
+    std::string new_root_hash;
+    std::vector<TransparencyMerkleSubtree> old_frontier;
+    std::vector<TransparencyMerkleSubtree> appended_subtrees;
+
+    bool valid() const;
+};
+
 struct TransparencyLogAuditReport {
     std::string id;
     std::string log_id;
@@ -261,6 +284,7 @@ class TransparencyLog {
 
     Result<TransparencyInclusionProof> inclusion_proof(std::uint64_t leaf_index) const;
     Result<TransparencyConsistencyWitness> consistency_witness(std::uint64_t old_tree_size) const;
+    Result<TransparencyCompactConsistencyProof> compact_consistency_proof(std::uint64_t old_tree_size) const;
     Result<TransparencyLogAuditReport> audit() const;
 
   private:
@@ -289,6 +313,11 @@ Result<void> verify_transparency_consistency(const TransparencyLogIdentity& iden
                                              const TransparencyLogCheckpoint& old_checkpoint,
                                              const TransparencyLogCheckpoint& new_checkpoint,
                                              const TransparencyConsistencyWitness& witness);
+
+Result<void> verify_transparency_compact_consistency(const TransparencyLogIdentity& identity,
+                                                     const TransparencyLogCheckpoint& old_checkpoint,
+                                                     const TransparencyLogCheckpoint& new_checkpoint,
+                                                     const TransparencyCompactConsistencyProof& proof);
 
 std::string transparency_leaf_kind_name(TransparencyLeafKind kind);
 

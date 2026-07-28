@@ -228,6 +228,24 @@ record/checkpoint chains, inclusion proofs, prefix consistency, bounded
 cross-platform replay, C++/Python/native inspection, and exact caller pins.
 All values remain non-authorizing `Unknown`.
 
+`data/transparency_gossip_archive_schema1` is the fixed RBF-Safe 3.14
+two-record witnessed-checkpoint archive. It reuses the v3.13 log identity and
+the bounded-session fixture trust bundle. Its exact caller pins are:
+
+- log ID:
+  `e77f9b5d98d731c0b2e6f41486c3c6870488962aa77d5c12fca4eb5e160655d4`;
+- trust bundle:
+  `3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780`;
+- archive head:
+  `fd5ac959b484ada7ea2ce15e7cc8bccf41d8b6eaa368d9dafc2aedcdb0036514`.
+
+Each checkpoint has two distinct-service cosignatures. Record one adds compact
+proof `a42b62c19bb0c9d7ac25db098f7465fb4fc49d9e12802d96dfd25ffa62880201`
+from tree size one to two. C++ and Python tests replay both signatures, the
+global and sender chains, proof relation, resource bounds, expected head, and
+native/Python inspection. It contains no private keys and makes no physical
+observation, trustworthy-time, delivery, or execution claim.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -283,3 +301,11 @@ case, verifies one inclusion proof and one prefix-consistency witness, and
 reopens against the retained expected checkpoint. Only deterministic discrete
 counts enter the digest; all transparency evidence remains non-authorizing
 `Unknown`.
+
+The reviewed RBF-Safe 3.14 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `2e41e0968d06eec0`. It
+additionally verifies two compact append-only proofs, six checkpoint
+cosignatures, a three-record authenticated gossip archive, one consistent
+proof-graph audit, and one same-size-equivocation split-view conflict per
+case. Only deterministic discrete counts and statuses enter the digest; all
+witness and gossip evidence remains non-authorizing `Unknown`.

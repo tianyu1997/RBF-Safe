@@ -1,4 +1,4 @@
-"""Publish a reviewed deployment and an independent observation to a new log.
+"""Publish a reviewed deployment, witnessed checkpoints, and authenticated gossip.
 
 The input directory is produced by rbfsafe_bounded_execution_session_quickstart.
 All deterministic private keys in this example are synthetic and must never be
@@ -27,6 +27,12 @@ def main() -> int:
     parser.add_argument("input_directory", type=Path)
     parser.add_argument("new_ledger_directory", type=Path)
     parser.add_argument("new_transparency_directory", type=Path)
+    parser.add_argument(
+        "new_gossip_directory",
+        type=Path,
+        nargs="?",
+        help="optional schema-1 witnessed-checkpoint gossip archive",
+    )
     args = parser.parse_args()
 
     checkpoint = rbfsafe.ServiceTrustCheckpoint.load(
@@ -140,7 +146,93 @@ def main() -> int:
     rbfsafe.verify_transparency_consistency(
         identity, first.checkpoint, second.checkpoint, witness
     )
+    compact_proof = log.compact_consistency_proof(1)
+    rbfsafe.verify_transparency_compact_consistency(
+        identity, first.checkpoint, second.checkpoint, compact_proof
+    )
     audit = log.audit()
+
+    gossip_archive = None
+    gossip_audit = None
+    if args.new_gossip_directory is not None:
+        trust_bundle = history.current_bundle()
+        witness_policy = rbfsafe.TransparencyCheckpointWitnessPolicy()
+        first_safety = rbfsafe.sign_transparency_checkpoint_witness(
+            identity,
+            first.checkpoint,
+            trust_bundle,
+            safety_approval.signer_service_id,
+            safety_approval.signer_key_id,
+            safety_pair.secret_key,
+        )
+        first_controls = rbfsafe.sign_transparency_checkpoint_witness(
+            identity,
+            first.checkpoint,
+            trust_bundle,
+            controls_approval.signer_service_id,
+            controls_approval.signer_key_id,
+            controls_pair.secret_key,
+        )
+        second_safety = rbfsafe.sign_transparency_checkpoint_witness(
+            identity,
+            second.checkpoint,
+            trust_bundle,
+            safety_approval.signer_service_id,
+            safety_approval.signer_key_id,
+            safety_pair.secret_key,
+        )
+        second_controls = rbfsafe.sign_transparency_checkpoint_witness(
+            identity,
+            second.checkpoint,
+            trust_bundle,
+            controls_approval.signer_service_id,
+            controls_approval.signer_key_id,
+            controls_pair.secret_key,
+        )
+        witnessed_first = rbfsafe.assemble_witnessed_transparency_checkpoint(
+            identity,
+            first.checkpoint,
+            witness_policy,
+            [first_controls, first_safety],
+            trust_bundle,
+        )
+        witnessed_second = rbfsafe.assemble_witnessed_transparency_checkpoint(
+            identity,
+            second.checkpoint,
+            witness_policy,
+            [second_controls, second_safety],
+            trust_bundle,
+        )
+        first_gossip = rbfsafe.sign_transparency_checkpoint_gossip(
+            identity,
+            witnessed_first,
+            None,
+            "transparency-auditor",
+            1,
+            "",
+            trust_bundle,
+            safety_approval.signer_service_id,
+            safety_approval.signer_key_id,
+            safety_pair.secret_key,
+        )
+        second_gossip = rbfsafe.sign_transparency_checkpoint_gossip(
+            identity,
+            witnessed_second,
+            compact_proof,
+            "transparency-auditor",
+            2,
+            first_gossip.id,
+            trust_bundle,
+            safety_approval.signer_service_id,
+            safety_approval.signer_key_id,
+            safety_pair.secret_key,
+        )
+        gossip_archive = rbfsafe.TransparencyGossipArchive.create(
+            args.new_gossip_directory, identity, trust_bundle
+        )
+        first_gossip_record = gossip_archive.publish(first_gossip, "")
+        gossip_archive.publish(second_gossip, first_gossip_record.id)
+        gossip_audit = gossip_archive.audit()
 
     print(f"log={identity.id}")
     print(f"namespace={identity.log_namespace}")
@@ -152,6 +244,17 @@ def main() -> int:
     print(f"records={audit.verified_records}")
     print(f"deployment_anchors={audit.deployment_anchor_count}")
     print(f"runtime_observations={audit.runtime_observation_count}")
+    print(
+        "compact_consistency_subtrees="
+        f"{len(compact_proof.old_frontier) + len(compact_proof.appended_subtrees)}"
+    )
+    if gossip_archive is not None and gossip_audit is not None:
+        print(f"gossip_archive_head={gossip_archive.current_record_id}")
+        print(f"gossip_records={len(gossip_archive.records)}")
+        print(
+            "gossip_status="
+            f"{rbfsafe.transparency_gossip_status_name(gossip_audit.status)}"
+        )
     print("evidence=unknown")
     print("runtime_executable=false")
     return 0

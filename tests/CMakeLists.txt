@@ -47,6 +47,20 @@ if(TARGET rbfsafe_inspect)
             6c8d14b047593d7117dc445957d8bdd6772c303d064297fdc8e329927d370bda
             86d47335bee5850b9c3a404e123d50bdb751cabee03a76de6361b8e25f03772f)
     add_test(
+        NAME rbfsafe_transparency_gossip_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/transparency_gossip_archive_schema1
+            rbfsafe-public-deployments-v1
+            transparency-log
+            02348249fded6a7cf712333d50a6318aaa1309056318af5c049e4ce296cf10e8
+            6c8d14b047593d7117dc445957d8bdd6772c303d064297fdc8e329927d370bda
+            fd5ac959b484ada7ea2ce15e7cc8bccf41d8b6eaa368d9dafc2aedcdb0036514
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/trust-history
+            3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/checkpoint.json
+            3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01
+            3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780)
+    add_test(
         NAME rbfsafe_execution_ledger_fixture_inspect
         COMMAND rbfsafe_inspect
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/execution_ledger_schema1

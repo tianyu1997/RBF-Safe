@@ -244,6 +244,39 @@ Json consistency_witness_json(const TransparencyConsistencyWitness& witness, boo
     return Json(std::move(object));
 }
 
+Json merkle_subtree_json(const TransparencyMerkleSubtree& subtree) {
+    return Json::Object{
+        {"hash", subtree.hash},
+        {"level", std::to_string(subtree.level)},
+    };
+}
+
+Json compact_consistency_proof_json(const TransparencyCompactConsistencyProof& proof, bool include_id) {
+    Json::Array old_frontier;
+    old_frontier.reserve(proof.old_frontier.size());
+    for (const auto& subtree : proof.old_frontier)
+        old_frontier.emplace_back(merkle_subtree_json(subtree));
+    Json::Array appended_subtrees;
+    appended_subtrees.reserve(proof.appended_subtrees.size());
+    for (const auto& subtree : proof.appended_subtrees)
+        appended_subtrees.emplace_back(merkle_subtree_json(subtree));
+    Json::Object object{
+        {"appended_subtrees", Json(std::move(appended_subtrees))},
+        {"log_id", proof.log_id},
+        {"new_checkpoint_id", proof.new_checkpoint_id},
+        {"new_root_hash", proof.new_root_hash},
+        {"new_tree_size", std::to_string(proof.new_tree_size)},
+        {"old_checkpoint_id", proof.old_checkpoint_id},
+        {"old_frontier", Json(std::move(old_frontier))},
+        {"old_root_hash", proof.old_root_hash},
+        {"old_tree_size", std::to_string(proof.old_tree_size)},
+        {"storage_schema", std::to_string(proof.storage_schema)},
+    };
+    if (include_id)
+        object.emplace("id", proof.id);
+    return Json(std::move(object));
+}
+
 Json audit_report_json(const TransparencyLogAuditReport& report, bool include_id) {
     Json::Object object{
         {"current_checkpoint_id", report.current_checkpoint_id},
@@ -385,6 +418,12 @@ internal::transparency_consistency_witness_identity(const TransparencyConsistenc
                   consistency_witness_json(witness, false).dump(false));
 }
 
+std::string
+internal::transparency_compact_consistency_proof_identity(const TransparencyCompactConsistencyProof& proof) {
+    return sha256(std::string("rbfsafe-transparency-compact-consistency-proof-identity-v1\n") +
+                  compact_consistency_proof_json(proof, false).dump(false));
+}
+
 std::string internal::transparency_log_audit_report_identity(const TransparencyLogAuditReport& report) {
     return sha256(std::string("rbfsafe-transparency-log-audit-report-identity-v1\n") +
                   audit_report_json(report, false).dump(false));
@@ -428,12 +467,28 @@ std::string internal::transparency_merkle_frontier_root(const std::array<std::st
 std::string internal::transparency_append_merkle_leaf(std::array<std::string, 64>& frontier,
                                                       const std::string& leaf_id,
                                                       std::uint64_t previous_tree_size) {
-    if (!internal::valid_sha256(leaf_id) || previous_tree_size == std::numeric_limits<std::uint64_t>::max()) {
+    if (!internal::valid_sha256(leaf_id)) {
         return {};
     }
-    std::string subtree = transparency_leaf_hash(leaf_id);
-    std::size_t level = 0;
-    std::uint64_t occupied = previous_tree_size;
+    return transparency_append_merkle_subtree(frontier, transparency_leaf_hash(leaf_id), 0,
+                                              previous_tree_size);
+}
+
+std::string internal::transparency_append_merkle_subtree(std::array<std::string, 64>& frontier,
+                                                         const std::string& subtree_hash,
+                                                         std::uint8_t subtree_level,
+                                                         std::uint64_t previous_tree_size) {
+    if (!internal::valid_sha256(subtree_hash) || subtree_level >= frontier.size()) {
+        return {};
+    }
+    const std::uint64_t subtree_size = std::uint64_t{1} << subtree_level;
+    if ((previous_tree_size & (subtree_size - 1U)) != 0U ||
+        previous_tree_size > std::numeric_limits<std::uint64_t>::max() - subtree_size) {
+        return {};
+    }
+    std::string subtree = subtree_hash;
+    std::size_t level = subtree_level;
+    std::uint64_t occupied = previous_tree_size >> subtree_level;
     while ((occupied & 1U) != 0U) {
         if (level >= frontier.size() || frontier[level].empty())
             return {};
@@ -807,6 +862,45 @@ bool TransparencyConsistencyWitness::valid() const {
     return std::all_of(ordered_leaf_ids.begin(), ordered_leaf_ids.end(), internal::valid_sha256);
 }
 
+bool TransparencyMerkleSubtree::valid() const { return level < 64U && internal::valid_sha256(hash); }
+
+bool TransparencyCompactConsistencyProof::valid() const {
+    if (storage_schema != kStorageSchema || !internal::valid_sha256(id) || !internal::valid_sha256(log_id) ||
+        !internal::valid_sha256(old_checkpoint_id) || !internal::valid_sha256(new_checkpoint_id) ||
+        old_tree_size == 0 || old_tree_size >= new_tree_size || !internal::valid_sha256(old_root_hash) ||
+        !internal::valid_sha256(new_root_hash) || old_frontier.empty() || old_frontier.size() > 64U ||
+        appended_subtrees.empty() || appended_subtrees.size() > 128U ||
+        id != internal::transparency_compact_consistency_proof_identity(*this)) {
+        return false;
+    }
+    std::size_t frontier_index = 0;
+    for (std::uint8_t level = 0; level < 64U; ++level) {
+        if (((old_tree_size >> level) & 1U) == 0U)
+            continue;
+        if (frontier_index >= old_frontier.size() || old_frontier[frontier_index].level != level ||
+            !old_frontier[frontier_index].valid()) {
+            return false;
+        }
+        ++frontier_index;
+    }
+    if (frontier_index != old_frontier.size())
+        return false;
+    std::uint64_t represented_size = old_tree_size;
+    for (const auto& subtree : appended_subtrees) {
+        if (!subtree.valid())
+            return false;
+        const std::uint64_t subtree_size = std::uint64_t{1} << subtree.level;
+        if ((represented_size & (subtree_size - 1U)) != 0U ||
+            represented_size > std::numeric_limits<std::uint64_t>::max() - subtree_size) {
+            return false;
+        }
+        represented_size += subtree_size;
+        if (represented_size > new_tree_size)
+            return false;
+    }
+    return represented_size == new_tree_size;
+}
+
 bool TransparencyLogAuditReport::valid() const {
     return internal::valid_sha256(id) && internal::valid_sha256(log_id) &&
            (verified_records == 0 ? current_checkpoint_id.empty() && current_root_hash.empty()
@@ -910,6 +1004,53 @@ Result<void> verify_transparency_consistency(const TransparencyLogIdentity& iden
         internal::transparency_merkle_root(witness.ordered_leaf_ids) != new_checkpoint.root_hash) {
         return Result<void>::failure(StatusCode::IdentityMismatch,
                                      "transparency consistency witness root mismatch", witness.id);
+    }
+    return Result<void>::success();
+}
+
+Result<void> verify_transparency_compact_consistency(const TransparencyLogIdentity& identity,
+                                                     const TransparencyLogCheckpoint& old_checkpoint,
+                                                     const TransparencyLogCheckpoint& new_checkpoint,
+                                                     const TransparencyCompactConsistencyProof& proof) {
+    if (!identity.valid() || !old_checkpoint.valid() || !new_checkpoint.valid() || !proof.valid()) {
+        return Result<void>::failure(StatusCode::InvalidArgument,
+                                     "compact transparency consistency verification input is invalid");
+    }
+    auto old_verified = verify_transparency_log_checkpoint(identity, old_checkpoint);
+    if (!old_verified)
+        return old_verified.error();
+    auto new_verified = verify_transparency_log_checkpoint(identity, new_checkpoint);
+    if (!new_verified)
+        return new_verified.error();
+    if (proof.log_id != identity.id || proof.old_checkpoint_id != old_checkpoint.id ||
+        proof.new_checkpoint_id != new_checkpoint.id || proof.old_tree_size != old_checkpoint.tree_size ||
+        proof.new_tree_size != new_checkpoint.tree_size || proof.old_root_hash != old_checkpoint.root_hash ||
+        proof.new_root_hash != new_checkpoint.root_hash) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "compact transparency consistency proof binding mismatch", proof.id);
+    }
+    std::array<std::string, 64> frontier{};
+    for (const auto& subtree : proof.old_frontier)
+        frontier[subtree.level] = subtree.hash;
+    if (internal::transparency_merkle_frontier_root(frontier) != old_checkpoint.root_hash) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "compact transparency consistency old frontier root mismatch", proof.id);
+    }
+    std::uint64_t represented_size = proof.old_tree_size;
+    std::string root = old_checkpoint.root_hash;
+    for (const auto& subtree : proof.appended_subtrees) {
+        root = internal::transparency_append_merkle_subtree(frontier, subtree.hash, subtree.level,
+                                                            represented_size);
+        if (root.empty()) {
+            return Result<void>::failure(StatusCode::CorruptData,
+                                         "compact transparency consistency subtree sequence is invalid",
+                                         proof.id);
+        }
+        represented_size += std::uint64_t{1} << subtree.level;
+    }
+    if (represented_size != proof.new_tree_size || root != new_checkpoint.root_hash) {
+        return Result<void>::failure(StatusCode::IdentityMismatch,
+                                     "compact transparency consistency new root mismatch", proof.id);
     }
     return Result<void>::success();
 }
@@ -1135,6 +1276,69 @@ TransparencyLog::consistency_witness(std::uint64_t old_tree_size) const {
     if (!verified)
         return verified.error();
     return witness;
+}
+
+Result<TransparencyCompactConsistencyProof>
+TransparencyLog::compact_consistency_proof(std::uint64_t old_tree_size) const {
+    if (!valid() || old_tree_size == 0 || old_tree_size >= records_.size()) {
+        return Result<TransparencyCompactConsistencyProof>::failure(
+            StatusCode::InvalidArgument, "compact transparency consistency old tree size is invalid");
+    }
+    TransparencyCompactConsistencyProof proof;
+    proof.log_id = identity_.id;
+    proof.old_tree_size = old_tree_size;
+    proof.new_tree_size = static_cast<std::uint64_t>(records_.size());
+    const auto& old_checkpoint = records_[static_cast<std::size_t>(old_tree_size - 1U)].checkpoint;
+    const auto& new_checkpoint = records_.back().checkpoint;
+    proof.old_checkpoint_id = old_checkpoint.id;
+    proof.new_checkpoint_id = new_checkpoint.id;
+    proof.old_root_hash = old_checkpoint.root_hash;
+    proof.new_root_hash = new_checkpoint.root_hash;
+
+    std::array<std::string, 64> frontier{};
+    for (std::uint64_t index = 0; index < old_tree_size; ++index) {
+        if (internal::transparency_append_merkle_leaf(
+                frontier, records_[static_cast<std::size_t>(index)].leaf.id, index)
+                .empty()) {
+            return Result<TransparencyCompactConsistencyProof>::failure(
+                StatusCode::InternalError, "failed to reconstruct compact consistency old frontier");
+        }
+    }
+    for (std::uint8_t level = 0; level < 64U; ++level) {
+        if (!frontier[level].empty())
+            proof.old_frontier.push_back({level, frontier[level]});
+    }
+
+    std::uint64_t cursor = old_tree_size;
+    while (cursor < proof.new_tree_size) {
+        const std::uint64_t remaining = proof.new_tree_size - cursor;
+        std::uint8_t level = 0;
+        while (level < 63U) {
+            const std::uint64_t next_size = std::uint64_t{1} << (level + 1U);
+            if (next_size > remaining || (cursor & (next_size - 1U)) != 0U)
+                break;
+            ++level;
+        }
+        const std::uint64_t subtree_size = std::uint64_t{1} << level;
+        std::vector<std::string> leaf_ids;
+        leaf_ids.reserve(static_cast<std::size_t>(subtree_size));
+        for (std::uint64_t offset = 0; offset < subtree_size; ++offset) {
+            leaf_ids.push_back(records_[static_cast<std::size_t>(cursor + offset)].leaf.id);
+        }
+        const auto subtree_hash = internal::transparency_merkle_root(leaf_ids);
+        if (subtree_hash.empty() ||
+            internal::transparency_append_merkle_subtree(frontier, subtree_hash, level, cursor).empty()) {
+            return Result<TransparencyCompactConsistencyProof>::failure(
+                StatusCode::InternalError, "failed to construct compact consistency appended subtree");
+        }
+        proof.appended_subtrees.push_back({level, subtree_hash});
+        cursor += subtree_size;
+    }
+    proof.id = internal::transparency_compact_consistency_proof_identity(proof);
+    auto verified = verify_transparency_compact_consistency(identity_, old_checkpoint, new_checkpoint, proof);
+    if (!verified)
+        return verified.error();
+    return proof;
 }
 
 Result<TransparencyLogAuditReport> TransparencyLog::audit() const {

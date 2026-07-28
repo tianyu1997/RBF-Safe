@@ -28,3 +28,4 @@
 #include <rbfsafe/trust.h>
 #include <rbfsafe/types.h>
 #include <rbfsafe/version.h>
+#include <rbfsafe/witness.h>

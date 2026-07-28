@@ -17,6 +17,8 @@ RBFSafe::geometry
                                                                       +-> RBFSafe::execution
                                                                              |
                                                                              +-> RBFSafe::transparency
+                                                                                    |
+                                                                                    +-> RBFSafe::witness
           |-> RBFSafe::ik -> RBFSafe::shield -> RBFSafe::policy (+ calibration)
           |-> RBFSafe::planning -> RBFSafe::ompl (optional)
           `-> RBFSafe::corridor -> RBFSafe::regions
@@ -230,6 +232,19 @@ discovers a log identity, distributes checkpoints, gossips heads, establishes
 the newest view, reads a physical sensor, or proves controller tracking.
 Callers must pin log identity/checkpoint values and authenticate observation
 sources. Every transparency output remains `Unknown` and non-authorizing.
+
+### Witnessed transparency boundary
+
+`RBFSafe::witness` depends on `RBFSafe::transparency`. It owns compact
+frontier/subtree consistency proofs, independent checkpoint cosignature
+quorums, authenticated sender/recipient gossip chains, proof-graph audit,
+split-view conflict reports, and expected-head schema-1 archive persistence.
+
+It remains transport-, time-, hardware-, and consensus-neutral. It does not
+discover peers, decide which checkpoint is globally newest, attest physical
+key custody, read a clock or sensor, or turn an audit result into execution
+authority. Caller-pinned trust bundles and retained heads remain external
+inputs; all results are `Unknown`.
 
 ### Python and tools
 

@@ -113,6 +113,15 @@ contention, abandoned temporary tolerance, symlink rejection, unknown schema,
 truncation, tamper, count/byte/attestation limits, and cancellation. Confirm
 all anchors, observations, logs, proofs, checkpoints, and audits remain
 non-authorizing `Unknown`.
+Run witnessed transparency through C++, Python, both inspectors, and the fixed
+gossip fixture. Verify compact-proof frontier/subtree bounds, wrong-root and
+wrong-size rejection, witness quorum/service distinctness/log-signer
+exclusion, canonical ordering, inactive/non-publication key rejection,
+sender sequence/parent chains, same-size equivocation, invalid-proof conflicts,
+incomplete proof paths, proof-DAG reachability, expected archive head, writer
+contention, bundle/log pin mismatch, symlink and unexpected-entry rejection,
+unknown schema, truncation, tamper, byte/count/witness/proof/pair/graph limits,
+and cancellation. Confirm all outputs remain non-authorizing `Unknown`.
 Run both calibrated-policy quickstarts and inspect the fixed profile at raw
 confidence `0.9`; verify derived statistics are recomputed, conservative
 confidence never exceeds raw confidence, and output remains explicitly below
@@ -148,7 +157,7 @@ safety-memory, safety-memory-store, attestation, artifact-transfer-journal,
 service-trust-bundle, service-trust-history, service-trust-checkpoint,
 reviewed-deployment-profile, calibration-profile, or
 calibration-lifecycle, bounded-execution-session, execution-ledger, or
-transparency-log schema
+transparency-log or transparency-gossip-archive schema
 changes require an independent schema number,
 fixed-format fixtures, and a documented reader or explicit incompatibility
 error. A library version change must never silently reinterpret an existing

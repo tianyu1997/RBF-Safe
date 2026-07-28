@@ -49,6 +49,29 @@ int main() {
             CHECK(root == internal::transparency_merkle_root(leaf_ids));
             CHECK(root == internal::transparency_merkle_frontier_root(frontier));
         }
+
+        std::array<std::string, 64> subtree_frontier{};
+        for (std::uint64_t index = 0; index < 3; ++index) {
+            CHECK(!internal::transparency_append_merkle_leaf(subtree_frontier,
+                                                             leaf_ids[static_cast<std::size_t>(index)], index)
+                       .empty());
+        }
+        const std::vector<std::string> fourth_leaf{leaf_ids[3]};
+        const std::vector<std::string> middle_block(leaf_ids.begin() + 4, leaf_ids.begin() + 8);
+        const std::vector<std::string> final_block(leaf_ids.begin() + 8, leaf_ids.begin() + 16);
+        CHECK(!internal::transparency_append_merkle_subtree(
+                   subtree_frontier, internal::transparency_merkle_root(fourth_leaf), 0, 3)
+                   .empty());
+        CHECK(!internal::transparency_append_merkle_subtree(
+                   subtree_frontier, internal::transparency_merkle_root(middle_block), 2, 4)
+                   .empty());
+        const auto block_root = internal::transparency_append_merkle_subtree(
+            subtree_frontier, internal::transparency_merkle_root(final_block), 3, 8);
+        const std::vector<std::string> first_sixteen(leaf_ids.begin(), leaf_ids.begin() + 16);
+        CHECK(block_root == internal::transparency_merkle_root(first_sixteen));
+        CHECK(internal::transparency_append_merkle_subtree(
+                  subtree_frontier, internal::transparency_merkle_root(fourth_leaf), 2, 17)
+                  .empty());
     }
 
     const auto temporary = std::filesystem::temp_directory_path() /
@@ -308,6 +331,12 @@ int main() {
     CHECK(!TransparencyLogIdentity::create("", transparency_key.value().service_id,
                                            transparency_key.value().id,
                                            transparency_pair.value().public_key));
+    auto empty_gossip_audit = audit_transparency_checkpoint_gossip(
+        log_identity.value(), std::vector<TransparencyCheckpointGossip>{}, bundle.value());
+    CHECK(empty_gossip_audit);
+    CHECK(empty_gossip_audit.value().status == TransparencyGossipStatus::Consistent);
+    CHECK(empty_gossip_audit.value().authenticated_gossip_count == 0);
+    CHECK(empty_gossip_audit.value().unique_checkpoint_count == 0);
 
     const auto log_path = temporary / "transparency-log";
     auto log = TransparencyLog::create(log_path, log_identity.value());
@@ -367,6 +396,413 @@ int main() {
                                           observation_record.value().checkpoint, consistency.value()));
     CHECK(!log.value().consistency_witness(0));
     CHECK(!log.value().consistency_witness(2));
+    auto compact_consistency = log.value().compact_consistency_proof(1);
+    CHECK(compact_consistency);
+    CHECK(compact_consistency.value().old_frontier.size() == 1);
+    CHECK(compact_consistency.value().appended_subtrees.size() == 1);
+    CHECK(verify_transparency_compact_consistency(log_identity.value(), first_checkpoint,
+                                                  observation_record.value().checkpoint,
+                                                  compact_consistency.value()));
+    auto tampered_compact_consistency = compact_consistency.value();
+    tampered_compact_consistency.appended_subtrees.front().hash = digest('0');
+    tampered_compact_consistency.id =
+        internal::transparency_compact_consistency_proof_identity(tampered_compact_consistency);
+    CHECK(!verify_transparency_compact_consistency(log_identity.value(), first_checkpoint,
+                                                   observation_record.value().checkpoint,
+                                                   tampered_compact_consistency));
+    CHECK(!log.value().compact_consistency_proof(0));
+    CHECK(!log.value().compact_consistency_proof(2));
+
+    auto first_observer_one_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), first_checkpoint, bundle.value(), observer_one_key.value().service_id,
+        observer_one_key.value().id, observer_one_pair.value().secret_key);
+    auto first_observer_two_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), first_checkpoint, bundle.value(), observer_two_key.value().service_id,
+        observer_two_key.value().id, observer_two_pair.value().secret_key);
+    auto second_observer_one_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), observation_record.value().checkpoint, bundle.value(),
+        observer_one_key.value().service_id, observer_one_key.value().id,
+        observer_one_pair.value().secret_key);
+    auto second_observer_two_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), observation_record.value().checkpoint, bundle.value(),
+        observer_two_key.value().service_id, observer_two_key.value().id,
+        observer_two_pair.value().secret_key);
+    CHECK(first_observer_one_witness);
+    CHECK(first_observer_two_witness);
+    CHECK(second_observer_one_witness);
+    CHECK(second_observer_two_witness);
+    CHECK(!sign_transparency_checkpoint_witness(log_identity.value(), observation_record.value().checkpoint,
+                                                bundle.value(), observer_one_key.value().service_id,
+                                                observer_one_key.value().id,
+                                                observer_two_pair.value().secret_key));
+
+    TransparencyCheckpointWitnessPolicy witness_policy;
+    auto pending_observer_key =
+        make_service_public_key("observer-pending", observer_one_pair.value().public_key, 1, 0,
+                                ServiceKeyState::Pending, false, true, false);
+    auto nonpublishing_observer_key =
+        make_service_public_key("observer-no-publish", observer_one_pair.value().public_key, 1, 0,
+                                ServiceKeyState::Active, true, false, false);
+    CHECK(pending_observer_key);
+    CHECK(nonpublishing_observer_key);
+    auto pending_observer_bundle = ServiceTrustBundle::create_with_rotation_policy(
+        1, "", {pending_observer_key.value(), observer_two_key.value()}, rotation);
+    auto nonpublishing_observer_bundle = ServiceTrustBundle::create_with_rotation_policy(
+        1, "", {nonpublishing_observer_key.value(), observer_two_key.value()}, rotation);
+    CHECK(pending_observer_bundle);
+    CHECK(nonpublishing_observer_bundle);
+    CHECK(!sign_transparency_checkpoint_witness(
+        log_identity.value(), observation_record.value().checkpoint, pending_observer_bundle.value(),
+        pending_observer_key.value().service_id, pending_observer_key.value().id,
+        observer_one_pair.value().secret_key));
+    CHECK(!sign_transparency_checkpoint_witness(
+        log_identity.value(), observation_record.value().checkpoint, nonpublishing_observer_bundle.value(),
+        nonpublishing_observer_key.value().service_id, nonpublishing_observer_key.value().id,
+        observer_one_pair.value().secret_key));
+
+    auto log_signer_bundle = ServiceTrustBundle::create_with_rotation_policy(
+        1, "", {observer_two_key.value(), transparency_key.value()}, rotation);
+    CHECK(log_signer_bundle);
+    auto log_signer_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), observation_record.value().checkpoint, log_signer_bundle.value(),
+        transparency_key.value().service_id, transparency_key.value().id,
+        transparency_pair.value().secret_key);
+    auto observer_two_log_bundle_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), observation_record.value().checkpoint, log_signer_bundle.value(),
+        observer_two_key.value().service_id, observer_two_key.value().id,
+        observer_two_pair.value().secret_key);
+    CHECK(log_signer_witness);
+    CHECK(observer_two_log_bundle_witness);
+    CHECK(!assemble_witnessed_transparency_checkpoint(
+        log_identity.value(), observation_record.value().checkpoint, witness_policy,
+        {log_signer_witness.value(), observer_two_log_bundle_witness.value()}, log_signer_bundle.value()));
+
+    auto witnessed_first = assemble_witnessed_transparency_checkpoint(
+        log_identity.value(), first_checkpoint, witness_policy,
+        {first_observer_two_witness.value(), first_observer_one_witness.value()}, bundle.value());
+    auto witnessed_second = assemble_witnessed_transparency_checkpoint(
+        log_identity.value(), observation_record.value().checkpoint, witness_policy,
+        {second_observer_two_witness.value(), second_observer_one_witness.value()}, bundle.value());
+    CHECK(witnessed_first);
+    CHECK(witnessed_second);
+    CHECK(witnessed_second.value().cosignatures.front().witness_service_id == "observer-one");
+    CHECK(verify_witnessed_transparency_checkpoint(log_identity.value(), witnessed_first.value(),
+                                                   bundle.value()));
+    CHECK(verify_witnessed_transparency_checkpoint(log_identity.value(), witnessed_second.value(),
+                                                   bundle.value()));
+    CHECK(witnessed_second.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!witnessed_second.value().authorizes_execution());
+    CHECK(!assemble_witnessed_transparency_checkpoint(
+        log_identity.value(), observation_record.value().checkpoint, witness_policy,
+        {second_observer_one_witness.value(), second_observer_one_witness.value()}, bundle.value()));
+    auto three_witness_policy = witness_policy;
+    three_witness_policy.minimum_witnesses = 3;
+    CHECK(!assemble_witnessed_transparency_checkpoint(
+        log_identity.value(), observation_record.value().checkpoint, three_witness_policy,
+        {second_observer_one_witness.value(), second_observer_two_witness.value()}, bundle.value()));
+
+    auto first_gossip = sign_transparency_checkpoint_gossip(
+        log_identity.value(), witnessed_first.value(), std::nullopt, "transparency-auditor", 1, "",
+        bundle.value(), safety_key.value().service_id, safety_key.value().id, safety_pair.value().secret_key);
+    auto second_gossip = sign_transparency_checkpoint_gossip(
+        log_identity.value(), witnessed_second.value(), compact_consistency.value(), "transparency-auditor",
+        2, first_gossip ? first_gossip.value().id : std::string{}, bundle.value(),
+        safety_key.value().service_id, safety_key.value().id, safety_pair.value().secret_key);
+    CHECK(first_gossip);
+    CHECK(second_gossip);
+    CHECK(verify_transparency_checkpoint_gossip(log_identity.value(), first_gossip.value(), bundle.value()));
+    CHECK(verify_transparency_checkpoint_gossip(log_identity.value(), second_gossip.value(), bundle.value()));
+    CHECK(second_gossip.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!second_gossip.value().authorizes_execution());
+    auto consistent_gossip = audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{second_gossip.value(), first_gossip.value()},
+        bundle.value());
+    CHECK(consistent_gossip);
+    CHECK(consistent_gossip.value().status == TransparencyGossipStatus::Consistent);
+    CHECK(consistent_gossip.value().linked_checkpoint_pairs == 1);
+    CHECK(consistent_gossip.value().unlinked_checkpoint_pairs == 0);
+    CHECK(consistent_gossip.value().conflicts.empty());
+    CHECK(consistent_gossip.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!consistent_gossip.value().authorizes_execution());
+    CHECK(!audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{first_gossip.value(), first_gossip.value()},
+        bundle.value()));
+    TransparencyGossipAuditOptions one_gossip_message;
+    one_gossip_message.maximum_gossip_messages = 1;
+    CHECK(!audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{first_gossip.value(), second_gossip.value()},
+        bundle.value(), one_gossip_message));
+    TransparencyGossipAuditOptions one_unique_checkpoint;
+    one_unique_checkpoint.maximum_unique_checkpoints = 1;
+    CHECK(!audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{first_gossip.value(), second_gossip.value()},
+        bundle.value(), one_unique_checkpoint));
+    TransparencyGossipAuditOptions cancelled_gossip_audit;
+    cancelled_gossip_audit.cancellation.cancel();
+    CHECK(!audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{first_gossip.value(), second_gossip.value()},
+        bundle.value(), cancelled_gossip_audit));
+
+    auto unlinked_second_gossip = sign_transparency_checkpoint_gossip(
+        log_identity.value(), witnessed_second.value(), std::nullopt, "transparency-auditor", 1, "",
+        bundle.value(), controls_key.value().service_id, controls_key.value().id,
+        controls_pair.value().secret_key);
+    CHECK(unlinked_second_gossip);
+    auto incomplete_gossip = audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{first_gossip.value(), unlinked_second_gossip.value()},
+        bundle.value());
+    CHECK(incomplete_gossip);
+    CHECK(incomplete_gossip.value().status == TransparencyGossipStatus::Incomplete);
+    CHECK(incomplete_gossip.value().unlinked_checkpoint_pairs == 1);
+
+    auto invalid_consistency = compact_consistency.value();
+    invalid_consistency.appended_subtrees.front().hash = digest('0');
+    invalid_consistency.id = internal::transparency_compact_consistency_proof_identity(invalid_consistency);
+    auto invalid_consistency_gossip = sign_transparency_checkpoint_gossip(
+        log_identity.value(), witnessed_second.value(), invalid_consistency, "transparency-auditor", 1, "",
+        bundle.value(), controls_key.value().service_id, controls_key.value().id,
+        controls_pair.value().secret_key);
+    CHECK(invalid_consistency_gossip);
+    auto invalid_consistency_report = audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{first_gossip.value(), invalid_consistency_gossip.value()},
+        bundle.value());
+    CHECK(invalid_consistency_report);
+    CHECK(invalid_consistency_report.value().status == TransparencyGossipStatus::SplitView);
+    CHECK(invalid_consistency_report.value().conflicts.size() == 1);
+    CHECK(invalid_consistency_report.value().conflicts.front().type ==
+          TransparencyGossipConflictType::InvalidConsistencyProof);
+
+    const auto fork_path = temporary / "fork-transparency-log";
+    auto fork_log = TransparencyLog::create(fork_path, log_identity.value());
+    CHECK(fork_log);
+    auto fork_first =
+        fork_log.value().publish_deployment_anchor(anchor.value(), transparency_pair.value().secret_key, "");
+    CHECK(fork_first);
+    CHECK(fork_first.value().checkpoint.id == first_checkpoint.id);
+    auto fork_second = fork_log.value().publish_deployment_anchor(
+        anchor.value(), transparency_pair.value().secret_key, fork_log.value().current_checkpoint_id());
+    CHECK(fork_second);
+    CHECK(fork_second.value().checkpoint.tree_size == observation_record.value().checkpoint.tree_size);
+    CHECK(fork_second.value().checkpoint.id != observation_record.value().checkpoint.id);
+    auto fork_observer_one_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), fork_second.value().checkpoint, bundle.value(),
+        observer_one_key.value().service_id, observer_one_key.value().id,
+        observer_one_pair.value().secret_key);
+    auto fork_observer_two_witness = sign_transparency_checkpoint_witness(
+        log_identity.value(), fork_second.value().checkpoint, bundle.value(),
+        observer_two_key.value().service_id, observer_two_key.value().id,
+        observer_two_pair.value().secret_key);
+    CHECK(fork_observer_one_witness);
+    CHECK(fork_observer_two_witness);
+    auto witnessed_fork = assemble_witnessed_transparency_checkpoint(
+        log_identity.value(), fork_second.value().checkpoint, witness_policy,
+        {fork_observer_two_witness.value(), fork_observer_one_witness.value()}, bundle.value());
+    CHECK(witnessed_fork);
+    auto fork_consistency = fork_log.value().compact_consistency_proof(1);
+    CHECK(fork_consistency);
+    auto fork_gossip = sign_transparency_checkpoint_gossip(
+        log_identity.value(), witnessed_fork.value(), fork_consistency.value(), "transparency-auditor", 1, "",
+        bundle.value(), controls_key.value().service_id, controls_key.value().id,
+        controls_pair.value().secret_key);
+    CHECK(fork_gossip);
+    auto split_view_report = audit_transparency_checkpoint_gossip(
+        log_identity.value(),
+        std::vector<TransparencyCheckpointGossip>{first_gossip.value(), second_gossip.value(),
+                                                  fork_gossip.value()},
+        bundle.value());
+    CHECK(split_view_report);
+    CHECK(split_view_report.value().status == TransparencyGossipStatus::SplitView);
+    CHECK(std::any_of(split_view_report.value().conflicts.begin(), split_view_report.value().conflicts.end(),
+                      [](const auto& conflict) {
+                          return conflict.type == TransparencyGossipConflictType::SameSizeEquivocation;
+                      }));
+
+    const auto gossip_archive_path = temporary / "transparency-gossip-archive";
+    auto gossip_archive =
+        TransparencyGossipArchive::create(gossip_archive_path, log_identity.value(), bundle.value());
+    CHECK(gossip_archive);
+    CHECK(gossip_archive.value().valid());
+    CHECK(gossip_archive.value().records().empty());
+    CHECK(gossip_archive.value().current_record_id().empty());
+    CHECK(gossip_archive.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!gossip_archive.value().authorizes_execution());
+    CHECK(!TransparencyGossipArchive::create(gossip_archive_path, log_identity.value(), bundle.value()));
+    CHECK(TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                          bundle.value().id(), ""));
+
+    auto first_gossip_record = gossip_archive.value().publish(first_gossip.value(), "");
+    CHECK(first_gossip_record);
+    CHECK(first_gossip_record.value().sequence == 0);
+    CHECK(first_gossip_record.value().parent_id.empty());
+    CHECK(first_gossip_record.value().gossip.id == first_gossip.value().id);
+    CHECK(gossip_archive.value().records().size() == 1);
+    CHECK(!gossip_archive.value().publish(second_gossip.value(), ""));
+    auto second_gossip_record =
+        gossip_archive.value().publish(second_gossip.value(), first_gossip_record.value().id);
+    CHECK(second_gossip_record);
+    CHECK(second_gossip_record.value().sequence == 1);
+    CHECK(second_gossip_record.value().parent_id == first_gossip_record.value().id);
+    CHECK(gossip_archive.value().records().size() == 2);
+
+    auto archived_consistent = gossip_archive.value().audit();
+    CHECK(archived_consistent);
+    CHECK(archived_consistent.value().status == TransparencyGossipStatus::Consistent);
+    CHECK(archived_consistent.value().authenticated_gossip_count == 2);
+    CHECK(TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                          bundle.value().id(), gossip_archive.value().current_record_id()));
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), first_gossip_record.value().id));
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           digest('0'), gossip_archive.value().current_record_id()));
+
+    auto discontinuous_gossip = sign_transparency_checkpoint_gossip(
+        log_identity.value(), witnessed_fork.value(), fork_consistency.value(), "transparency-auditor", 3,
+        second_gossip.value().id, bundle.value(), controls_key.value().service_id, controls_key.value().id,
+        controls_pair.value().secret_key);
+    CHECK(discontinuous_gossip);
+    CHECK(!gossip_archive.value().publish(discontinuous_gossip.value(),
+                                          gossip_archive.value().current_record_id()));
+
+    auto fork_gossip_record =
+        gossip_archive.value().publish(fork_gossip.value(), gossip_archive.value().current_record_id());
+    CHECK(fork_gossip_record);
+    auto archived_split_view = gossip_archive.value().audit();
+    CHECK(archived_split_view);
+    CHECK(archived_split_view.value().status == TransparencyGossipStatus::SplitView);
+    CHECK(std::any_of(archived_split_view.value().conflicts.begin(),
+                      archived_split_view.value().conflicts.end(), [](const auto& conflict) {
+                          return conflict.type == TransparencyGossipConflictType::SameSizeEquivocation;
+                      }));
+
+    TransparencyGossipArchiveLoadOptions two_records;
+    two_records.maximum_records = 2;
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           two_records));
+    TransparencyGossipArchiveLoadOptions one_witness;
+    one_witness.maximum_witnesses_per_checkpoint = 1;
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           one_witness));
+    TransparencyGossipArchiveLoadOptions one_total_witness;
+    one_total_witness.maximum_total_witnesses = 1;
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           one_total_witness));
+    TransparencyGossipArchiveLoadOptions one_proof_subtree;
+    one_proof_subtree.maximum_proof_subtrees = 1;
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           one_proof_subtree));
+    TransparencyGossipArchiveLoadOptions one_total_proof_subtree;
+    one_total_proof_subtree.maximum_total_proof_subtrees = 1;
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           one_total_proof_subtree));
+    TransparencyGossipArchiveLoadOptions one_checkpoint;
+    one_checkpoint.maximum_unique_checkpoints = 1;
+    auto one_checkpoint_archive = TransparencyGossipArchive::open(
+        gossip_archive_path, log_identity.value(), bundle.value(), bundle.value().id(),
+        gossip_archive.value().current_record_id(), one_checkpoint);
+    CHECK(one_checkpoint_archive);
+    CHECK(!one_checkpoint_archive.value().audit());
+    TransparencyGossipArchiveLoadOptions no_pairs;
+    no_pairs.maximum_pair_checks = 1;
+    auto no_pairs_archive = TransparencyGossipArchive::open(
+        gossip_archive_path, log_identity.value(), bundle.value(), bundle.value().id(),
+        gossip_archive.value().current_record_id(), no_pairs);
+    CHECK(no_pairs_archive);
+    CHECK(!no_pairs_archive.value().audit());
+    TransparencyGossipArchiveLoadOptions one_graph_step;
+    one_graph_step.maximum_graph_steps = 1;
+    auto one_graph_step_archive = TransparencyGossipArchive::open(
+        gossip_archive_path, log_identity.value(), bundle.value(), bundle.value().id(),
+        gossip_archive.value().current_record_id(), one_graph_step);
+    CHECK(one_graph_step_archive);
+    CHECK(!one_graph_step_archive.value().audit());
+    TransparencyGossipArchiveLoadOptions tiny_gossip_manifest;
+    tiny_gossip_manifest.maximum_manifest_bytes = 1;
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           tiny_gossip_manifest));
+    TransparencyGossipArchiveLoadOptions tiny_gossip_record;
+    tiny_gossip_record.maximum_record_bytes = 1;
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           tiny_gossip_record));
+    TransparencyGossipArchiveLoadOptions cancelled_gossip_load;
+    cancelled_gossip_load.cancellation.cancel();
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id(),
+                                           cancelled_gossip_load));
+
+    std::filesystem::create_directory(gossip_archive_path / "records" / ".tmp-abandoned");
+    CHECK(TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                          bundle.value().id(), gossip_archive.value().current_record_id()));
+    std::filesystem::remove(gossip_archive_path / "records" / ".tmp-abandoned");
+    std::filesystem::create_directory(gossip_archive_path / "records" / "unexpected");
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
+    std::filesystem::remove(gossip_archive_path / "records" / "unexpected");
+    write_text(gossip_archive_path / "unexpected-root", "unexpected");
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
+    std::filesystem::remove(gossip_archive_path / "unexpected-root");
+
+    std::filesystem::create_directory(gossip_archive_path / ".writer-lock");
+    CHECK(!gossip_archive.value().publish(first_gossip.value(), gossip_archive.value().current_record_id()));
+    std::filesystem::remove(gossip_archive_path / ".writer-lock");
+
+    const auto gossip_manifest_path = gossip_archive_path / "manifest.json";
+    const auto gossip_manifest_text = read_text(gossip_manifest_path);
+    auto unknown_gossip_schema_manifest = gossip_manifest_text;
+    const auto gossip_schema_marker = unknown_gossip_schema_manifest.find("\"schema\": 1");
+    CHECK(gossip_schema_marker != std::string::npos);
+    unknown_gossip_schema_manifest.replace(gossip_schema_marker, std::string("\"schema\": 1").size(),
+                                           "\"schema\": 2");
+    write_text(gossip_manifest_path, unknown_gossip_schema_manifest);
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
+    write_text(gossip_manifest_path, gossip_manifest_text);
+    write_text(gossip_manifest_path, gossip_manifest_text.substr(0, gossip_manifest_text.size() / 2));
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
+    write_text(gossip_manifest_path, gossip_manifest_text);
+
+    const auto first_gossip_record_path =
+        gossip_archive_path / "records" /
+        ("00000000000000000000-" + first_gossip_record.value().id + ".json");
+    const auto first_gossip_record_text = read_text(first_gossip_record_path);
+    auto tampered_gossip_record_text = first_gossip_record_text;
+    const auto gossip_sender_marker =
+        tampered_gossip_record_text.find(first_gossip.value().recipient_service_id);
+    CHECK(gossip_sender_marker != std::string::npos);
+    tampered_gossip_record_text[gossip_sender_marker] =
+        tampered_gossip_record_text[gossip_sender_marker] == 't' ? 'x' : 't';
+    write_text(first_gossip_record_path, tampered_gossip_record_text);
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
+    write_text(first_gossip_record_path, first_gossip_record_text);
+    CHECK(TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                          bundle.value().id(), gossip_archive.value().current_record_id()));
+
+    const auto byte_limited_gossip_path = temporary / "byte-limited-gossip-archive";
+    CHECK(TransparencyGossipArchive::create(byte_limited_gossip_path, log_identity.value(), bundle.value()));
+    TransparencyGossipArchiveLoadOptions byte_limited_gossip_options;
+    byte_limited_gossip_options.maximum_record_bytes = 1;
+    auto byte_limited_gossip =
+        TransparencyGossipArchive::open(byte_limited_gossip_path, log_identity.value(), bundle.value(),
+                                        bundle.value().id(), "", byte_limited_gossip_options);
+    CHECK(byte_limited_gossip);
+    CHECK(!byte_limited_gossip.value().publish(first_gossip.value(), ""));
+    CHECK(byte_limited_gossip.value().records().empty());
 
     auto audit = log.value().audit();
     CHECK(audit);
@@ -389,6 +825,8 @@ int main() {
                                         transparency_key.value().id, transparency_pair.value().public_key);
     CHECK(wrong_identity);
     CHECK(!TransparencyLog::open(log_path, wrong_identity.value(), log.value().current_checkpoint_id()));
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, wrong_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
 
     TransparencyLogLoadOptions one_record;
     one_record.maximum_records = 1;
@@ -481,6 +919,28 @@ int main() {
                                                               transparency_pair.value().secret_key, ""));
     CHECK(byte_limited_log.value().records().empty());
 
+    const auto compact_path = temporary / "compact-consistency-log";
+    auto compact_log = TransparencyLog::create(compact_path, log_identity.value());
+    CHECK(compact_log);
+    std::vector<TransparencyLogCheckpoint> compact_checkpoints;
+    compact_checkpoints.reserve(17);
+    for (std::size_t index = 0; index < 17; ++index) {
+        auto published = compact_log.value().publish_deployment_anchor(
+            anchor.value(), transparency_pair.value().secret_key,
+            compact_log.value().current_checkpoint_id());
+        CHECK(published);
+        compact_checkpoints.push_back(published.value().checkpoint);
+    }
+    for (std::uint64_t old_size = 1; old_size < compact_checkpoints.size(); ++old_size) {
+        auto proof = compact_log.value().compact_consistency_proof(old_size);
+        CHECK(proof);
+        CHECK(proof.value().old_frontier.size() <= 64);
+        CHECK(proof.value().appended_subtrees.size() <= 128);
+        CHECK(verify_transparency_compact_consistency(
+            log_identity.value(), compact_checkpoints[static_cast<std::size_t>(old_size - 1U)],
+            compact_checkpoints.back(), proof.value()));
+    }
+
     auto fixed_log = TransparencyLog::open(
         std::filesystem::path(RBFSAFE_TEST_DATA_DIR) / "transparency_log_schema1", log_identity.value(),
         "86d47335bee5850b9c3a404e123d50bdb751cabee03a76de6361b8e25f03772f");
@@ -496,10 +956,50 @@ int main() {
           "d95ca7819bd6f1d5c3fbb084d35579c46fa2d620f8ac5c4cba690d77331f380f");
     CHECK(fixed_log.value().audit());
 
+    const auto fixed_session_fixture =
+        std::filesystem::path(RBFSAFE_TEST_DATA_DIR) / "bounded_execution_session_schema1";
+    auto fixed_checkpoint = ServiceTrustCheckpoint::load(fixed_session_fixture / "checkpoint.json");
+    CHECK(fixed_checkpoint);
+    auto fixed_history = ServiceTrustHistory::open(
+        fixed_session_fixture / "trust-history",
+        "3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780", fixed_checkpoint.value(),
+        "3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01");
+    CHECK(fixed_history);
+    auto fixed_bundle = fixed_history.value().current_bundle();
+    CHECK(fixed_bundle);
+    auto fixed_gossip_archive = TransparencyGossipArchive::open(
+        std::filesystem::path(RBFSAFE_TEST_DATA_DIR) / "transparency_gossip_archive_schema1",
+        log_identity.value(), fixed_bundle.value(), fixed_bundle.value().id(),
+        "fd5ac959b484ada7ea2ce15e7cc8bccf41d8b6eaa368d9dafc2aedcdb0036514");
+    CHECK(fixed_gossip_archive);
+    CHECK(fixed_gossip_archive.value().records().size() == 2);
+    CHECK(fixed_gossip_archive.value().records()[0].id ==
+          "e4752943e7e504114a181efe8115abb53447e137f542655dd53ada9bce5a4dd2");
+    CHECK(fixed_gossip_archive.value().records()[1].id ==
+          "fd5ac959b484ada7ea2ce15e7cc8bccf41d8b6eaa368d9dafc2aedcdb0036514");
+    auto fixed_gossip_audit = fixed_gossip_archive.value().audit();
+    CHECK(fixed_gossip_audit);
+    CHECK(fixed_gossip_audit.value().status == TransparencyGossipStatus::Consistent);
+    CHECK(fixed_gossip_audit.value().authenticated_gossip_count == 2);
+    CHECK(fixed_gossip_audit.value().unique_checkpoint_count == 2);
+
 #ifndef _WIN32
     const auto linked_log = temporary / "linked-log";
     std::filesystem::create_directory_symlink(log_path, linked_log);
     CHECK(!TransparencyLog::open(linked_log, log_identity.value(), log.value().current_checkpoint_id()));
+
+    const auto linked_gossip_archive = temporary / "linked-gossip-archive";
+    std::filesystem::create_directory_symlink(gossip_archive_path, linked_gossip_archive);
+    CHECK(!TransparencyGossipArchive::open(linked_gossip_archive, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
+
+    const auto linked_gossip_record = gossip_archive_path / "records" / "linked-record.json";
+    std::filesystem::create_symlink(gossip_archive_path / "records" /
+                                        ("00000000000000000000-" + first_gossip_record.value().id + ".json"),
+                                    linked_gossip_record);
+    CHECK(!TransparencyGossipArchive::open(gossip_archive_path, log_identity.value(), bundle.value(),
+                                           bundle.value().id(), gossip_archive.value().current_record_id()));
+    std::filesystem::remove(linked_gossip_record);
 #endif
 
     std::filesystem::remove_all(temporary);

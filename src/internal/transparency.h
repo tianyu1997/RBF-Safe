@@ -38,12 +38,16 @@ std::string transparency_log_checkpoint_identity(const TransparencyLogCheckpoint
 std::string transparency_log_record_identity(const TransparencyLogRecord& record);
 std::string transparency_inclusion_proof_identity(const TransparencyInclusionProof& proof);
 std::string transparency_consistency_witness_identity(const TransparencyConsistencyWitness& witness);
+std::string transparency_compact_consistency_proof_identity(const TransparencyCompactConsistencyProof& proof);
 std::string transparency_log_audit_report_identity(const TransparencyLogAuditReport& report);
 
 std::string transparency_leaf_hash(const std::string& leaf_id);
 std::string transparency_merkle_root(const std::vector<std::string>& ordered_leaf_ids);
 std::string transparency_append_merkle_leaf(std::array<std::string, 64>& frontier, const std::string& leaf_id,
                                             std::uint64_t previous_tree_size);
+std::string transparency_append_merkle_subtree(std::array<std::string, 64>& frontier,
+                                               const std::string& subtree_hash, std::uint8_t subtree_level,
+                                               std::uint64_t previous_tree_size);
 std::string transparency_merkle_frontier_root(const std::array<std::string, 64>& frontier);
 
 Result<void> append_transparency_log_record_file(const std::filesystem::path& directory,
