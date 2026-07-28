@@ -17,6 +17,7 @@
 #include <rbfsafe/optimization.h>
 #include <rbfsafe/planning.h>
 #include <rbfsafe/policy.h>
+#include <rbfsafe/provenance.h>
 #include <rbfsafe/region_database.h>
 #include <rbfsafe/remote.h>
 #include <rbfsafe/result.h>

@@ -43,6 +43,7 @@ from . import (
     TransparencyGossipArchive,
     TransparencyLog,
     TransparencyLogIdentity,
+    VerifiableProvenanceBundle,
     artifact_authentication_algorithm_name,
     artifact_transfer_authentication_name,
     artifact_transfer_operation_name,
@@ -58,6 +59,9 @@ from . import (
     deployment_review_role_name,
     execution_monitor_state_name,
     execution_ledger_status_name,
+    external_time_freshness_status_name,
+    hardware_provenance_status_name,
+    replay_verifiable_provenance,
     service_key_state_name,
     service_trust_rotation_event_type_name,
     transparency_leaf_kind_name,
@@ -234,6 +238,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="caller-retained current record ID for a transparency gossip archive",
     )
     parser.add_argument(
+        "--evaluated-at-ns",
+        type=int,
+        help="caller-supplied external-clock evaluation time for provenance freshness",
+    )
+    parser.add_argument(
         "--execution-command-index",
         type=int,
         help="exact command index to evaluate in a bounded execution session",
@@ -327,6 +336,64 @@ def main(argv: list[str] | None = None) -> int:
                 file_document = candidate
     except (OSError, UnicodeError, json.JSONDecodeError):
         pass
+    if file_document.get("format") == "rbfsafe-verifiable-provenance-bundle":
+        required = (
+            args.trust_history,
+            args.trust_checkpoint,
+            args.expected_trust_root,
+            args.expected_trust_checkpoint,
+            args.evaluated_at_ns,
+        )
+        if any(value is None for value in required):
+            parser.error(
+                "provenance inspection requires --trust-history, "
+                "--trust-checkpoint, --expected-trust-root, "
+                "--expected-trust-checkpoint, and --evaluated-at-ns"
+            )
+        if args.evaluated_at_ns < 0:
+            parser.error("--evaluated-at-ns must be non-negative")
+        provenance = VerifiableProvenanceBundle.load(args.atlas)
+        checkpoint = ServiceTrustCheckpoint.load(args.trust_checkpoint)
+        history = ServiceTrustHistory.open(
+            args.trust_history,
+            args.expected_trust_root,
+            checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        trust_bundle = history.bundle(provenance.trust_bundle_id)
+        audit = replay_verifiable_provenance(
+            provenance, trust_bundle, args.evaluated_at_ns
+        )
+        print(
+            "RBF-Safe verifiable-provenance-bundle "
+            f"schema={provenance.storage_schema}"
+        )
+        print(f"bundle_id={provenance.id}")
+        print(
+            f"subject_service={provenance.subject_key.service_id} "
+            f"subject_key={provenance.subject_key.id}"
+        )
+        print(f"trust_bundle={provenance.trust_bundle_id}")
+        print(
+            "hardware_status="
+            + hardware_provenance_status_name(audit.hardware.status)
+        )
+        print(
+            f"hardware_statements={audit.hardware.authenticated_statement_count} "
+            f"distinct_attesters={audit.hardware.distinct_attester_count}"
+        )
+        print(
+            "freshness_status="
+            + external_time_freshness_status_name(audit.freshness.status)
+        )
+        print(
+            f"time_sources={audit.freshness.authenticated_source_count} "
+            f"evaluated_at_ns={audit.freshness.evaluated_at_ns}"
+        )
+        print(f"ready={str(audit.ready).lower()}")
+        print("evidence=unknown")
+        print("authorizes_execution=false")
+        return 0
     if file_document.get("format") == "rbfsafe-bounded-execution-session":
         required = (
             args.reviewed_profile,

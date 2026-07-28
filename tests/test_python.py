@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.14.0"
+    assert rbfsafe.__version__ == "3.15.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -2530,6 +2530,180 @@ def test_bounded_execution_session(
         ).status
         == rbfsafe.ExecutionLedgerStatus.COMPLETED
     )
+
+
+def test_verifiable_provenance_signing_bindings() -> None:
+    subject_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(1, 33)))
+    attester_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(33, 65)))
+    time_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(65, 97)))
+    subject_key = rbfsafe.make_service_public_key(
+        "python-subject",
+        subject_pair.public_key,
+        state=rbfsafe.ServiceKeyState.ACTIVE,
+        allow_fetch=False,
+        allow_publish=True,
+    )
+    attester_key = rbfsafe.make_service_public_key(
+        "python-attester",
+        attester_pair.public_key,
+        state=rbfsafe.ServiceKeyState.ACTIVE,
+        allow_fetch=False,
+        allow_publish=True,
+    )
+    time_key = rbfsafe.make_service_public_key(
+        "python-time",
+        time_pair.public_key,
+        state=rbfsafe.ServiceKeyState.ACTIVE,
+        allow_fetch=False,
+        allow_publish=True,
+    )
+    trust_bundle = rbfsafe.ServiceTrustBundle.create(
+        1, "", [time_key, subject_key, attester_key]
+    )
+    adapter = rbfsafe.HardwareAttestationAdapterPin(
+        "python-normalizer", "1.0.0", "application/example-attestation"
+    )
+    hardware_policy = rbfsafe.HardwareKeyProvenancePolicy.create(
+        1,
+        True,
+        4,
+        [rbfsafe.HardwareAttestationScope.EXECUTION_CONTROL],
+        [adapter],
+        [rbfsafe.HardwareAttestationAuthority(attester_key.service_id, attester_key.id)],
+        ["python-vendor"],
+    )
+    statement_input = rbfsafe.HardwareKeyAttestationInput()
+    statement_input.subject_service_id = subject_key.service_id
+    statement_input.subject_key_id = subject_key.id
+    statement_input.subject_public_key = subject_key.public_key
+    statement_input.adapter = adapter
+    statement_input.vendor_id = "python-vendor"
+    statement_input.product_id = "python-device"
+    statement_input.evidence_digest = "a" * 64
+    statement_input.nonce_digest = "b" * 64
+    statement_input.scopes = [
+        rbfsafe.HardwareAttestationScope.EXECUTION_CONTROL
+    ]
+    statement = rbfsafe.sign_hardware_key_attestation_statement(
+        statement_input,
+        trust_bundle,
+        attester_key.service_id,
+        attester_key.id,
+        attester_pair.secret_key,
+    )
+    rbfsafe.verify_hardware_key_attestation_statement(statement, trust_bundle)
+    freshness_policy = rbfsafe.ExternalTimeFreshnessPolicy.create(
+        "python-clock",
+        100,
+        10,
+        20,
+        1,
+        True,
+        4,
+        [rbfsafe.ExternalTimeSource(time_key.service_id, time_key.id)],
+    )
+    time_input = rbfsafe.ExternalTimeAssertionInput()
+    time_input.subject_id = subject_key.id
+    time_input.clock_id = freshness_policy.clock_id
+    time_input.asserted_time_ns = 1_000
+    time_input.uncertainty_ns = 10
+    assertion = rbfsafe.sign_external_time_assertion(
+        time_input,
+        trust_bundle,
+        time_key.service_id,
+        time_key.id,
+        time_pair.secret_key,
+    )
+    rbfsafe.verify_external_time_assertion(assertion, trust_bundle)
+    provenance = rbfsafe.VerifiableProvenanceBundle.create(
+        subject_key,
+        hardware_policy,
+        freshness_policy,
+        [statement],
+        [assertion],
+        trust_bundle,
+    )
+    audit = rbfsafe.replay_verifiable_provenance(
+        provenance, trust_bundle, 1_000
+    )
+    assert audit.ready
+    assert audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not audit.authorizes_execution
+
+
+def test_verifiable_provenance_fixture_and_cli(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "provenance_bundle_schema1"
+    )
+    provenance = rbfsafe.VerifiableProvenanceBundle.load(
+        fixture / "provenance.json"
+    )
+    assert (
+        provenance.id
+        == "eef49057478c4545ade19a52aee0965539956235bd46dbd480c54da77ede9690"
+    )
+    assert provenance.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not provenance.authorizes_execution
+    checkpoint = rbfsafe.ServiceTrustCheckpoint.load(
+        fixture / "checkpoint.json"
+    )
+    history = rbfsafe.ServiceTrustHistory.open(
+        fixture / "trust-history",
+        checkpoint.root_bundle_id,
+        checkpoint,
+        checkpoint.id,
+    )
+    trust_bundle = history.bundle(provenance.trust_bundle_id)
+    audit = rbfsafe.replay_verifiable_provenance(
+        provenance, trust_bundle, 1_000_000
+    )
+    assert audit.hardware.status == rbfsafe.HardwareProvenanceStatus.SATISFIED
+    assert audit.hardware.authenticated_statement_count == 2
+    assert audit.hardware.distinct_attester_count == 2
+    assert (
+        audit.freshness.status
+        == rbfsafe.ExternalTimeFreshnessStatus.FRESH
+    )
+    assert audit.freshness.authenticated_source_count == 2
+    assert audit.ready
+    assert audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not audit.authorizes_execution
+    stale = rbfsafe.replay_verifiable_provenance(
+        provenance, trust_bundle, 2_000_000
+    )
+    assert stale.freshness.status == rbfsafe.ExternalTimeFreshnessStatus.STALE
+    assert not stale.ready
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(fixture / "provenance.json"),
+                "--trust-history",
+                str(fixture / "trust-history"),
+                "--trust-checkpoint",
+                str(fixture / "checkpoint.json"),
+                "--expected-trust-root",
+                checkpoint.root_bundle_id,
+                "--expected-trust-checkpoint",
+                checkpoint.id,
+                "--evaluated-at-ns",
+                "1000000",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "verifiable-provenance-bundle schema=1" in output
+    assert "hardware_status=SATISFIED" in output
+    assert "freshness_status=FRESH" in output
+    assert "ready=true" in output
+    assert "authorizes_execution=false" in output
 
 
 def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

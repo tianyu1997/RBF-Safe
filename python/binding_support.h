@@ -88,5 +88,6 @@ void bind_deployment(py::module_& module);
 void bind_execution(py::module_& module);
 void bind_transparency(py::module_& module);
 void bind_witness(py::module_& module);
+void bind_provenance(py::module_& module);
 
 } // namespace rbfsafe::python_binding

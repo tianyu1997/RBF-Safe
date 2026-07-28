@@ -32,6 +32,9 @@ inclusion proofs, explicit prefix-consistency witnesses, and bounded
 expected-head persistence. Version 3.14 adds compact frontier/subtree
 consistency proofs, independently cosigned checkpoint quorums, authenticated
 gossip, split-view detection, and bounded append-only gossip archives.
+Version 3.15 adds explicitly scoped adapter-normalized hardware-key statement
+chains, signed external-time source chains, caller-pinned freshness policy,
+combined replay, and bounded provenance-bundle persistence.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 3.x line. Additive API changes may appear in

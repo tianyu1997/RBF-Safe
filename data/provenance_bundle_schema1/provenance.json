@@ -1,0 +1,168 @@
+{
+  "checksum": "a160355d7bf28128f89ecab1d791cf5891515744b24edb80367b1b398665187a",
+  "format": "rbfsafe-verifiable-provenance-bundle",
+  "library_version": "3.15.0",
+  "payload": {
+    "freshness_policy": {
+      "allowed_sources": [
+        {
+          "key_id": "074ad20cae78f1540a970d850453e1e129d93bb95c4521a564a88cf9a44ef1f5",
+          "service_id": "fixture-time-one"
+        },
+        {
+          "key_id": "87143b57ab7a48876f62cd6e9292e52e1fb2837a6c51a3c9710383eb1c8777fa",
+          "service_id": "fixture-time-two"
+        }
+      ],
+      "clock_id": "unix-utc-ns",
+      "id": "0f6c9ad9bd0a7ee77a07c7feaf805863497877f228a32d1c239b439c01ed4286",
+      "maximum_age_ns": "100000",
+      "maximum_assertions": "16",
+      "maximum_future_skew_ns": "25000",
+      "maximum_uncertainty_ns": "20000",
+      "minimum_sources": "2",
+      "require_distinct_services": true,
+      "storage_schema": "1"
+    },
+    "hardware_policy": {
+      "allowed_adapters": [
+        {
+          "adapter_id": "fixture-tpm2-normalizer",
+          "adapter_version": "1.0.0",
+          "statement_format": "application/vnd.tcg.tpm2-quote"
+        }
+      ],
+      "allowed_authorities": [
+        {
+          "key_id": "5c25f4cfd0931bf087f4817ee853a1dfab8e9a936364dbcddd07038ccd0f8095",
+          "service_id": "fixture-attester-one"
+        },
+        {
+          "key_id": "09a0119ab6788b4b8051342608a07ebc3c5460c0512a57f3cafbcdb28ad9105b",
+          "service_id": "fixture-attester-two"
+        }
+      ],
+      "allowed_vendor_ids": [
+        "fixture-vendor"
+      ],
+      "id": "bea03eb8e861ce9eac6d824e5ef3365b1f923d2e0cedec8499052cfd4931535b",
+      "maximum_chain_length": "8",
+      "minimum_statements": "2",
+      "require_distinct_attesters": true,
+      "required_scopes": [
+        1,
+        4
+      ],
+      "storage_schema": "1"
+    },
+    "hardware_statements": [
+      {
+        "adapter": {
+          "adapter_id": "fixture-tpm2-normalizer",
+          "adapter_version": "1.0.0",
+          "statement_format": "application/vnd.tcg.tpm2-quote"
+        },
+        "algorithm": 1,
+        "attester_key_id": "5c25f4cfd0931bf087f4817ee853a1dfab8e9a936364dbcddd07038ccd0f8095",
+        "attester_service_id": "fixture-attester-one",
+        "authentication_tag": "4e99cd3944b2e4acc9c084b29ef1ea407e8ff9e23c588ea898d67fa1b10dd12f156e3fa322d97987dfdbb895c8eb92f9ba3fc2cab82214aa4299d933e4a0270f",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "id": "1aa10950e6c4070234d4758be66acfcd95b9b646c2597b882b75b7718e929311",
+        "nonce_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "parent_statement_id": "",
+        "product_id": "fixture-secure-element",
+        "scopes": [
+          1,
+          4
+        ],
+        "sequence": "1",
+        "storage_schema": "1",
+        "subject_key_id": "bf61f541334b6cc155ffa5b187b5aad84c52e81bf40ae588d75219002dc3b0d0",
+        "subject_public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+        "subject_service_id": "fixture-controller",
+        "trust_bundle_id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+        "trust_bundle_sequence": "1",
+        "vendor_id": "fixture-vendor"
+      },
+      {
+        "adapter": {
+          "adapter_id": "fixture-tpm2-normalizer",
+          "adapter_version": "1.0.0",
+          "statement_format": "application/vnd.tcg.tpm2-quote"
+        },
+        "algorithm": 1,
+        "attester_key_id": "09a0119ab6788b4b8051342608a07ebc3c5460c0512a57f3cafbcdb28ad9105b",
+        "attester_service_id": "fixture-attester-two",
+        "authentication_tag": "7c188b7ab2a57a260454ab642edc5ea44baa6d7d441aacd7a6a06dcf5326fdfa9695fce6d8f7ae5a0e64f7dabc255fe2c49b5d0f436640ceb1dbf7030ed6fd0b",
+        "evidence_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "id": "78c26e2b18539e581545943d572580e7b34fd7460594a707ee26835e0eee3d49",
+        "nonce_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "parent_statement_id": "1aa10950e6c4070234d4758be66acfcd95b9b646c2597b882b75b7718e929311",
+        "product_id": "fixture-secure-element",
+        "scopes": [
+          1,
+          4
+        ],
+        "sequence": "2",
+        "storage_schema": "1",
+        "subject_key_id": "bf61f541334b6cc155ffa5b187b5aad84c52e81bf40ae588d75219002dc3b0d0",
+        "subject_public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+        "subject_service_id": "fixture-controller",
+        "trust_bundle_id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+        "trust_bundle_sequence": "1",
+        "vendor_id": "fixture-vendor"
+      }
+    ],
+    "id": "eef49057478c4545ade19a52aee0965539956235bd46dbd480c54da77ede9690",
+    "storage_schema": "1",
+    "subject_key": {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "bf61f541334b6cc155ffa5b187b5aad84c52e81bf40ae588d75219002dc3b0d0",
+      "public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+      "service_id": "fixture-controller",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    "time_assertions": [
+      {
+        "algorithm": 1,
+        "asserted_time_ns": "990000",
+        "authentication_tag": "e78093197340cb69e66e5a761d920e70dbe9a523704b3d79bfbda0ec1de7c8d8cb9683d1ecece1444826485aba60cdd7596d7eb10ad0d3e514a634da139e4f0b",
+        "clock_id": "unix-utc-ns",
+        "id": "8cdd4e6ff3bbcb2664271412e9a46ae6b99665f7b3a78d5357db291bec0406d3",
+        "parent_assertion_id": "",
+        "source_key_id": "074ad20cae78f1540a970d850453e1e129d93bb95c4521a564a88cf9a44ef1f5",
+        "source_sequence": "1",
+        "source_service_id": "fixture-time-one",
+        "storage_schema": "1",
+        "subject_id": "bf61f541334b6cc155ffa5b187b5aad84c52e81bf40ae588d75219002dc3b0d0",
+        "trust_bundle_id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+        "trust_bundle_sequence": "1",
+        "uncertainty_ns": "20000"
+      },
+      {
+        "algorithm": 1,
+        "asserted_time_ns": "1000000",
+        "authentication_tag": "e2331d31e0234b42b79c12d9aaba841704c47fe492de63261105a0db10ed18ded2e14e0ff44bead81ecb184fb4144d87e5335ec9ad9f19cb9734260175df600c",
+        "clock_id": "unix-utc-ns",
+        "id": "d26c397deaad8442badb17cadb297a20d5d0c2fa2d44cc79d9c3810002c9dcc9",
+        "parent_assertion_id": "",
+        "source_key_id": "87143b57ab7a48876f62cd6e9292e52e1fb2837a6c51a3c9710383eb1c8777fa",
+        "source_sequence": "1",
+        "source_service_id": "fixture-time-two",
+        "storage_schema": "1",
+        "subject_id": "bf61f541334b6cc155ffa5b187b5aad84c52e81bf40ae588d75219002dc3b0d0",
+        "trust_bundle_id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+        "trust_bundle_sequence": "1",
+        "uncertainty_ns": "10000"
+      }
+    ],
+    "trust_bundle_id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+    "trust_bundle_sequence": "1"
+  },
+  "schema": 1
+}

@@ -357,14 +357,23 @@ trustworthy time, independent hardware custody, or physical observation.
 Gossip messages, conflicts, archives, and audit reports remain `Unknown` and
 non-authorizing.
 
-The execution, transparency, and witness layers do not prove that an endpoint key belongs to physical hardware, that
-the clock or observation is trustworthy, that a command was transmitted or
+The v3.15 provenance layer can authenticate a contiguous chain of normalized
+hardware-key statements against exact caller-approved adapter, authority,
+vendor, and usage pins. It can also authenticate per-source external-time
+chains and conservatively evaluate their uncertainty intersection at a
+caller-supplied time. It does not validate a vendor blob, establish physical
+key custody, choose a trustworthy adapter/source/clock, or authorize
+execution. `SATISFIED`, `FRESH`, and `ready` remain `Unknown`.
+
+The execution, transparency, witness, and provenance layers do not prove that
+an endpoint key belongs to physical hardware, that the clock or observation is
+trustworthy, that a command was transmitted or
 executed, that tracking remained inside the certified geometry, or that the
 scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v3.14
+## Explicit exclusions in v3.15
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -383,7 +392,9 @@ responsibilities.
   profile, a bounded session, ledger state/audit, transparency anchor,
   independent observation, log record/checkpoint/proof/witness, checkpoint
   cosignature, gossip message/archive/conflict, and transparency or gossip
-  audit are not runtime-execution approvals.
+  audit, hardware provenance statement/report, external-time assertion/report,
+  provenance bundle, and combined provenance `ready` status are not
+  runtime-execution approvals.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic
@@ -419,6 +430,16 @@ responsibilities.
   supplied checkpoints, but cannot detect a view that no independent party
   retained or exchanged, select a globally newest view, or prevent complete
   coordinated rollback of the archive and all caller pins.
+- Hardware adapter IDs, versions, formats, vendor/product labels, evidence
+  digests, nonce digests, and usage scopes are normalized caller/adapter
+  inputs. RBF-Safe verifies their exact signed bytes and policy membership but
+  does not parse raw TPM/TEE/HSM evidence, ship a vendor trust root, or certify
+  device manufacture, configuration, custody, anti-rollback state, or
+  resistance to key extraction.
+- External-time clock namespaces, timestamps, uncertainty, source identity,
+  freshness limits, and evaluation time are explicit inputs. Signature and
+  interval replay do not make UTC or a local clock trustworthy, synchronize
+  devices, detect every source compromise, or bind time to physical execution.
 - Deployment-profile identities, reviewer roles, timing bounds, monitor
   status, transport status, and artifact-authentication status are
   caller-governed declarations. A valid signature proves approval of exact

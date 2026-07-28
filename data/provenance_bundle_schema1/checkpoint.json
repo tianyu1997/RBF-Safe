@@ -1,0 +1,18 @@
+{
+  "format": "rbfsafe-service-trust-checkpoint",
+  "head_bundle_id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+  "head_record_id": "2adedeab51d1afce9f420a9f64b4acbb9f0668c434b227b740b9e13438366484",
+  "head_sequence": "1",
+  "id": "6aa7aa5c91644205fa67e0caf6858a7f11ba0bb03aec2c548ba941624984137b",
+  "library_version": "3.15.0",
+  "root_bundle_id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+  "schema": 1,
+  "signatures": [
+    {
+      "algorithm": 1,
+      "authentication_tag": "ee85fb9b71ed3303717804b02489ddaf6a29607b6fa16323f329f60ac528cc583386ebfa4e7583c5b7b99c3eaa4137cc8f13ff385c6e2916063f444cc49e170e",
+      "signer_key_id": "f07dde6d868cabf2d2674fcee758c5814defedf2d91a736f2e532ea0573e85f8",
+      "signer_service_id": "fixture-governance"
+    }
+  ]
+}

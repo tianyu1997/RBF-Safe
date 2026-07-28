@@ -11,6 +11,7 @@ RBFSafe::geometry
           |-> RBFSafe::memory -> RBFSafe::trust -> RBFSafe::remote
                                                       |
                                                       +-> RBFSafe::identity
+                                                               |-> RBFSafe::provenance
                                                                |
                                                                +-> RBFSafe::deployment
                                                                       |
@@ -245,6 +246,20 @@ discover peers, decide which checkpoint is globally newest, attest physical
 key custody, read a clock or sensor, or turn an audit result into execution
 authority. Caller-pinned trust bundles and retained heads remain external
 inputs; all results are `Unknown`.
+
+### Verifiable provenance and external-time boundary
+
+`RBFSafe::provenance` depends on `RBFSafe::identity`. It owns canonical signed
+hardware-key statements, explicit adapter/authority/vendor/scope policy,
+append-only statement replay, signed per-source external-time chains,
+conservative uncertainty intersection, freshness status, and checksummed
+schema-1 bundle persistence.
+
+Vendor evidence parsing and root validation are adapter responsibilities.
+The module has no default vendor, adapter, time source, clock, network, or
+hardware I/O. Callers pin all accepted identities and supply the evaluation
+time. `SATISFIED`, `FRESH`, and the combined `ready()` flag remain
+non-authorizing `Unknown` audit metadata and never modify execution evidence.
 
 ### Python and tools
 

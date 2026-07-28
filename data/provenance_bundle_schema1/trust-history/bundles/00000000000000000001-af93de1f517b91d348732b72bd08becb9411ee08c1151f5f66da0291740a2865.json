@@ -1,0 +1,82 @@
+{
+  "format": "rbfsafe-service-trust-bundle",
+  "id": "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865",
+  "keys": [
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "5c25f4cfd0931bf087f4817ee853a1dfab8e9a936364dbcddd07038ccd0f8095",
+      "public_key": "e7f162a10bec559afea195e4dce84b69568d5d2cb0963eb446c0685e2b17f2f0",
+      "service_id": "fixture-attester-one",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "09a0119ab6788b4b8051342608a07ebc3c5460c0512a57f3cafbcdb28ad9105b",
+      "public_key": "adc14011f82d1c56d956aa4f9d73d8858361a606048525e0d08c638dc75dd8c7",
+      "service_id": "fixture-attester-two",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "bf61f541334b6cc155ffa5b187b5aad84c52e81bf40ae588d75219002dc3b0d0",
+      "public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+      "service_id": "fixture-controller",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": false,
+      "allow_rotate": true,
+      "id": "f07dde6d868cabf2d2674fcee758c5814defedf2d91a736f2e532ea0573e85f8",
+      "public_key": "0b47823e71095dd59be78ac271c576ef389f87b64561ab07cf9a4ebcd02d2041",
+      "service_id": "fixture-governance",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "074ad20cae78f1540a970d850453e1e129d93bb95c4521a564a88cf9a44ef1f5",
+      "public_key": "882d0ea3b2864e7a587f3e698cea4459998312e655e05fa5e8b5119d8baac8cd",
+      "service_id": "fixture-time-one",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    },
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": false,
+      "id": "87143b57ab7a48876f62cd6e9292e52e1fb2837a6c51a3c9710383eb1c8777fa",
+      "public_key": "020bd427446b723424d80d2cad352ba3df3649d0ef8faae0ca7eb25443941b29",
+      "service_id": "fixture-time-two",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    }
+  ],
+  "library_version": "3.15.0",
+  "parent_id": "",
+  "schema": 2,
+  "sequence": "1"
+}
