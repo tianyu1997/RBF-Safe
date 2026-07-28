@@ -36,6 +36,7 @@ rbfsafe_add_test(rbfsafe_test_execution_ledger test_execution_ledger.cpp)
 rbfsafe_add_test(rbfsafe_test_transparency test_transparency.cpp)
 target_include_directories(rbfsafe_test_transparency PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 rbfsafe_add_test(rbfsafe_test_provenance test_provenance.cpp)
+rbfsafe_add_test(rbfsafe_test_occupancy test_occupancy.cpp)
 
 if(TARGET rbfsafe_inspect)
     add_test(
@@ -70,6 +71,10 @@ if(TARGET rbfsafe_inspect)
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/provenance_bundle_schema1/checkpoint.json
             6aa7aa5c91644205fa67e0caf6858a7f11ba0bb03aec2c548ba941624984137b
             1000000)
+    add_test(
+        NAME rbfsafe_continuous_occupancy_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/continuous_fleet_occupancy_schema1/occupancy.json)
     add_test(
         NAME rbfsafe_execution_ledger_fixture_inspect
         COMMAND rbfsafe_inspect

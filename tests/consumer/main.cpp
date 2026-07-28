@@ -31,9 +31,10 @@ int main() {
     const rbfsafe::TransparencyLogLoadOptions transparency_load_options;
     const rbfsafe::TransparencyGossipArchiveLoadOptions gossip_load_options;
     const rbfsafe::VerifiableProvenanceBundleLoadOptions provenance_load_options;
+    const rbfsafe::ContinuousFleetOccupancyBundleLoadOptions occupancy_load_options;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
-    return RBFSAFE_VERSION_MAJOR == 3 && RBFSAFE_VERSION_MINOR == 15 && RBFSAFE_VERSION_PATCH == 0 &&
+    return RBFSAFE_VERSION_MAJOR == 4 && RBFSAFE_VERSION_MINOR == 0 && RBFSAFE_VERSION_PATCH == 0 &&
                    interval.contains(0.0) && options.maximum_region_tests > 0 &&
                    hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
                    update_options.maximum_validations > 0 && obb_atlas_options.maximum_validations > 0 &&
@@ -52,6 +53,10 @@ int main() {
                    execution_ledger_load_options.maximum_records > 0 &&
                    transparency_load_options.maximum_records > 0 && gossip_load_options.maximum_records > 0 &&
                    provenance_load_options.maximum_statements > 0 &&
+                   occupancy_load_options.maximum_link_envelopes > 0 &&
+                   rbfsafe::continuous_fleet_occupancy_status_name(
+                       rbfsafe::ContinuousFleetOccupancyStatus::CertifiedSeparatedUnderSweptEnvelopes) ==
+                       "CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES" &&
                    rbfsafe::hardware_provenance_status_name(rbfsafe::HardwareProvenanceStatus::Satisfied) ==
                        "SATISFIED" &&
                    rbfsafe::external_time_freshness_status_name(

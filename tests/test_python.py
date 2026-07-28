@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "3.15.0"
+    assert rbfsafe.__version__ == "4.0.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -2744,3 +2744,113 @@ def test_trajectory_auditor_and_cli(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert "trajectory_status=PARTIAL" in output
     assert "trajectory_coverage=0.6" in output
     assert "trajectory_uncovered=0:(0.6,1]" in output
+
+
+def test_continuous_fleet_occupancy_and_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    robot_path = Path(__file__).resolve().parents[1] / "data" / "planar_2r.json"
+    robot = rbfsafe.SerialRobotModel.from_json(robot_path)
+    waypoints = [
+        rbfsafe.TimedConfiguration(0, [-0.2, 0.1]),
+        rbfsafe.TimedConfiguration(32, [0.2, -0.1]),
+    ]
+    build_options = rbfsafe.ContinuousOccupancyBuildOptions()
+    build_options.maximum_normalized_joint_width = 0.05
+    first = rbfsafe.build_robot_trajectory_occupancy(
+        robot,
+        "python-cell-clock-v1",
+        "python-cell-world",
+        "arm-a",
+        [-4.0, 0.0, 0.0],
+        waypoints,
+        build_options,
+    )
+    second = rbfsafe.build_robot_trajectory_occupancy(
+        robot,
+        "python-cell-clock-v1",
+        "python-cell-world",
+        "arm-b",
+        [4.0, 0.0, 0.0],
+        waypoints,
+        build_options,
+    )
+    assert first.valid()
+    assert second.valid()
+    assert first.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not first.authorizes_execution
+    rbfsafe.verify_robot_trajectory_occupancy(robot, first)
+
+    analysis_options = rbfsafe.ContinuousFleetOccupancyOptions()
+    analysis_options.minimum_separation = 1.0
+    with pytest.raises(ValueError):
+        rbfsafe.analyze_continuous_fleet_occupancy(
+            [first], analysis_options
+        )
+    report = rbfsafe.analyze_continuous_fleet_occupancy(
+        [second, first], analysis_options
+    )
+    assert (
+        report.status
+        == rbfsafe.ContinuousFleetOccupancyStatus.CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES
+    )
+    assert not report.conflicts
+    assert report.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not report.authorizes_execution
+
+    bundle = rbfsafe.ContinuousFleetOccupancyBundle.create(
+        [second, first], analysis_options
+    )
+    destination = tmp_path / "continuous-occupancy.json"
+    bundle.save(destination)
+    loaded = rbfsafe.ContinuousFleetOccupancyBundle.load(destination)
+    assert loaded.id == bundle.id
+    assert loaded.valid()
+    assert not loaded.authorizes_execution
+
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "continuous_fleet_occupancy_schema1"
+    )
+    fixed = rbfsafe.ContinuousFleetOccupancyBundle.load(
+        fixture / "occupancy.json"
+    )
+    fixed_robot = rbfsafe.SerialRobotModel.from_json(fixture / "robot.json")
+    assert (
+        fixed.id
+        == "d9a6a28c80ae86a28b996c8da954c33c725d9883a22f9f080f22d51e72be4231"
+    )
+    for occupancy in fixed.occupancies:
+        rbfsafe.verify_robot_trajectory_occupancy(fixed_robot, occupancy)
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(destination),
+                "--occupancy-robot",
+                f"arm-a={robot_path}",
+                "--occupancy-robot",
+                f"arm-b={robot_path}",
+                "--occupancy-minimum-separation",
+                "10.0",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "continuous-fleet-occupancy-bundle schema=1" in output
+    assert "status=POTENTIAL_CONFLICT" in output
+    assert "robot_replay_verified=true" in output
+    assert "evidence=unknown" in output
+    assert "authorizes_execution=false" in output
+    with pytest.raises(SystemExit):
+        main(
+            [
+                str(destination),
+                "--occupancy-robot",
+                f"arm-a={robot_path}",
+            ]
+        )

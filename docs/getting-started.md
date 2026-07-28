@@ -724,3 +724,46 @@ transport/discovery layer. A valid log or witness archive proves retained
 software statements, not physical execution. See
 [deployment and runtime transparency](transparency-log-format.md) and
 [witnessed transparency](witnessed-transparency.md).
+
+## 19. Compare continuous fleet occupancy
+
+Build a conservative swept-link occupancy for each timestamped
+piecewise-linear joint trajectory, then compare robots that share the exact
+same timeline and workspace frame:
+
+```python
+trajectory = [
+    rbfsafe.TimedConfiguration(0, [-0.2, 0.1]),
+    rbfsafe.TimedConfiguration(32, [0.2, -0.1]),
+]
+first = rbfsafe.build_robot_trajectory_occupancy(
+    robot,
+    "cell-clock-v1",
+    "cell-world",
+    "arm-a",
+    [-4.0, 0.0, 0.0],
+    trajectory,
+)
+second = rbfsafe.build_robot_trajectory_occupancy(
+    robot,
+    "cell-clock-v1",
+    "cell-world",
+    "arm-b",
+    [4.0, 0.0, 0.0],
+    trajectory,
+)
+
+options = rbfsafe.ContinuousFleetOccupancyOptions()
+options.minimum_separation = 1.0
+bundle = rbfsafe.ContinuousFleetOccupancyBundle.create(
+    [first, second], options
+)
+bundle.save("fleet-occupancy.json")
+```
+
+Replay each loaded occupancy against its exact robot model before relying on
+its stored envelopes. A successful
+`CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES` result remains `Unknown` and
+non-authorizing: it does not establish obstacle freedom, self-collision
+freedom, clock synchronization, controller tracking, dynamics, or execution.
+See [continuous-time fleet occupancy](continuous-fleet-occupancy.md).

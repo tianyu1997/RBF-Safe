@@ -270,6 +270,23 @@ and synthetic digests only: it has no private key, raw vendor evidence,
 trusted hardware, trusted clock, or execution authority. All reports remain
 `Unknown`.
 
+`data/continuous_fleet_occupancy_schema1` is the fixed RBF-Safe 4.0
+two-deployment swept-link occupancy bundle. Both deployments use the included
+synthetic planar 2R robot under one explicit logical timeline and workspace
+frame, with fixed translations that conservatively separate all eight stored
+slices. Its exact identities are:
+
+- occupancy bundle:
+  `d9a6a28c80ae86a28b996c8da954c33c725d9883a22f9f080f22d51e72be4231`;
+- fleet report:
+  `05fc3206ce76135946763fca75e3a399449a80b44a47ae168d564a439aa280ef`.
+
+C++ and Python tests load the same bytes, replay both occupancies from the
+included robot model, replay the fleet report, and verify native/Python
+inspection. The `CERTIFIED_SEPARATED_UNDER_SWEPT_ENVELOPES` status remains
+non-authorizing `Unknown`; the fixture has no obstacles, physical clock,
+tracking, controller, or hardware claim.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -340,3 +357,10 @@ additionally replays the fixed two-attester, two-time-source provenance
 fixture against its exact trust root and checkpoint, and binds the bundle,
 hardware report, freshness report, statement count, and source count into the
 digest. The `SATISFIED + FRESH` outcome remains non-authorizing `Unknown`.
+
+The reviewed RBF-Safe 4.0 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `a4d9acf4578b0377`. It
+additionally loads and robot-replays the fixed continuous fleet occupancy
+bundle and binds its bundle/report identities, occupancy/slice counts, and
+separation status into the digest. Timings and memory estimates remain
+diagnostic; the occupancy result remains non-authorizing `Unknown`.

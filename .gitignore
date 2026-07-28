@@ -16,3 +16,4 @@ __pycache__/
 *.VC.db
 Testing/
 log/
+*.log

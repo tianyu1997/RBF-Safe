@@ -45,6 +45,29 @@ verified `BoundedExecutionSession::authorize_command`, or by the ordered
 session, ledger, transparency values, summaries, audit reports, and every
 upstream artifact remain lower evidence.
 
+## Continuous-time fleet occupancy
+
+Include `<rbfsafe/occupancy.h>` and link `RBFSafe::occupancy`.
+`build_robot_trajectory_occupancy` subdivides a timestamped piecewise-linear
+joint trajectory and derives one conservative IFK-AA workspace AABB per link
+and time slice. Every occupancy binds the exact robot digest, caller-defined
+timeline and workspace frame, deployment ID, fixed workspace translation,
+construction parameters, trajectory, and deterministic slice identities.
+
+`verify_robot_trajectory_occupancy` replays the complete subdivision and
+envelope computation against an exact robot model.
+`analyze_continuous_fleet_occupancy` compares all temporally overlapping link
+pairs under explicit time-sweep, link-pair, and conflict limits and returns either
+`CertifiedSeparatedUnderSweptEnvelopes` or deterministic
+`PotentialConflict` witnesses. `ContinuousFleetOccupancyBundle` provides
+bounded, checksummed schema-1 save/load and replays the report on load.
+
+The status is not a `Certificate`: every value remains `Unknown`, and none
+authorizes execution. Obstacle freedom, self-collision, dynamics, clocks,
+rotated/uncertain bases, tracking, command transport, and hardware interlocks
+remain separate. See [the complete contract](continuous-fleet-occupancy.md)
+and [storage format](continuous-fleet-occupancy-format.md).
+
 ## Revocation-aware execution ledger
 
 Include `<rbfsafe/execution_ledger.h>` and link `RBFSafe::execution`.

@@ -3,6 +3,38 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.0.0] - 2026-07-28
+
+### Added
+
+- Public `RBFSafe::occupancy` target with timestamped piecewise-linear joint
+  trajectories, deterministic normalized-width subdivision, conservative
+  IFK-AA per-link swept AABBs, fixed workspace translations, and exact
+  robot/timeline/frame/deployment identity binding.
+- Bounded deterministic multi-robot analysis with explicit
+  `CertifiedSeparatedUnderSweptEnvelopes` and `PotentialConflict` outcomes,
+  overlap/separation-margin link witnesses, canonical input/output ordering,
+  resource budgets, and cancellation.
+- Exact robot-model replay verification plus checksummed schema-1
+  `ContinuousFleetOccupancyBundle` persistence with complete time-coverage
+  checks, bounded loading, report replay, atomic publish, and overwrite/
+  symbolic-link protections.
+- C++ and Python high-level APIs, native and Python inspection, optional
+  per-deployment robot replay and margin reanalysis, deterministic quickstart,
+  and a fixed Linux/Windows-readable fixture.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 4.0.0. The full documented 3.x source surface and every prior
+  storage schema remain available; the v4 public-surface snapshot records the
+  new additive contract.
+- Continuous occupancy results remain `Unknown` and never authorize
+  execution. The layer proves only separation under exact conservative swept
+  envelopes; obstacle/self-collision freedom, rotated or uncertain frames,
+  clock synchronization, dynamics, tracking, transport, and hardware
+  interlocks remain external.
+
 ## [3.15.0] - 2026-07-28
 
 ### Added

@@ -7,6 +7,7 @@ usable without the Atlas layer:
 RBFSafe::geometry
        -> RBFSafe::lect
        -> RBFSafe::atlas
+          |-> RBFSafe::occupancy
           |-> RBFSafe::update
           |-> RBFSafe::memory -> RBFSafe::trust -> RBFSafe::remote
                                                       |
@@ -55,6 +56,15 @@ local LECT repair, unresolved repair-domain recovery, and immutable Atlas
 version stores. It consumes Atlas schema-2 link-envelope dependencies but does
 not flow into geometry, LECT, or Atlas construction. Complete `SceneDelta`
 records and parent certificate IDs keep derived claims auditable.
+
+### Continuous fleet occupancy
+
+`RBFSafe::occupancy` consumes the Atlas-level cancellation, save-option, and
+evidence value types plus the geometry kernel. It owns timestamped
+piecewise-linear trajectories, deterministic subdivision, translated
+per-link IFK-AA swept AABBs, bounded fleet pair analysis, replay verification,
+and its independent schema-1 bundle. It does not consume an Atlas or scene,
+read clocks, coordinate processes, execute commands, or raise evidence.
 
 ### Corridor
 

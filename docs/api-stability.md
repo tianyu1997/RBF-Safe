@@ -43,24 +43,28 @@ audit APIs. RBF-Safe 3.14 additively introduces compact consistency proofs,
 gossip, split-view audit, and bounded schema-1 gossip archives. RBF-Safe 3.15
 additively introduces `RBFSafe::provenance`, explicitly scoped hardware-key
 statements and policies, signed external-time chains, freshness reports,
-combined replay, and bounded schema-1 bundle persistence. Public
+combined replay, and bounded schema-1 bundle persistence. RBF-Safe 4.0 retains
+the complete 3.x surface and adds `RBFSafe::occupancy`, timestamped
+piecewise-linear trajectories, conservative swept-link records, deterministic
+fleet separation reports, replay verification, and bounded schema-1 bundle
+persistence. Public
 headers under `include/rbfsafe`,
 installed CMake targets, and names exported from `rbfsafe.__init__` are tracked by the current
-`data/api_surface_v3.sha256` snapshot. Preserved v1 and v2 snapshots record the
+`data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots record the
 historical contracts; `tools/check_api_surface.py` selects the snapshot for the
 library's current major version.
 
 ## Compatibility promise
 
-Within the 3.x line:
+Within the 4.x line:
 
 - existing documented C++ declarations, enum values, defaults, target names,
-  Python names, argument meanings, and exception categories remain source
-  compatible;
+  Python names, argument meanings, and exception categories, including the
+  preserved 3.x surface and v4 occupancy API, remain source compatible;
 - new overloads, fields with safe defaults, targets, and Python names may be
   added in a minor release;
-- a deprecated API remains functional for the rest of 3.x and may be removed
-  only in 4.0;
+- a deprecated API remains functional for the rest of 4.x and may be removed
+  only in 5.0;
 - defect fixes may reject inputs that were always invalid, corrupt, identity
   mismatched, or unsupported; and
 - safety fixes may conservatively turn a former certificate outcome into an
@@ -81,7 +85,7 @@ platform tag and are tested as complete artifacts.
 
 ## Stable CMake targets
 
-The following installed target names are stable in 3.x:
+The following installed target names are stable in 4.x:
 
 - `RBFSafe::geometry`, `RBFSafe::lect`, `RBFSafe::atlas`;
 - `RBFSafe::update`, `RBFSafe::ik`, `RBFSafe::corridor`;
@@ -89,7 +93,7 @@ The following installed target names are stable in 3.x:
 - `RBFSafe::shield`, `RBFSafe::policy`, `RBFSafe::memory`, `RBFSafe::trust`,
   `RBFSafe::remote`, `RBFSafe::identity`, `RBFSafe::deployment`,
   `RBFSafe::execution`, `RBFSafe::transparency`, `RBFSafe::witness`,
-  `RBFSafe::provenance`, and aggregate
+  `RBFSafe::provenance`, `RBFSafe::occupancy`, and aggregate
   `RBFSafe::rbfsafe`; and
 - optional `RBFSafe::ompl` when installed with OMPL support.
 
@@ -100,8 +104,8 @@ machine-readable contract.
 
 ## Evidence compatibility
 
-Numeric values and ordering of `EvidenceLevel` are stable throughout 3.x.
-Consumers must compare enum values rather than parsing display names. In 3.15,
+Numeric values and ordering of `EvidenceLevel` are stable throughout 4.x.
+Consumers must compare enum values rather than parsing display names. In 4.0,
 only an exact closed-window `ExecutionCommandAuthorization` may issue
 `RuntimeExecutable`; reviewed profiles, bounded sessions, ledgers, summaries,
 transparency anchors/observations/logs/proofs/checkpoints, witness
@@ -109,6 +113,9 @@ cosignatures, gossip messages/archives/conflicts, and audit reports remain
 `Unknown`. Hardware statements, external-time assertions, provenance bundles,
 freshness reports, and combined provenance audits also remain `Unknown`, even
 when policy status is `SATISFIED`, `FRESH`, or `ready`.
+Continuous occupancies, conflict witnesses, fleet separation reports, and
+bundles remain `Unknown`, including
+`CertifiedSeparatedUnderSweptEnvelopes`.
 The application must still enforce its separately reviewed tracking,
 uncertainty, clock, transport, device, and emergency-stop assumptions.
 

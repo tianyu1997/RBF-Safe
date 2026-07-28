@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 3.15 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 4.0 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 3.15 |
+| Format | Read | Write | Migration in 4.0 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
@@ -30,6 +30,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Transparency log | 1 | 1 | New append-only deployment/observation history; no global freshness, physical observation, prior publication, or execution evidence is inferred |
 | Transparency gossip archive | 1 | 1 | Independent witnessed-checkpoint exchange history; no peer discovery, global freshness, hardware provenance, time, or execution authority is inferred |
 | Verifiable provenance bundle | 1 | 1 | Explicit new hardware-statement/time-source artifact; no vendor evidence, trusted adapter, clock, historical assertion, or execution authority is inferred |
+| Continuous fleet occupancy bundle | 1 | 1 | Independent swept-link trajectory artifact; no v3 reservation AABB, planner path, clock, frame transform, robot model, obstacle proof, tracking observation, or execution authority is inferred |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
 with `CorruptData` or `ResourceLimit`. There is no implicit downgrade.
@@ -66,7 +67,7 @@ byte-preserved, migrated this way, and validated on Linux and Windows CI.
 - Every new schema receives a separate specification, bounded reader, fixed
   cross-platform fixture, corruption tests, and explicit migration or
   incompatibility behavior before release.
-- Readers for schemas supported by 3.15 remain available throughout 3.x.
+- Readers for schemas supported by 3.15 remain available throughout 4.x.
 - Writers publish atomically and never overwrite by default.
 - Migration is always explicit and writes a new destination; input artifacts
   remain untouched.
@@ -209,3 +210,12 @@ freshness policy. Create and sign a new bundle from explicitly reviewed
 inputs. No existing timestamp or monotonic observation is upgraded
 implicitly, and no migration can invent physical key custody or trustworthy
 time.
+
+Continuous-fleet-occupancy-bundle schema 1 is specified in
+[Continuous fleet occupancy](continuous-fleet-occupancy-format.md). A v3
+fleet reservation contains one caller-declared workspace AABB, not the exact
+joint trajectory, robot model, per-link swept envelopes, timeline/frame
+contract, or subdivision parameters. No migration can infer those values.
+Build a new occupancy from reviewed trajectory/model inputs, replay it against
+the exact model, and deliberately integrate its non-authorizing report into
+the deployment's scheduling policy.

@@ -91,10 +91,20 @@ The analyzer reports:
 Inputs and output order are canonical, work is budgeted, and cancellation is
 supported. A successful status is deliberately named
 `ConflictFreeUnderDeclaredEnvelopes`: RBF-Safe does not independently derive
-the reservation occupancy from link motion in v3.0. The report is not a
-`Certificate`, does not claim continuous-time dynamic collision avoidance, and
-never produces `RuntimeExecutable` evidence. Deployments must conservatively
-produce the occupancy envelopes and retain their source artifacts.
+the reservation occupancy from link motion in the memory/schedule API. The
+report is not a `Certificate`, does not claim continuous-time dynamic
+collision avoidance, and never produces `RuntimeExecutable` evidence.
+Deployments must conservatively produce the occupancy envelopes and retain
+their source artifacts.
+
+RBF-Safe 4.0 adds a separate
+[continuous fleet occupancy](continuous-fleet-occupancy.md) target that
+derives per-link swept AABBs from explicit piecewise-linear joint trajectories
+and checks them on one caller-owned timeline and workspace frame. It does not
+silently replace a `FleetReservation`: applications that want durable
+scheduling still decide how a verified occupancy bundle is authenticated,
+registered in memory, and mapped into their reservation/publication
+protocol. Both report types remain `Unknown` and non-authorizing.
 
 RBF-Safe 3.2 can persist canonical reports in a `FleetScheduleArchive`.
 Archive versions bind the exact fleet snapshot and whole-memory identity and

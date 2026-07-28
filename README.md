@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 3.15
+geometric safety certificates in robot configuration space. Version 4.0
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -86,6 +86,11 @@ The provenance layer authenticates explicitly scoped, adapter-normalized
 hardware-key statements and signed external time-source chains, then evaluates
 caller-pinned freshness policies without trusting a vendor, adapter, source,
 or local clock implicitly.
+The continuous fleet-occupancy layer derives conservative per-link swept AABBs
+from timestamped piecewise-linear joint trajectories, binds them to explicit
+deployment/timeline/workspace-frame identities, and reports deterministic
+multi-robot separation or potential-conflict witnesses under hard work limits.
+Its results remain non-authorizing and require exact robot-model replay.
 
 RBF-Safe is safety infrastructure, not a motion planner. A region is marked
 `CertifiedRegion` only when conservative affine-arithmetic forward-kinematics
@@ -174,15 +179,19 @@ certificate.
   chains, exact adapter/authority/vendor policy pins, signed external time
   assertions, conservative multi-source freshness, checksummed schema-1
   bundles, fixed fixtures, and C++/Python/inspection tools.
+- Public `RBFSafe::occupancy` timestamped trajectories, deterministic
+  subdivision, translated IFK-AA swept-link AABBs, bounded fleet separation
+  analysis, exact robot replay, independent schema-1 persistence, and
+  C++/Python/inspection tools.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 continuous-time obstacle motion, authenticated policy inference and metadata,
-continuous-time fleet occupancy proofs, concrete network artifact clients,
+rotated/uncertain fleet frames, concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v3.15. TLS, endpoint/credential policy, trustworthy local clocks,
+remain outside v4.0. TLS, endpoint/credential policy, trustworthy local clocks,
 tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
 transport/discovery services, vendor evidence acquisition and adapter
 validation, private-key storage, and network I/O remain application

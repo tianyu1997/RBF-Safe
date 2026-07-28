@@ -60,6 +60,10 @@ bool is_verifiable_provenance_bundle(const std::filesystem::path& path) {
     return bounded_file_contains(path, "\"rbfsafe-verifiable-provenance-bundle\"", 16'777'216);
 }
 
+bool is_continuous_fleet_occupancy_bundle(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-continuous-fleet-occupancy-bundle\"", 268'435'456);
+}
+
 bool decode_uint64(std::string_view text, std::uint64_t& result) {
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
     return !text.empty() && parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
@@ -112,8 +116,38 @@ int main(int argc, char** argv) {
                      "<expected-gossip-head> <trust-history> <expected-root> <checkpoint> "
                      "<expected-checkpoint> <expected-bundle>\n"
                   << "       rbfsafe-inspect <provenance-bundle> <trust-history> "
-                     "<expected-root> <checkpoint> <expected-checkpoint> <evaluated-at-ns>\n";
+                     "<expected-root> <checkpoint> <expected-checkpoint> <evaluated-at-ns>\n"
+                  << "       rbfsafe-inspect <continuous-fleet-occupancy-bundle>\n";
         return 2;
+    }
+    if (is_continuous_fleet_occupancy_bundle(std::filesystem::path(argv[1]))) {
+        if (argc != 2) {
+            std::cerr << "continuous fleet occupancy inspection accepts only the bundle path\n";
+            return 2;
+        }
+        auto bundle = rbfsafe::ContinuousFleetOccupancyBundle::load(std::filesystem::path(argv[1]));
+        if (!bundle) {
+            std::cerr << bundle.error().describe() << '\n';
+            return 1;
+        }
+        std::size_t slices = 0;
+        for (const auto& occupancy : bundle.value().occupancies())
+            slices += occupancy.slices.size();
+        std::cout << "RBF-Safe continuous fleet occupancy bundle\n"
+                  << "schema: " << bundle.value().storage_schema() << '\n'
+                  << "bundle: " << bundle.value().id() << '\n'
+                  << "timeline: " << bundle.value().report().timeline_id << '\n'
+                  << "workspace frame: " << bundle.value().report().workspace_frame_id << '\n'
+                  << "status: "
+                  << rbfsafe::continuous_fleet_occupancy_status_name(bundle.value().report().status) << '\n'
+                  << "occupancies: " << bundle.value().occupancies().size() << '\n'
+                  << "slices: " << slices << '\n'
+                  << "conflicts: " << bundle.value().report().conflicts.size() << '\n'
+                  << "minimum separation: " << bundle.value().report().minimum_separation << '\n'
+                  << "robot replay verified: false\n"
+                  << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_verifiable_provenance_bundle(std::filesystem::path(argv[1]))) {
         if (argc != 7) {
