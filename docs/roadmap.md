@@ -124,13 +124,13 @@
   prefix-consistency witnesses; expected-head, bounded schema-1 persistence;
   fixed fixtures; and C++/Python/inspection tooling. Every transparency value
   remains `Unknown` and non-authorizing.
-- **v3.14 (current) - Witnessed checkpoint distribution:** compact
+- **v3.14 - Witnessed checkpoint distribution:** compact
   append-only frontier/subtree consistency proofs, independently cosigned
   checkpoint quorums, authenticated sender chains, proof-DAG audit,
   same-size-equivocation and invalid-proof split-view detection, bounded
   append-only schema-1 archives, fixed fixtures, and C++/Python/inspection
   tooling.
-- **v3.15 candidate - Verifiable provenance and time inputs:** pluggable,
+- **v3.15 (current) - Verifiable provenance and time inputs:** pluggable,
   explicitly scoped hardware-key attestation statements, signed external time
   assertions, freshness policy, provenance-chain replay, and adapters that
   remain separate from geometric and physical-execution certification. No

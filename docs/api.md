@@ -109,6 +109,28 @@ and caller-pinned log/trust identity. It does not discover peers, send network
 messages, select a newest checkpoint, or rotate its pinned bundle. See
 [witnessed transparency and gossip](witnessed-transparency.md).
 
+## Verifiable provenance and external time
+
+Include `<rbfsafe/provenance.h>` and link `RBFSafe::provenance`.
+`sign_hardware_key_attestation_statement` normalizes no vendor format itself;
+it signs the caller's exact adapter/version/format, vendor/product,
+evidence/nonce digests, subject key, usages, parent, and trust-bundle binding.
+`HardwareKeyProvenancePolicy` explicitly pins the accepted adapters,
+authorities, vendors, required scopes, quorum, distinctness, and chain bound.
+`replay_hardware_key_provenance` verifies one exact subject-key chain.
+
+`sign_external_time_assertion` creates per-source parent-linked values under an
+explicit clock namespace. `evaluate_external_time_freshness` verifies the
+source chains and trust bundle, intersects their uncertainty intervals, and
+returns `Fresh`, `Incomplete`, `Stale`, `Future`, or `Inconsistent` against a
+caller-supplied evaluation time. The library never reads a system clock.
+
+`VerifiableProvenanceBundle` combines both policies and complete replay inputs
+in a checksummed bounded schema-1 file. `replay_verifiable_provenance` returns
+both reports; `ready()` is convenience metadata only. Every value remains
+non-authorizing `Unknown`. See
+[the provenance trust boundary](verifiable-provenance.md).
+
 ## Reviewed deployment profiles
 
 Include `<rbfsafe/deployment.h>` and link `RBFSafe::deployment`.

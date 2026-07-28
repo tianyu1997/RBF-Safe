@@ -272,6 +272,45 @@ bool load_expected_digest(const std::filesystem::path& fixture_root, std::string
     return true;
 }
 
+rbfsafe::Result<void> replay_provenance_fixture(const std::filesystem::path& fixture_root,
+                                                std::uint64_t& logical_hash) {
+    constexpr std::string_view expected_root =
+        "af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865";
+    constexpr std::string_view expected_checkpoint =
+        "6aa7aa5c91644205fa67e0caf6858a7f11ba0bb03aec2c548ba941624984137b";
+    const auto root = fixture_root.parent_path() / "provenance_bundle_schema1";
+    auto provenance = rbfsafe::VerifiableProvenanceBundle::load(root / "provenance.json");
+    if (!provenance)
+        return provenance.error();
+    auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(root / "checkpoint.json");
+    if (!checkpoint)
+        return checkpoint.error();
+    auto history = rbfsafe::ServiceTrustHistory::open(root / "trust-history", std::string(expected_root),
+                                                      checkpoint.value(), std::string(expected_checkpoint));
+    if (!history)
+        return history.error();
+    auto trust_bundle = history.value().bundle(provenance.value().trust_bundle_id());
+    if (!trust_bundle)
+        return trust_bundle.error();
+    auto audit = rbfsafe::replay_verifiable_provenance(provenance.value(), trust_bundle.value(), 1'000'000);
+    if (!audit)
+        return audit.error();
+    if (!audit.value().ready() ||
+        audit.value().hardware.status != rbfsafe::HardwareProvenanceStatus::Satisfied ||
+        audit.value().freshness.status != rbfsafe::ExternalTimeFreshnessStatus::Fresh ||
+        audit.value().evidence() != rbfsafe::EvidenceLevel::Unknown || audit.value().authorizes_execution()) {
+        return rbfsafe::Result<void>::failure(rbfsafe::StatusCode::InternalError,
+                                              "release provenance fixture replay was inconsistent");
+    }
+    hash_field(logical_hash, "hardware-provenance-and-external-time-fresh-but-non-authorizing");
+    hash_field(logical_hash, provenance.value().id());
+    hash_field(logical_hash, audit.value().hardware.id);
+    hash_field(logical_hash, audit.value().freshness.id);
+    hash_field(logical_hash, std::to_string(audit.value().hardware.authenticated_statement_count));
+    hash_field(logical_hash, std::to_string(audit.value().freshness.authenticated_source_count));
+    return rbfsafe::Result<void>::success();
+}
+
 rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t iterations,
                                       std::uint64_t& logical_hash) {
     auto robot = rbfsafe::SerialRobotModel::from_json(fixture.robot);
@@ -1474,6 +1513,11 @@ int main(int argc, char** argv) {
             return 1;
         }
         metrics.push_back(std::move(result).value());
+    }
+    auto provenance = replay_provenance_fixture(options.fixtures, logical_hash);
+    if (!provenance) {
+        std::cerr << provenance.error().describe() << '\n';
+        return 1;
     }
     const std::string actual_digest = hex64(logical_hash);
     if (actual_digest != expected_digest) {

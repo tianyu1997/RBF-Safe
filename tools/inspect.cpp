@@ -1,6 +1,7 @@
 #include <rbfsafe/rbfsafe.h>
 
 #include <array>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -55,6 +56,15 @@ bool is_transparency_gossip_archive(const std::filesystem::path& path) {
     return bounded_file_contains(path / "manifest.json", "\"rbfsafe-transparency-gossip-archive\"");
 }
 
+bool is_verifiable_provenance_bundle(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-verifiable-provenance-bundle\"", 16'777'216);
+}
+
+bool decode_uint64(std::string_view text, std::uint64_t& result) {
+    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
+    return !text.empty() && parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
+}
+
 int hex_digit(char value) {
     if (value >= '0' && value <= '9')
         return value - '0';
@@ -100,8 +110,67 @@ int main(int argc, char** argv) {
                   << "       rbfsafe-inspect <transparency-gossip-archive> <namespace> "
                      "<signer-service> <signer-key-id> <signer-public-key-hex> "
                      "<expected-gossip-head> <trust-history> <expected-root> <checkpoint> "
-                     "<expected-checkpoint> <expected-bundle>\n";
+                     "<expected-checkpoint> <expected-bundle>\n"
+                  << "       rbfsafe-inspect <provenance-bundle> <trust-history> "
+                     "<expected-root> <checkpoint> <expected-checkpoint> <evaluated-at-ns>\n";
         return 2;
+    }
+    if (is_verifiable_provenance_bundle(std::filesystem::path(argv[1]))) {
+        if (argc != 7) {
+            std::cerr << "provenance inspection requires trust history, expected trust root, "
+                         "trust checkpoint, expected checkpoint, and caller-supplied evaluation time\n";
+            return 2;
+        }
+        std::uint64_t evaluated_at_ns = 0;
+        if (!decode_uint64(argv[6], evaluated_at_ns)) {
+            std::cerr << "provenance evaluation time must be an unsigned decimal nanosecond value\n";
+            return 2;
+        }
+        auto provenance = rbfsafe::VerifiableProvenanceBundle::load(std::filesystem::path(argv[1]));
+        if (!provenance) {
+            std::cerr << provenance.error().describe() << '\n';
+            return 1;
+        }
+        auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[4]));
+        if (!checkpoint) {
+            std::cerr << checkpoint.error().describe() << '\n';
+            return 1;
+        }
+        auto history = rbfsafe::ServiceTrustHistory::open(std::filesystem::path(argv[2]), argv[3],
+                                                          checkpoint.value(), argv[5]);
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        auto bundle = history.value().bundle(provenance.value().trust_bundle_id());
+        if (!bundle) {
+            std::cerr << bundle.error().describe() << '\n';
+            return 1;
+        }
+        auto audit =
+            rbfsafe::replay_verifiable_provenance(provenance.value(), bundle.value(), evaluated_at_ns);
+        if (!audit) {
+            std::cerr << audit.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe verifiable provenance bundle\n"
+                  << "schema: " << provenance.value().storage_schema() << '\n'
+                  << "bundle: " << provenance.value().id() << '\n'
+                  << "subject service: " << provenance.value().subject_key().service_id << '\n'
+                  << "subject key: " << provenance.value().subject_key().id << '\n'
+                  << "trust bundle: " << provenance.value().trust_bundle_id() << '\n'
+                  << "hardware status: "
+                  << rbfsafe::hardware_provenance_status_name(audit.value().hardware.status) << '\n'
+                  << "hardware statements: " << audit.value().hardware.authenticated_statement_count << '\n'
+                  << "distinct attesters: " << audit.value().hardware.distinct_attester_count << '\n'
+                  << "freshness status: "
+                  << rbfsafe::external_time_freshness_status_name(audit.value().freshness.status) << '\n'
+                  << "time sources: " << audit.value().freshness.authenticated_source_count << '\n'
+                  << "evaluated at ns: " << audit.value().freshness.evaluated_at_ns << '\n'
+                  << "ready: " << (audit.value().ready() ? "true" : "false") << '\n'
+                  << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_transparency_gossip_archive(std::filesystem::path(argv[1]))) {
         if (argc != 12) {

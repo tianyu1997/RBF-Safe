@@ -3,6 +3,40 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [3.15.0] - 2026-07-28
+
+### Added
+
+- Public `RBFSafe::provenance` target with explicitly scoped, adapter-
+  normalized hardware-key attestation statements, active Ed25519 authority
+  signatures, exact subject/trust binding, deterministic identities, and
+  contiguous multi-attester provenance-chain replay.
+- Caller-pinned hardware provenance policy for exact adapter
+  ID/version/format, attestation authority, vendor, required usage, quorum,
+  distinctness, and resource bounds. No vendor, adapter, or hardware root is
+  accepted implicitly.
+- Signed per-source external time assertions, contiguous monotonic source
+  chains, explicit clock namespace, uncertainty intervals, source quorum, and
+  overflow-safe `Fresh`, `Incomplete`, `Stale`, `Future`, and `Inconsistent`
+  evaluation against a caller-supplied time.
+- Checksummed schema-1 `VerifiableProvenanceBundle` persistence with atomic
+  publish, overwrite protection, bounded/cancellable validation, C++/Python
+  replay APIs, native/Python inspection, deterministic quickstart, and a
+  fixed cross-platform fixture.
+
+### Changed
+
+- C++, Python, citation, MoveIt package, and downstream requirements advance
+  together to 3.15.0. All earlier 3.x storage schemas remain readable and
+  unchanged.
+- Provenance `SATISFIED`, time `FRESH`, and combined `ready` remain
+  non-authorizing `Unknown` audit metadata. The new layer does not read a
+  local clock during freshness evaluation, validate a vendor blob, prove
+  physical key custody, or upgrade geometric/connectivity/execution evidence.
+- The deterministic release benchmark now replays the fixed provenance
+  fixture against exact trust pins and includes only its stable identities,
+  discrete counts, and statuses in the cross-platform logical digest.
+
 ## [3.14.0] - 2026-07-27
 
 ### Added

@@ -1,7 +1,7 @@
 # Release benchmark and soak gate
 
 `rbfsafe-release-benchmark` consumes only installed public RBF-Safe APIs and
-the checked-in synthetic fixtures under `data/release-fixtures`. It builds and
+checked-in synthetic fixtures under `data`. It builds and
 updates one Atlas per case, audits a continuous path, checks a runtime-shield
 action and a two-proposal learning-policy batch, estimates public Atlas memory
 and measures wall time, and independently point-checks every certified query.
@@ -16,6 +16,10 @@ compact proof, assembles two-service checkpoint quorums, publishes
 authenticated sender-chain gossip to an expected-head archive, verifies a
 consistent proof graph, creates a valid same-size fork, and requires a
 deterministic split-view conflict.
+It also loads `data/provenance_bundle_schema1`, opens its caller-pinned trust
+history and checkpoint, and requires a two-attester `SATISFIED` hardware
+report plus a two-source `FRESH` time report at the fixed evaluation value.
+That outcome remains non-authorizing `Unknown`.
 
 Timing values are reported but deliberately have no hard CI threshold: shared
 runner timing is not reproducible. The release gate instead bounds iteration
@@ -24,9 +28,9 @@ counts and requires deterministic shield, policy-gate, and feedback outcomes.
 floating-point-derived certificate IDs. It
 encodes canonical fixture identities, discrete counts, certification outcomes,
 shield acceptance, policy selection/labels, memory/trust/transfer, signed
-trust-history, quorum, checkpoint, compact-proof, gossip, and split-view outcomes,
-and update compatibility, then must match the committed
-`logical_digest.txt` on every platform.
+trust-history, quorum, checkpoint, compact-proof, gossip, split-view,
+provenance, and freshness outcomes, and update compatibility, then must match
+the committed `logical_digest.txt` on every platform.
 
 ```bash
 cmake -S . -B build -DRBFSAFE_BUILD_BENCHMARKS=ON

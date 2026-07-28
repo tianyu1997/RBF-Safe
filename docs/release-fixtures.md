@@ -60,6 +60,11 @@ For each case the benchmark:
 14. advances the scene version, then checks conservative certificate inheritance
    and retained endpoint coverage.
 
+After all robot cases, the benchmark replays the fixed schema-1 provenance
+bundle once against its exact trust root and signed checkpoint at evaluation
+time `1000000`. The deterministic digest binds the resulting bundle,
+hardware-report and freshness-report IDs plus their discrete quorum counts.
+
 The executable fails on any false-safe point check, identity mismatch,
 uncertified path/action, lost coverage, update failure, or missing inheritance.
 Its `logical_digest` covers canonical fixture identities, discrete counts,
@@ -246,6 +251,25 @@ global and sender chains, proof relation, resource bounds, expected head, and
 native/Python inspection. It contains no private keys and makes no physical
 observation, trustworthy-time, delivery, or execution claim.
 
+`data/provenance_bundle_schema1` is the fixed RBF-Safe 3.15 two-attester,
+two-time-source provenance bundle. Its exact caller pins are:
+
+- provenance bundle:
+  `eef49057478c4545ade19a52aee0965539956235bd46dbd480c54da77ede9690`;
+- trust root/bundle:
+  `af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865`;
+- trust checkpoint:
+  `6aa7aa5c91644205fa67e0caf6858a7f11ba0bb03aec2c548ba941624984137b`;
+- evaluation time: `1000000` in clock namespace `unix-utc-ns`.
+
+The hardware chain pins one synthetic TPM2 normalizer and vendor, requires
+artifact-publication and execution-control scopes, and contains two distinct
+attester signatures. The two source intervals intersect and produce `FRESH`
+at the fixed evaluation value. The fixture contains public keys, signatures,
+and synthetic digests only: it has no private key, raw vendor evidence,
+trusted hardware, trusted clock, or execution authority. All reports remain
+`Unknown`.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -309,3 +333,10 @@ cosignatures, a three-record authenticated gossip archive, one consistent
 proof-graph audit, and one same-size-equivocation split-view conflict per
 case. Only deterministic discrete counts and statuses enter the digest; all
 witness and gossip evidence remains non-authorizing `Unknown`.
+
+The reviewed RBF-Safe 3.15 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `ae009ce1b6a78f78`. It
+additionally replays the fixed two-attester, two-time-source provenance
+fixture against its exact trust root and checkpoint, and binds the bundle,
+hardware report, freshness report, statement count, and source count into the
+digest. The `SATISFIED + FRESH` outcome remains non-authorizing `Unknown`.

@@ -35,6 +35,7 @@ rbfsafe_add_test(rbfsafe_test_execution test_execution.cpp)
 rbfsafe_add_test(rbfsafe_test_execution_ledger test_execution_ledger.cpp)
 rbfsafe_add_test(rbfsafe_test_transparency test_transparency.cpp)
 target_include_directories(rbfsafe_test_transparency PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+rbfsafe_add_test(rbfsafe_test_provenance test_provenance.cpp)
 
 if(TARGET rbfsafe_inspect)
     add_test(
@@ -60,6 +61,15 @@ if(TARGET rbfsafe_inspect)
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/bounded_execution_session_schema1/checkpoint.json
             3ebcb9e144577ba8b828f8b728c43b90f1b7412d09212cfec40e69fa1d3f9e01
             3b295bc13d0831ace4bc8a73349dc87f249d09c238468c4058f506a94554c780)
+    add_test(
+        NAME rbfsafe_provenance_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/provenance_bundle_schema1/provenance.json
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/provenance_bundle_schema1/trust-history
+            af93de1f517b91d348732b72bd08becb9411ee08c1151f5f66da0291740a2865
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/provenance_bundle_schema1/checkpoint.json
+            6aa7aa5c91644205fa67e0caf6858a7f11ba0bb03aec2c548ba941624984137b
+            1000000)
     add_test(
         NAME rbfsafe_execution_ledger_fixture_inspect
         COMMAND rbfsafe_inspect

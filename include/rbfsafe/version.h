@@ -1,9 +1,9 @@
 #pragma once
 
 #define RBFSAFE_VERSION_MAJOR 3
-#define RBFSAFE_VERSION_MINOR 14
+#define RBFSAFE_VERSION_MINOR 15
 #define RBFSAFE_VERSION_PATCH 0
-#define RBFSAFE_VERSION_STRING "3.14.0"
+#define RBFSAFE_VERSION_STRING "3.15.0"
 
 namespace rbfsafe {
 inline constexpr const char* kVersion = RBFSAFE_VERSION_STRING;

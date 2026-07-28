@@ -30,9 +30,10 @@ int main() {
     const rbfsafe::ExecutionLedgerLoadOptions execution_ledger_load_options;
     const rbfsafe::TransparencyLogLoadOptions transparency_load_options;
     const rbfsafe::TransparencyGossipArchiveLoadOptions gossip_load_options;
+    const rbfsafe::VerifiableProvenanceBundleLoadOptions provenance_load_options;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
-    return RBFSAFE_VERSION_MAJOR == 3 && RBFSAFE_VERSION_MINOR == 14 && RBFSAFE_VERSION_PATCH == 0 &&
+    return RBFSAFE_VERSION_MAJOR == 3 && RBFSAFE_VERSION_MINOR == 15 && RBFSAFE_VERSION_PATCH == 0 &&
                    interval.contains(0.0) && options.maximum_region_tests > 0 &&
                    hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
                    update_options.maximum_validations > 0 && obb_atlas_options.maximum_validations > 0 &&
@@ -50,6 +51,11 @@ int main() {
                    execution_load_options.maximum_commands > 0 &&
                    execution_ledger_load_options.maximum_records > 0 &&
                    transparency_load_options.maximum_records > 0 && gossip_load_options.maximum_records > 0 &&
+                   provenance_load_options.maximum_statements > 0 &&
+                   rbfsafe::hardware_provenance_status_name(rbfsafe::HardwareProvenanceStatus::Satisfied) ==
+                       "SATISFIED" &&
+                   rbfsafe::external_time_freshness_status_name(
+                       rbfsafe::ExternalTimeFreshnessStatus::Fresh) == "FRESH" &&
                    rbfsafe::execution_ledger_status_name(rbfsafe::ExecutionLedgerStatus::Open) == "open" &&
                    rbfsafe::transparency_leaf_kind_name(rbfsafe::TransparencyLeafKind::RuntimeObservation) ==
                        "runtime_observation" &&
