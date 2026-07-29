@@ -110,7 +110,10 @@ occupancy bundles. `RBFSafe::coordination` combines that target with
 `RBFSafe::identity` to authenticate exact occupancy bytes under explicit
 caller pins and to persist expected-head guarded publication histories.
 Histories replay every publication, preserve the exact signed payload bytes,
-and compare independently observed chains for extensions or forks. They add no
+and compare independently observed chains for extensions or forks. The
+independent rotating-history type embeds authorized single/quorum service
+trust, verifies historical signing keys, accepts expected-head or signed
+checkpoint trust anchors, and audits both chains. These features add no
 network, clock, consensus, remote-head distribution, or key-storage
 dependency.
 
@@ -132,6 +135,10 @@ verification, trust-history replay, and public provenance persistence.
 Run `rbfsafe_occupancy_publication_history_quickstart
 <occupancy-payload> <new-history-directory>` to create, append, reopen, and
 audit a deterministic occupancy publication history.
+Run `rbfsafe_rotating_occupancy_publication_history_quickstart
+<occupancy-payload> <new-history-directory>` to retire a publication key
+through an authorized trust successor, publish under its replacement, and
+replay both historical signatures.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

@@ -206,4 +206,138 @@ Result<OccupancyPublicationHistoryAudit>
 audit_occupancy_publication_histories(const OccupancyPublicationHistory& first,
                                       const OccupancyPublicationHistory& second);
 
+struct RotatingOccupancyPublicationHistoryLoadOptions {
+    std::size_t maximum_publications = 100'000;
+    std::uintmax_t maximum_manifest_bytes = 65'536ULL;
+    std::uintmax_t maximum_record_bytes = 65'536ULL;
+    std::uintmax_t maximum_publication_bytes = 1'048'576ULL;
+    std::uintmax_t maximum_total_payload_bytes = 4'294'967'296ULL;
+    ServiceTrustHistoryLoadOptions trust;
+    ContinuousFleetOccupancyBundleLoadOptions occupancy;
+};
+
+struct RotatingOccupancyPublicationHistoryAudit {
+    std::uint32_t storage_schema = 1;
+    std::string id;
+    OccupancyPublicationHistoryRelation publication_relation = OccupancyPublicationHistoryRelation::Identical;
+    OccupancyPublicationHistoryRelation trust_relation = OccupancyPublicationHistoryRelation::Identical;
+    std::string stream_id;
+    std::string publisher_service_id;
+    std::string trust_root_bundle_id;
+    std::string root_publication_id;
+    std::string first_trust_head_bundle_id;
+    std::string second_trust_head_bundle_id;
+    std::string first_head_publication_id;
+    std::string second_head_publication_id;
+    std::uint64_t first_trust_bundle_count = 0;
+    std::uint64_t second_trust_bundle_count = 0;
+    std::uint64_t common_trust_prefix_count = 0;
+    std::string common_trust_bundle_id;
+    std::uint64_t first_publication_count = 0;
+    std::uint64_t second_publication_count = 0;
+    std::uint64_t common_publication_prefix_count = 0;
+    std::string common_publication_id;
+
+    bool valid() const;
+    bool fork_detected() const noexcept {
+        return publication_relation == OccupancyPublicationHistoryRelation::Forked ||
+               trust_relation == OccupancyPublicationHistoryRelation::Forked;
+    }
+    EvidenceLevel evidence() const noexcept { return EvidenceLevel::Unknown; }
+    bool authorizes_execution() const noexcept { return false; }
+};
+
+class RotatingOccupancyPublicationHistory {
+  public:
+    static Result<RotatingOccupancyPublicationHistory>
+    create(const std::filesystem::path& directory, const OccupancyPublication& root_publication,
+           const std::filesystem::path& root_payload_path, const ServiceTrustHistory& trust_history,
+           std::string_view expected_stream_id, std::string_view expected_publisher_service_id,
+           std::string_view expected_trust_root_bundle_id, std::string_view expected_trust_head_bundle_id,
+           std::string_view expected_root_publication_id,
+           const RotatingOccupancyPublicationHistoryLoadOptions& options = {});
+
+    static Result<RotatingOccupancyPublicationHistory>
+    open(const std::filesystem::path& directory, std::string_view expected_stream_id,
+         std::string_view expected_publisher_service_id, std::string_view expected_trust_root_bundle_id,
+         std::string_view expected_trust_head_bundle_id, std::string_view expected_root_publication_id,
+         std::string_view expected_head_publication_id,
+         const RotatingOccupancyPublicationHistoryLoadOptions& options = {});
+
+    static Result<RotatingOccupancyPublicationHistory>
+    open(const std::filesystem::path& directory, std::string_view expected_stream_id,
+         std::string_view expected_publisher_service_id, std::string_view expected_trust_root_bundle_id,
+         const ServiceTrustCheckpoint& checkpoint, std::string_view expected_checkpoint_id,
+         std::string_view expected_root_publication_id, std::string_view expected_head_publication_id,
+         const RotatingOccupancyPublicationHistoryLoadOptions& options = {});
+
+    const std::filesystem::path& directory() const noexcept { return directory_; }
+    std::uint32_t storage_schema() const noexcept { return storage_schema_; }
+    const std::string& stream_id() const noexcept { return stream_id_; }
+    const std::string& publisher_service_id() const noexcept { return publisher_service_id_; }
+    const std::string& trust_root_bundle_id() const noexcept { return trust_root_bundle_id_; }
+    const std::string& current_trust_bundle_id() const noexcept { return current_trust_bundle_id_; }
+    const std::string& root_publication_id() const noexcept { return root_publication_id_; }
+    const std::string& current_publication_id() const noexcept { return current_publication_id_; }
+    const std::string& timeline_id() const noexcept { return timeline_id_; }
+    const std::string& workspace_frame_id() const noexcept { return workspace_frame_id_; }
+    const std::vector<OccupancyPublicationHistoryRecord>& records() const noexcept { return records_; }
+
+    bool valid() const;
+    EvidenceLevel evidence() const noexcept { return EvidenceLevel::Unknown; }
+    bool authorizes_execution() const noexcept { return false; }
+
+    Result<ServiceTrustHistory> trust_history() const;
+    Result<ServiceTrustBundle> current_trust_bundle() const;
+    Result<OccupancyPublication> current_publication() const;
+    Result<OccupancyPublication> publication(std::string_view publication_id) const;
+    Result<VerifiedOccupancyPublication> verify(std::string_view publication_id,
+                                                std::uint64_t evaluation_tick) const;
+
+    Result<ServiceTrustRotationRecord> rotate_trust(const ServiceTrustBundle& successor,
+                                                    const ServiceTrustBundleAuthorization& authorization,
+                                                    std::string_view expected_trust_head_bundle_id,
+                                                    std::size_t maximum_trust_bundles = 100'000);
+    Result<ServiceTrustRotationRecord>
+    rotate_trust(const ServiceTrustBundle& successor,
+                 const ServiceTrustBundleAuthorizationSet& authorization_set,
+                 std::string_view expected_trust_head_bundle_id, std::size_t maximum_trust_bundles = 100'000);
+    Result<OccupancyPublicationHistoryRecord> publish(const OccupancyPublication& publication,
+                                                      const std::filesystem::path& payload_path,
+                                                      std::string_view expected_head_publication_id,
+                                                      std::string_view expected_trust_head_bundle_id,
+                                                      std::size_t maximum_publications = 100'000);
+
+  private:
+    friend Result<RotatingOccupancyPublicationHistoryAudit>
+    audit_rotating_occupancy_publication_histories(const RotatingOccupancyPublicationHistory& first,
+                                                   const RotatingOccupancyPublicationHistory& second);
+
+    Result<ServiceTrustRotationRecord>
+    rotate_trust_impl(const ServiceTrustBundle& successor,
+                      std::optional<ServiceTrustBundleAuthorization> authorization,
+                      std::optional<ServiceTrustBundleAuthorizationSet> authorization_set,
+                      std::string_view expected_trust_head_bundle_id, std::size_t maximum_trust_bundles);
+
+    std::filesystem::path directory_;
+    std::uint32_t storage_schema_ = 1;
+    std::string stream_id_;
+    std::string publisher_service_id_;
+    std::string trust_root_bundle_id_;
+    std::string current_trust_bundle_id_;
+    std::string root_publication_id_;
+    std::string current_publication_id_;
+    std::string timeline_id_;
+    std::string workspace_frame_id_;
+    std::optional<ServiceTrustHistory> trust_history_;
+    std::vector<OccupancyPublicationHistoryRecord> records_;
+    std::vector<OccupancyPublication> publications_;
+    std::vector<std::filesystem::path> payload_paths_;
+    RotatingOccupancyPublicationHistoryLoadOptions options_;
+};
+
+Result<RotatingOccupancyPublicationHistoryAudit>
+audit_rotating_occupancy_publication_histories(const RotatingOccupancyPublicationHistory& first,
+                                               const RotatingOccupancyPublicationHistory& second);
+
 } // namespace rbfsafe

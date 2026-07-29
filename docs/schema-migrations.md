@@ -33,6 +33,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Continuous fleet occupancy bundle | 1, 2 | 1 from legacy translation builder; 2 from bounded-frame builder/mixed input | Schema 1 remains exact fixed-translation evidence; rotation or uncertainty is never inferred |
 | Authenticated occupancy publication | 1 | 1 | Independent signed statement; an unsigned occupancy bundle is never upgraded implicitly |
 | Occupancy publication history | 1 | 1 | Independent pinned stream history; standalone publications are never enrolled or ordered implicitly |
+| Trust-rotating occupancy publication history | 1 | 1 | Independent dual history; fixed-trust histories and standalone trust/publication files are never combined implicitly |
 | Continuous robot-scene occupancy bundle | 1 | 1 | Independent moving-obstacle format; static scenes and fleet bundles are never upgraded implicitly |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
@@ -255,6 +256,16 @@ It is not a wrapper automatically inferred from publication files. Create a
 history only with an explicit root publication, its exact payload and trust
 bundle, and caller pins. Later publications are appended only under the
 retained expected head. Existing standalone publications remain unchanged and
-are not scanned, reordered, or imported automatically. A trust-bundle change
-starts another schema-1 history rather than silently rotating the pinned
-trust snapshot.
+are not scanned, reordered, or imported automatically. Its trust snapshot
+remains fixed.
+
+Trust-rotating-occupancy-publication-history schema 1 is specified in
+[Trust-rotating occupancy publication-history format](rotating-occupancy-publication-history-format.md).
+It is an independent format, not schema 2 of the fixed-trust history. Create
+it only from an explicit root publication, exact payload, complete
+caller-pinned service trust history, and all root/head identities. Existing
+fixed histories are not rewritten, and standalone trust rotations or
+publications are not discovered, merged, or enrolled. Every subsequent trust
+rotation must carry its original single/quorum authorization, and every
+publication must extend the retained publication head under the current
+retained trust head.

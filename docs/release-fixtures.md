@@ -367,6 +367,33 @@ audits. The fixed history contains public test material only. It does not
 provide head distribution, network replication, consensus, trusted time,
 collision certification, or execution authority.
 
+`data/rotating_occupancy_publication_history_schema1` is the fixed RBF-Safe
+4.5 dual-chain history. It embeds a two-bundle authorized trust history,
+retires the root publication key, and retains one publication under each
+historical bundle. Its stable identities are:
+
+- trust root:
+  `9767a5e8912af9192237924232daaf746c0107e98cc4a458ee8b773b6b0da051`;
+- trust head:
+  `938c63c1c1bdf8c309189c4ca93b1093aa68f2b72adba49ba2dbe81a940d1517`;
+- trust rotation record:
+  `13e19415c703e7fd0f2b48058a7e38f1cb1a46fb8ef280550b6ef98abaa03a09`;
+- publication root:
+  `fc449d962cec661b52277926efa2a1d0f075a389fd488eeb7b7f9f5bd441429b`;
+- publication head:
+  `829328cdffeca14a187430a3964651ef37ec249669dcbcf94c92f5a0d564b601`;
+- publication head record:
+  `3b141dfc3a290ff5b7f2ddfd288a2ec0ef5303b2d5f72b8bc9dc58e67f4d92f7`;
+  and
+- manifest identity:
+  `f1e3e058fa2f95a84171fd260db85dd5ae1c706254f6976bb95dbeac648510e6`.
+
+Tests replay both trust records and both exact occupancy payloads, verify the
+retired-key root under its historical bundle, verify the new-key head, reject
+trust rollback and stale writers, exercise signed checkpoint opening, and
+compare trust and publication forks independently. The deterministic seeds
+are public quickstart material, never production credentials.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -467,3 +494,12 @@ the exact robot and moving-obstacle construction, and binds stable bundle/
 report identities, record/slice counts, and separation status into the
 digest. Caller-supplied obstacle bounds and every result remain
 non-authorizing `Unknown`.
+
+The reviewed RBF-Safe 4.5 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `0cda6bedd211b1fd`. It
+additionally replays the fixed rotating history under caller-pinned trust and
+publication roots/heads, verifies both historical publications, and performs
+an identical dual-chain audit. Stable trust/publication identities, record
+counts, record IDs, verification IDs, and discrete relations enter the
+digest. Authorized rotation and every replay result remain non-authorizing
+`Unknown`.

@@ -394,6 +394,374 @@ int main() {
         CHECK(indirect_payload.error().code == StatusCode::CorruptData);
     }
 
+    std::array<std::byte, kEd25519SeedBytes> rotation_seed{};
+    std::array<std::byte, kEd25519SeedBytes> successor_seed{};
+    std::array<std::byte, kEd25519SeedBytes> alternate_seed{};
+    for (std::size_t index = 0; index < rotation_seed.size(); ++index) {
+        rotation_seed[index] = static_cast<std::byte>(index + 41);
+        successor_seed[index] = static_cast<std::byte>(index + 81);
+        alternate_seed[index] = static_cast<std::byte>(index + 121);
+    }
+    auto rotation_pair = ed25519_key_pair_from_seed(rotation_seed);
+    auto successor_pair = ed25519_key_pair_from_seed(successor_seed);
+    auto alternate_pair = ed25519_key_pair_from_seed(alternate_seed);
+    CHECK(rotation_pair);
+    CHECK(successor_pair);
+    CHECK(alternate_pair);
+    auto rotation_key =
+        make_service_public_key("rotating-occupancy-publisher", rotation_pair.value().public_key, 1, 0,
+                                ServiceKeyState::Active, false, true, true);
+    auto successor_key =
+        make_service_public_key("rotating-occupancy-publisher", successor_pair.value().public_key, 2, 0,
+                                ServiceKeyState::Active, false, true, true);
+    auto alternate_key =
+        make_service_public_key("rotating-occupancy-publisher", alternate_pair.value().public_key, 2, 0,
+                                ServiceKeyState::Active, false, true, true);
+    CHECK(rotation_key);
+    CHECK(successor_key);
+    CHECK(alternate_key);
+    auto rotation_root_bundle = ServiceTrustBundle::create(1, "", {rotation_key.value()});
+    CHECK(rotation_root_bundle);
+    const auto source_trust_directory = temporary / "rotating-source-trust";
+    auto source_trust = ServiceTrustHistory::create(source_trust_directory, rotation_root_bundle.value(),
+                                                    rotation_root_bundle.value().id());
+    CHECK(source_trust);
+    auto rotating_root = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotation_root_bundle.value(), "rotating-cell-stream-v1",
+        "rotating-occupancy-publisher", rotation_key.value().id, rotation_pair.value().secret_key, 1, "", 0,
+        32);
+    CHECK(rotating_root);
+    const auto rotating_directory = temporary / "rotating-occupancy-history";
+    auto rotating = RotatingOccupancyPublicationHistory::create(
+        rotating_directory, rotating_root.value(), occupancy_path, source_trust.value(),
+        "rotating-cell-stream-v1", "rotating-occupancy-publisher", rotation_root_bundle.value().id(),
+        rotation_root_bundle.value().id(), rotating_root.value().id);
+    CHECK(rotating);
+    CHECK(rotating.value().valid());
+    CHECK(rotating.value().storage_schema() == 1);
+    CHECK(rotating.value().trust_root_bundle_id() == rotation_root_bundle.value().id());
+    CHECK(rotating.value().current_trust_bundle_id() == rotation_root_bundle.value().id());
+    CHECK(rotating.value().current_publication_id() == rotating_root.value().id);
+    CHECK(rotating.value().records().size() == 1);
+    CHECK(rotating.value().trust_history());
+    CHECK(rotating.value().current_trust_bundle());
+    CHECK(rotating.value().current_publication());
+    CHECK(rotating.value().publication(rotating_root.value().id));
+    CHECK(rotating.value().verify(rotating_root.value().id, 16));
+    CHECK(rotating.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!rotating.value().authorizes_execution());
+
+    auto retired_rotation_key = rotation_key.value();
+    retired_rotation_key.state = ServiceKeyState::Retired;
+    retired_rotation_key.valid_through_sequence = 1;
+    auto rotation_successor_bundle = rotate_service_trust_bundle(
+        rotation_root_bundle.value(), {retired_rotation_key, successor_key.value()});
+    CHECK(rotation_successor_bundle);
+    auto rotation_authorization = authorize_service_trust_bundle_successor(
+        rotation_root_bundle.value(), rotation_successor_bundle.value(), rotation_key.value().service_id,
+        rotation_key.value().id, rotation_pair.value().secret_key);
+    CHECK(rotation_authorization);
+    auto rotated_record = rotating.value().rotate_trust(
+        rotation_successor_bundle.value(), rotation_authorization.value(), rotation_root_bundle.value().id());
+    CHECK(rotated_record);
+    CHECK(rotated_record.value().bundle_id == rotation_successor_bundle.value().id());
+    CHECK(rotating.value().current_trust_bundle_id() == rotation_successor_bundle.value().id());
+    CHECK(rotating.value().records().size() == 1);
+    auto rotated_publication = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotation_successor_bundle.value(), "rotating-cell-stream-v1",
+        "rotating-occupancy-publisher", successor_key.value().id, successor_pair.value().secret_key, 2,
+        rotating_root.value().id, 1, 31);
+    CHECK(rotated_publication);
+    auto rotated_publication_record =
+        rotating.value().publish(rotated_publication.value(), occupancy_path, rotating_root.value().id,
+                                 rotation_successor_bundle.value().id());
+    CHECK(rotated_publication_record);
+    CHECK(rotated_publication_record.value().sequence == 2);
+    CHECK(rotating.value().records().size() == 2);
+    CHECK(rotating.value().current_publication_id() == rotated_publication.value().id);
+    CHECK(rotating.value().verify(rotating_root.value().id, 16));
+    CHECK(rotating.value().verify(rotated_publication.value().id, 31));
+
+    auto rotating_reopened = RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id);
+    CHECK(rotating_reopened);
+    CHECK(rotating_reopened.value().records().size() == 2);
+    auto rotating_embedded_trust = rotating.value().trust_history();
+    CHECK(rotating_embedded_trust);
+    auto rotating_checkpoint_signature =
+        sign_service_trust_checkpoint(rotating_embedded_trust.value(), successor_key.value().service_id,
+                                      successor_key.value().id, successor_pair.value().secret_key);
+    CHECK(rotating_checkpoint_signature);
+    auto rotating_checkpoint = assemble_service_trust_checkpoint(rotating_embedded_trust.value(),
+                                                                 {rotating_checkpoint_signature.value()});
+    CHECK(rotating_checkpoint);
+    auto checkpoint_reopened = RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotating_checkpoint.value(), rotating_checkpoint.value().id,
+        rotating_root.value().id, rotated_publication.value().id);
+    CHECK(checkpoint_reopened);
+    CHECK(!RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotating_checkpoint.value(), std::string(64, '0'),
+        rotating_root.value().id, rotated_publication.value().id));
+    CHECK(!RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_root_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id));
+    CHECK(!RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "wrong-stream", "rotating-occupancy-publisher", rotation_root_bundle.value().id(),
+        rotation_successor_bundle.value().id(), rotating_root.value().id, rotated_publication.value().id));
+    auto old_trust_publication = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotation_root_bundle.value(), "rotating-cell-stream-v1",
+        "rotating-occupancy-publisher", rotation_key.value().id, rotation_pair.value().secret_key, 3,
+        rotated_publication.value().id, 2, 30);
+    CHECK(old_trust_publication);
+    CHECK(!rotating.value().publish(old_trust_publication.value(), occupancy_path,
+                                    rotated_publication.value().id, rotation_successor_bundle.value().id()));
+    CHECK(!rotating.value().rotate_trust(rotation_successor_bundle.value(), rotation_authorization.value(),
+                                         rotation_root_bundle.value().id()));
+
+    const auto rotating_root_only_directory =
+        temporary / ("rotating-occupancy-root-only-" + std::string(32, 'r'));
+    auto rotating_root_only = RotatingOccupancyPublicationHistory::create(
+        rotating_root_only_directory, rotating_root.value(), occupancy_path, source_trust.value(),
+        "rotating-cell-stream-v1", "rotating-occupancy-publisher", rotation_root_bundle.value().id(),
+        rotation_root_bundle.value().id(), rotating_root.value().id);
+    CHECK(rotating_root_only);
+    auto rotating_extension =
+        audit_rotating_occupancy_publication_histories(rotating.value(), rotating_root_only.value());
+    CHECK(rotating_extension);
+    CHECK(rotating_extension.value().valid());
+    CHECK(rotating_extension.value().trust_relation ==
+          OccupancyPublicationHistoryRelation::FirstExtendsSecond);
+    CHECK(rotating_extension.value().publication_relation ==
+          OccupancyPublicationHistoryRelation::FirstExtendsSecond);
+    CHECK(!rotating_extension.value().fork_detected());
+    CHECK(rotating_extension.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!rotating_extension.value().authorizes_execution());
+
+    auto alternate_successor_bundle = rotate_service_trust_bundle(
+        rotation_root_bundle.value(), {retired_rotation_key, alternate_key.value()});
+    CHECK(alternate_successor_bundle);
+    auto alternate_authorization = authorize_service_trust_bundle_successor(
+        rotation_root_bundle.value(), alternate_successor_bundle.value(), rotation_key.value().service_id,
+        rotation_key.value().id, rotation_pair.value().secret_key);
+    CHECK(alternate_authorization);
+    CHECK(rotating_root_only.value().rotate_trust(alternate_successor_bundle.value(),
+                                                  alternate_authorization.value(),
+                                                  rotation_root_bundle.value().id()));
+    auto trust_fork =
+        audit_rotating_occupancy_publication_histories(rotating.value(), rotating_root_only.value());
+    CHECK(trust_fork);
+    CHECK(trust_fork.value().trust_relation == OccupancyPublicationHistoryRelation::Forked);
+    CHECK(trust_fork.value().publication_relation == OccupancyPublicationHistoryRelation::FirstExtendsSecond);
+    CHECK(trust_fork.value().fork_detected());
+    CHECK(trust_fork.value().common_trust_prefix_count == 1);
+
+    const auto rotating_publication_fork_directory =
+        temporary / ("rotating-occupancy-publication-fork-" + std::string(24, 'p'));
+    auto rotating_publication_fork = RotatingOccupancyPublicationHistory::create(
+        rotating_publication_fork_directory, rotating_root.value(), occupancy_path, source_trust.value(),
+        "rotating-cell-stream-v1", "rotating-occupancy-publisher", rotation_root_bundle.value().id(),
+        rotation_root_bundle.value().id(), rotating_root.value().id);
+    CHECK(rotating_publication_fork);
+    CHECK(rotating_publication_fork.value().rotate_trust(rotation_successor_bundle.value(),
+                                                         rotation_authorization.value(),
+                                                         rotation_root_bundle.value().id()));
+    auto alternate_publication = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotation_successor_bundle.value(), "rotating-cell-stream-v1",
+        "rotating-occupancy-publisher", successor_key.value().id, successor_pair.value().secret_key, 2,
+        rotating_root.value().id, 2, 30);
+    CHECK(alternate_publication);
+    CHECK(rotating_publication_fork.value().publish(alternate_publication.value(), occupancy_path,
+                                                    rotating_root.value().id,
+                                                    rotation_successor_bundle.value().id()));
+    auto publication_fork =
+        audit_rotating_occupancy_publication_histories(rotating.value(), rotating_publication_fork.value());
+    CHECK(publication_fork);
+    CHECK(publication_fork.value().trust_relation == OccupancyPublicationHistoryRelation::Identical);
+    CHECK(publication_fork.value().publication_relation == OccupancyPublicationHistoryRelation::Forked);
+    CHECK(publication_fork.value().fork_detected());
+    CHECK(publication_fork.value().common_publication_prefix_count == 1);
+
+    RotatingOccupancyPublicationHistoryLoadOptions rotating_one_publication;
+    rotating_one_publication.maximum_publications = 1;
+    auto rotating_publication_limit = RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id, rotating_one_publication);
+    CHECK(!rotating_publication_limit);
+    CHECK(rotating_publication_limit.error().code == StatusCode::ResourceLimit);
+    RotatingOccupancyPublicationHistoryLoadOptions rotating_one_trust_bundle;
+    rotating_one_trust_bundle.trust.maximum_bundles = 1;
+    auto rotating_trust_limit = RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id, rotating_one_trust_bundle);
+    CHECK(!rotating_trust_limit);
+    CHECK(rotating_trust_limit.error().code == StatusCode::ResourceLimit);
+    RotatingOccupancyPublicationHistoryLoadOptions rotating_byte_limit;
+    rotating_byte_limit.maximum_total_payload_bytes = rotating_root.value().payload_bytes;
+    auto rotating_total_limit = RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id, rotating_byte_limit);
+    CHECK(!rotating_total_limit);
+    CHECK(rotating_total_limit.error().code == StatusCode::ResourceLimit);
+    RotatingOccupancyPublicationHistoryLoadOptions rotating_cancelled;
+    rotating_cancelled.trust.cancellation.cancel();
+    auto rotating_cancelled_open = RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id, rotating_cancelled);
+    CHECK(!rotating_cancelled_open);
+    CHECK(rotating_cancelled_open.error().code == StatusCode::Cancelled);
+    RotatingOccupancyPublicationHistoryLoadOptions rotating_occupancy_cancelled;
+    rotating_occupancy_cancelled.occupancy.cancellation.cancel();
+    auto rotating_occupancy_cancelled_open = RotatingOccupancyPublicationHistory::open(
+        rotating_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id, rotating_occupancy_cancelled);
+    CHECK(!rotating_occupancy_cancelled_open);
+    CHECK(rotating_occupancy_cancelled_open.error().code == StatusCode::Cancelled);
+
+    std::filesystem::create_directory(rotating_directory / ".writer-lock");
+    auto rotating_locked =
+        rotating.value().publish(old_trust_publication.value(), occupancy_path,
+                                 rotated_publication.value().id, rotation_successor_bundle.value().id());
+    CHECK(!rotating_locked);
+    CHECK(rotating_locked.error().code == StatusCode::ResourceLimit);
+    std::filesystem::remove(rotating_directory / ".writer-lock");
+
+    const auto rotating_corrupt_directory = temporary / "rotating-occupancy-corrupt";
+    std::filesystem::copy(rotating_directory, rotating_corrupt_directory,
+                          std::filesystem::copy_options::recursive);
+    const auto rotating_payload_path =
+        rotating_corrupt_directory / "payloads" /
+        ("00000000000000000002-" + rotated_publication.value().payload_digest + ".bin");
+    auto rotating_payload = read_text(rotating_payload_path);
+    CHECK(!rotating_payload.empty());
+    rotating_payload.front() = rotating_payload.front() == '{' ? '[' : '{';
+    write_text(rotating_payload_path, rotating_payload);
+    CHECK(!RotatingOccupancyPublicationHistory::open(
+        rotating_corrupt_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id));
+
+    const auto rotating_schema_directory = temporary / "rotating-occupancy-unknown-schema";
+    std::filesystem::copy(rotating_directory, rotating_schema_directory,
+                          std::filesystem::copy_options::recursive);
+    const auto rotating_manifest_path = rotating_schema_directory / "manifest.json";
+    auto rotating_manifest = read_text(rotating_manifest_path);
+    const auto rotating_schema_position = rotating_manifest.rfind("\"schema\": 1");
+    CHECK(rotating_schema_position != std::string::npos);
+    rotating_manifest.replace(rotating_schema_position, 11, "\"schema\": 2");
+    write_text(rotating_manifest_path, rotating_manifest);
+    CHECK(!RotatingOccupancyPublicationHistory::open(
+        rotating_schema_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id));
+
+    const auto rotating_unexpected_directory = temporary / "rotating-occupancy-unexpected";
+    std::filesystem::copy(rotating_directory, rotating_unexpected_directory,
+                          std::filesystem::copy_options::recursive);
+    write_text(rotating_unexpected_directory / "records" / "unexpected", "unexpected");
+    auto rotating_unexpected = RotatingOccupancyPublicationHistory::open(
+        rotating_unexpected_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+        rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(), rotating_root.value().id,
+        rotated_publication.value().id);
+    CHECK(!rotating_unexpected);
+    CHECK(rotating_unexpected.error().code == StatusCode::CorruptData);
+
+    const auto rotating_history_symlink = temporary / "rotating-occupancy-link";
+    symlink_error.clear();
+    std::filesystem::create_directory_symlink(rotating_directory, rotating_history_symlink, symlink_error);
+    if (!symlink_error) {
+        auto rotating_indirect = RotatingOccupancyPublicationHistory::open(
+            rotating_history_symlink, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+            rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(),
+            rotating_root.value().id, rotated_publication.value().id);
+        CHECK(!rotating_indirect);
+        CHECK(rotating_indirect.error().code == StatusCode::CorruptData);
+    }
+    const auto rotating_trust_symlink_directory = temporary / "rotating-trust-history-link";
+    std::filesystem::copy(rotating_directory, rotating_trust_symlink_directory,
+                          std::filesystem::copy_options::recursive);
+    std::filesystem::remove_all(rotating_trust_symlink_directory / "trust-history");
+    symlink_error.clear();
+    std::filesystem::create_directory_symlink(rotating_directory / "trust-history",
+                                              rotating_trust_symlink_directory / "trust-history",
+                                              symlink_error);
+    if (!symlink_error) {
+        auto rotating_indirect_trust = RotatingOccupancyPublicationHistory::open(
+            rotating_trust_symlink_directory, "rotating-cell-stream-v1", "rotating-occupancy-publisher",
+            rotation_root_bundle.value().id(), rotation_successor_bundle.value().id(),
+            rotating_root.value().id, rotated_publication.value().id);
+        CHECK(!rotating_indirect_trust);
+        CHECK(rotating_indirect_trust.error().code == StatusCode::CorruptData);
+    }
+
+    auto quorum_publisher_key =
+        make_service_public_key("quorum-occupancy-publisher", rotation_pair.value().public_key, 1, 0,
+                                ServiceKeyState::Active, false, true, true);
+    auto quorum_witness_key =
+        make_service_public_key("quorum-rotation-witness", alternate_pair.value().public_key, 1, 0,
+                                ServiceKeyState::Active, false, false, true);
+    CHECK(quorum_publisher_key);
+    CHECK(quorum_witness_key);
+    ServiceTrustRotationPolicy rotating_quorum_policy;
+    rotating_quorum_policy.minimum_signatures = 2;
+    rotating_quorum_policy.require_distinct_services = true;
+    auto rotating_quorum_root = ServiceTrustBundle::create_with_rotation_policy(
+        1, "", {quorum_witness_key.value(), quorum_publisher_key.value()}, rotating_quorum_policy);
+    CHECK(rotating_quorum_root);
+    const auto rotating_quorum_source_directory = temporary / "rotating-quorum-source";
+    auto rotating_quorum_source = ServiceTrustHistory::create(
+        rotating_quorum_source_directory, rotating_quorum_root.value(), rotating_quorum_root.value().id());
+    CHECK(rotating_quorum_source);
+    auto rotating_quorum_root_publication = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotating_quorum_root.value(), "rotating-quorum-stream-v1",
+        "quorum-occupancy-publisher", quorum_publisher_key.value().id, rotation_pair.value().secret_key, 1,
+        "", 0, 32);
+    CHECK(rotating_quorum_root_publication);
+    const auto rotating_quorum_directory = temporary / "rotating-quorum-history";
+    auto rotating_quorum = RotatingOccupancyPublicationHistory::create(
+        rotating_quorum_directory, rotating_quorum_root_publication.value(), occupancy_path,
+        rotating_quorum_source.value(), "rotating-quorum-stream-v1", "quorum-occupancy-publisher",
+        rotating_quorum_root.value().id(), rotating_quorum_root.value().id(),
+        rotating_quorum_root_publication.value().id);
+    CHECK(rotating_quorum);
+    auto rotating_quorum_successor =
+        rotate_service_trust_bundle(rotating_quorum_root.value(), rotating_quorum_root.value().keys());
+    CHECK(rotating_quorum_successor);
+    auto rotating_quorum_authorization_a = authorize_service_trust_bundle_successor(
+        rotating_quorum_root.value(), rotating_quorum_successor.value(),
+        quorum_publisher_key.value().service_id, quorum_publisher_key.value().id,
+        rotation_pair.value().secret_key);
+    auto rotating_quorum_authorization_b = authorize_service_trust_bundle_successor(
+        rotating_quorum_root.value(), rotating_quorum_successor.value(),
+        quorum_witness_key.value().service_id, quorum_witness_key.value().id,
+        alternate_pair.value().secret_key);
+    CHECK(rotating_quorum_authorization_a);
+    CHECK(rotating_quorum_authorization_b);
+    auto rotating_quorum_authorizations = assemble_service_trust_bundle_authorizations(
+        rotating_quorum_root.value(), rotating_quorum_successor.value(),
+        {rotating_quorum_authorization_b.value(), rotating_quorum_authorization_a.value()});
+    CHECK(rotating_quorum_authorizations);
+    CHECK(rotating_quorum.value().rotate_trust(rotating_quorum_successor.value(),
+                                               rotating_quorum_authorizations.value(),
+                                               rotating_quorum_root.value().id()));
+    auto rotating_quorum_successor_publication = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotating_quorum_successor.value(), "rotating-quorum-stream-v1",
+        "quorum-occupancy-publisher", quorum_publisher_key.value().id, rotation_pair.value().secret_key, 2,
+        rotating_quorum_root_publication.value().id, 1, 31);
+    CHECK(rotating_quorum_successor_publication);
+    CHECK(rotating_quorum.value().publish(rotating_quorum_successor_publication.value(), occupancy_path,
+                                          rotating_quorum_root_publication.value().id,
+                                          rotating_quorum_successor.value().id()));
+
     ContinuousFleetOccupancyBundleLoadOptions cancelled;
     cancelled.cancellation.cancel();
     CHECK(!sign_continuous_fleet_occupancy_publication(

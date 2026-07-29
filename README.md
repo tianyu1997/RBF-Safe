@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 4.4
+geometric safety certificates in robot configuration space. Version 4.5
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -100,6 +100,11 @@ pins for the stream, publisher, trust bundle, parent, and evaluation tick.
 Its local history stores exact payload/publication bytes behind immutable
 records, rejects stale writers under a caller-retained head, replays the full
 chain, and compares independently observed histories for extension or fork.
+The independent rotating-history type embeds the complete authorized service
+trust history, verifies each publication under its historical bundle, forbids
+backward trust use, restricts new publication commits to the current trust
+head, and audits trust and publication forks separately under caller-pinned
+roots plus heads or a signed trust checkpoint.
 Authenticated publications and histories remain non-authorizing.
 The moving-obstacle occupancy layer additionally turns timestamped
 piecewise-linear workspace AABBs into outward-rounded swept unions, requires
@@ -203,9 +208,10 @@ certificate.
 - Public `RBFSafe::coordination` exact-byte occupancy publications, active
   publish-key Ed25519 authentication, caller-pinned trust/stream/parent/tick
   verification, monotonic succession checks, expected-head immutable local
-  histories, exact payload replay, deterministic prefix/fork audit,
-  checksummed schema-1 persistence, fixed fixtures, and
-  C++/Python/inspection tools.
+  histories, authorized single/quorum trust rotation, historical-key payload
+  replay, trust/publication dual-chain audit, caller-pinned head or signed
+  checkpoint anchors, checksummed independent schema-1 persistence, fixed
+  fixtures, and C++/Python/inspection tools.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
@@ -215,7 +221,7 @@ trusted obstacle perception/prediction, authenticated policy inference and metad
 moving/time-varying fleet frames, network fleet coordination or consensus,
 concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v4.4. TLS, endpoint/credential policy, trustworthy local clocks,
+remain outside v4.5. TLS, endpoint/credential policy, trustworthy local clocks,
 tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
 transport/discovery services, vendor evidence acquisition and adapter
 validation, private-key storage, and network I/O remain application
@@ -417,6 +423,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Authenticated occupancy publication schema 1](docs/authenticated-occupancy-publication-format.md)
 - [Occupancy publication histories](docs/occupancy-publication-history.md)
 - [Occupancy publication-history schema 1](docs/occupancy-publication-history-format.md)
+- [Trust-rotating occupancy publication histories](docs/rotating-occupancy-publication-history.md)
+- [Trust-rotating occupancy publication-history schema 1](docs/rotating-occupancy-publication-history-format.md)
 - [Schema support and migrations](docs/schema-migrations.md)
 - [Release fixtures and benchmark](docs/release-fixtures.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)

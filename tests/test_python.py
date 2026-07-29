@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.4.0"
+    assert rbfsafe.__version__ == "4.5.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -3501,3 +3501,296 @@ def test_occupancy_publication_history(
             root.id,
             root.id,
         )
+
+
+def test_rotating_occupancy_publication_history(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "continuous_fleet_occupancy_schema2"
+        / "occupancy.json"
+    )
+    root_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(41, 73)))
+    successor_pair = rbfsafe.ed25519_key_pair_from_seed(bytes(range(81, 113)))
+    root_key = rbfsafe.make_service_public_key(
+        "python-rotating-occupancy-publisher",
+        root_pair.public_key,
+        1,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        True,
+    )
+    successor_key = rbfsafe.make_service_public_key(
+        "python-rotating-occupancy-publisher",
+        successor_pair.public_key,
+        2,
+        0,
+        rbfsafe.ServiceKeyState.ACTIVE,
+        False,
+        True,
+        True,
+    )
+    root_bundle = rbfsafe.ServiceTrustBundle.create(1, "", [root_key])
+    trust_history = rbfsafe.ServiceTrustHistory.create(
+        tmp_path / "source-trust", root_bundle, root_bundle.id
+    )
+    root_publication = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        payload,
+        root_bundle,
+        "python-rotating-occupancy-stream-v1",
+        "python-rotating-occupancy-publisher",
+        root_key.id,
+        root_pair.secret_key,
+        1,
+        "",
+        0,
+        32,
+    )
+    history = rbfsafe.RotatingOccupancyPublicationHistory.create(
+        tmp_path / "rotating-history",
+        root_publication,
+        payload,
+        trust_history,
+        "python-rotating-occupancy-stream-v1",
+        "python-rotating-occupancy-publisher",
+        root_bundle.id,
+        root_bundle.id,
+        root_publication.id,
+    )
+    root_only = rbfsafe.RotatingOccupancyPublicationHistory.create(
+        tmp_path / "rotating-root-only",
+        root_publication,
+        payload,
+        trust_history,
+        "python-rotating-occupancy-stream-v1",
+        "python-rotating-occupancy-publisher",
+        root_bundle.id,
+        root_bundle.id,
+        root_publication.id,
+    )
+    assert history.valid()
+    assert history.current_trust_bundle().id == root_bundle.id
+    assert history.current_publication().id == root_publication.id
+    assert history.verify(root_publication.id, 16).publication_id == root_publication.id
+    assert history.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not history.authorizes_execution
+
+    retired_key = rbfsafe.make_service_public_key(
+        "python-rotating-occupancy-publisher",
+        root_pair.public_key,
+        1,
+        1,
+        rbfsafe.ServiceKeyState.RETIRED,
+        False,
+        True,
+        True,
+    )
+    successor_bundle = rbfsafe.rotate_service_trust_bundle(
+        root_bundle, [retired_key, successor_key]
+    )
+    authorization = rbfsafe.authorize_service_trust_bundle_successor(
+        root_bundle,
+        successor_bundle,
+        root_key.service_id,
+        root_key.id,
+        root_pair.secret_key,
+    )
+    rotation_record = history.rotate_trust(
+        successor_bundle, authorization, root_bundle.id
+    )
+    assert rotation_record.bundle_id == successor_bundle.id
+    assert history.current_trust_bundle_id == successor_bundle.id
+
+    successor_publication = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        payload,
+        successor_bundle,
+        "python-rotating-occupancy-stream-v1",
+        "python-rotating-occupancy-publisher",
+        successor_key.id,
+        successor_pair.secret_key,
+        2,
+        root_publication.id,
+        1,
+        31,
+    )
+    publication_record = history.publish(
+        successor_publication,
+        payload,
+        root_publication.id,
+        successor_bundle.id,
+    )
+    assert publication_record.sequence == 2
+    assert history.current_publication_id == successor_publication.id
+    assert history.verify(successor_publication.id, 31).publication_id == successor_publication.id
+    reopened = rbfsafe.RotatingOccupancyPublicationHistory.open(
+        tmp_path / "rotating-history",
+        "python-rotating-occupancy-stream-v1",
+        "python-rotating-occupancy-publisher",
+        root_bundle.id,
+        successor_bundle.id,
+        root_publication.id,
+        successor_publication.id,
+    )
+    assert len(reopened.records) == 2
+    embedded_trust = reopened.trust_history()
+    checkpoint_signature = rbfsafe.sign_service_trust_checkpoint(
+        embedded_trust,
+        successor_key.service_id,
+        successor_key.id,
+        successor_pair.secret_key,
+    )
+    checkpoint = rbfsafe.assemble_service_trust_checkpoint(
+        embedded_trust, [checkpoint_signature]
+    )
+    checkpoint_reopened = rbfsafe.RotatingOccupancyPublicationHistory.open(
+        tmp_path / "rotating-history",
+        "python-rotating-occupancy-stream-v1",
+        "python-rotating-occupancy-publisher",
+        root_bundle.id,
+        checkpoint,
+        checkpoint.id,
+        root_publication.id,
+        successor_publication.id,
+    )
+    assert checkpoint_reopened.current_trust_bundle_id == successor_bundle.id
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.RotatingOccupancyPublicationHistory.open(
+            tmp_path / "rotating-history",
+            "python-rotating-occupancy-stream-v1",
+            "python-rotating-occupancy-publisher",
+            root_bundle.id,
+            checkpoint,
+            "0" * 64,
+            root_publication.id,
+            successor_publication.id,
+        )
+    audit = rbfsafe.audit_rotating_occupancy_publication_histories(
+        history, root_only
+    )
+    assert audit.valid()
+    assert (
+        audit.trust_relation
+        == rbfsafe.OccupancyPublicationHistoryRelation.FIRST_EXTENDS_SECOND
+    )
+    assert (
+        audit.publication_relation
+        == rbfsafe.OccupancyPublicationHistoryRelation.FIRST_EXTENDS_SECOND
+    )
+    assert not audit.fork_detected
+    assert audit.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not audit.authorizes_execution
+
+    old_trust_publication = rbfsafe.sign_continuous_fleet_occupancy_publication(
+        payload,
+        root_bundle,
+        "python-rotating-occupancy-stream-v1",
+        "python-rotating-occupancy-publisher",
+        root_key.id,
+        root_pair.secret_key,
+        3,
+        successor_publication.id,
+        2,
+        30,
+    )
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        history.publish(
+            old_trust_publication,
+            payload,
+            successor_publication.id,
+            successor_bundle.id,
+        )
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.RotatingOccupancyPublicationHistory.open(
+            tmp_path / "rotating-history",
+            "python-rotating-occupancy-stream-v1",
+            "python-rotating-occupancy-publisher",
+            root_bundle.id,
+            root_bundle.id,
+            root_publication.id,
+            successor_publication.id,
+        )
+    options = rbfsafe.RotatingOccupancyPublicationHistoryLoadOptions()
+    options.maximum_publications = 1
+    with pytest.raises(MemoryError):
+        rbfsafe.RotatingOccupancyPublicationHistory.open(
+            tmp_path / "rotating-history",
+            "python-rotating-occupancy-stream-v1",
+            "python-rotating-occupancy-publisher",
+            root_bundle.id,
+            successor_bundle.id,
+            root_publication.id,
+            successor_publication.id,
+            options,
+        )
+
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(tmp_path / "rotating-history"),
+                "--expected-occupancy-stream",
+                "python-rotating-occupancy-stream-v1",
+                "--expected-occupancy-publisher",
+                "python-rotating-occupancy-publisher",
+                "--expected-occupancy-trust-root",
+                root_bundle.id,
+                "--expected-occupancy-trust-head",
+                successor_bundle.id,
+                "--expected-occupancy-root",
+                root_publication.id,
+                "--expected-occupancy-head",
+                successor_publication.id,
+                "--occupancy-evaluation-tick",
+                "31",
+                "--compare-occupancy-history",
+                str(tmp_path / "rotating-root-only"),
+                "--expected-compare-occupancy-trust-head",
+                root_bundle.id,
+                "--expected-compare-occupancy-head",
+                root_publication.id,
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "rotating-occupancy-publication-history schema=1" in output
+    assert "trust_bundles=2" in output
+    assert "publications=2" in output
+    assert "trust_history_relation=first_extends_second" in output
+    assert "publication_history_relation=first_extends_second" in output
+    assert "fork_detected=false" in output
+    assert "trust_anchor=head_id" in output
+    assert "authorizes_execution=false" in output
+
+    checkpoint_path = tmp_path / "rotating-checkpoint.json"
+    checkpoint.save(checkpoint_path)
+    assert (
+        main(
+            [
+                str(tmp_path / "rotating-history"),
+                "--expected-occupancy-stream",
+                "python-rotating-occupancy-stream-v1",
+                "--expected-occupancy-publisher",
+                "python-rotating-occupancy-publisher",
+                "--expected-occupancy-trust-root",
+                root_bundle.id,
+                "--trust-checkpoint",
+                str(checkpoint_path),
+                "--expected-trust-checkpoint",
+                checkpoint.id,
+                "--expected-occupancy-root",
+                root_publication.id,
+                "--expected-occupancy-head",
+                successor_publication.id,
+            ]
+        )
+        == 0
+    )
+    checkpoint_output = capsys.readouterr().out
+    assert "trust_anchor=signed_checkpoint" in checkpoint_output
+    assert "replay_verified=true" in checkpoint_output

@@ -159,3 +159,7 @@ head to run a fork audit.
 
 The storage contract is specified in
 [Occupancy publication-history format](occupancy-publication-history-format.md).
+This type deliberately fixes one trust bundle. Applications that require
+authorized key retirement/replacement must create the independent
+[trust-rotating occupancy publication history](rotating-occupancy-publication-history.md);
+the fixed history is never upgraded or rewritten implicitly.

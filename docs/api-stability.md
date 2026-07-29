@@ -60,7 +60,11 @@ options, exact stored-payload replay, expected-head publication, deterministic
 history relation/audit values, and schema-1 history directories. RBF-Safe 4.4
 additively introduces timestamped workspace AABBs, moving-obstacle occupancy
 records/build/replay, robot-scene reports and analysis, bounded load options,
-and schema-1 robot-scene occupancy bundles. Public
+and schema-1 robot-scene occupancy bundles. RBF-Safe 4.5 additively
+introduces `RotatingOccupancyPublicationHistory`, combined trust/publication
+load options, signed-head-checkpoint opening, authorized single/quorum trust
+rotation, current-trust publication, historical verification, dual-chain
+audit values, and an independent schema-1 directory. Public
 headers under `include/rbfsafe`, installed CMake targets, and names exported
 from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots
@@ -131,8 +135,10 @@ bundles remain `Unknown`, including
 `CertifiedSeparatedUnderSweptEnvelopes`.
 Authenticated occupancy publications and verification results also remain
 `Unknown`; occupancy publication histories, records, and prefix/fork audits
-remain `Unknown` as well. A valid Ed25519 signature or consistent local
-history never becomes execution evidence.
+remain `Unknown` as well. Trust-rotating histories, historical verifications,
+and trust/publication fork audits remain `Unknown`, including when every
+rotation and signature is valid. A valid Ed25519 signature or consistent
+local history never becomes execution evidence.
 The application must still enforce its separately reviewed tracking,
 uncertainty, clock, transport, device, and emergency-stop assumptions.
 

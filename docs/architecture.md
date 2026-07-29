@@ -86,10 +86,18 @@ record after its payload and publication. Loading reconstructs and verifies
 the complete linear chain. A deterministic two-history audit reports prefix
 extension or an observed fork.
 
+The independent 4.5 rotating-history backend embeds a complete authorized
+service-trust history. It verifies each retained publication under the exact
+historical bundle it names, forbids backward trust use, and restricts new
+publication commits to the current trust head. Single- and quorum-authorized
+trust successors use the identity module's existing protocol. Opens pin both
+chain roots and heads, or use a caller-pinned signed trust checkpoint; a
+dual-chain audit compares trust and publication prefixes independently.
+
 The target does not own transport, head distribution, peer discovery, clock
-synchronization, trust rotation inside a history, consensus, controller I/O,
-or hardware enforcement. Applications retain root/head pins externally and
-must bring both histories to the audit to detect a fork. Every publication,
+synchronization, consensus, controller I/O, or hardware enforcement.
+Applications retain roots and newest heads/checkpoints externally and must
+bring both histories to the audit to detect a fork. Every publication,
 history, and audit result remains `Unknown`.
 
 ### Corridor

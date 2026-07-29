@@ -1,0 +1,484 @@
+{
+  "checksum": "141681a1ac0e568d3101018ff161cc6d8ff1eb061de2aaa9f1ffd34bfe73cd1d",
+  "format": "rbfsafe-continuous-fleet-occupancy-bundle",
+  "library_version": "4.1.0",
+  "payload": {
+    "id": "6030e3574db5634f60b6cf04ffc325077f944ef23d256ef7cc937fe857dce8d0",
+    "occupancies": [
+      {
+        "algorithm": "ifk-aa-piecewise-linear-swept-link-aabb",
+        "algorithm_version": "2",
+        "deployment_id": "arm-a",
+        "id": "77cf98b080aa3a13269932d8af064f2043c9706d8d772213009aca6a6bae4931",
+        "link_padding": 0,
+        "maximum_normalized_joint_width": 0.050000000000000003,
+        "maximum_subdivision_depth": "16",
+        "robot_digest": "3c7ec874345f27baa1a829a629e32dc5a94ba446a9d8b8d12de995641b4e0784",
+        "slices": [
+          {
+            "begin_tick": "0",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": -0.20000000000000001,
+                  "upper": -0.10000000000000001
+                },
+                {
+                  "lower": 0.050000000000000003,
+                  "upper": 0.10000000000000001
+                }
+              ]
+            },
+            "end_tick": "8",
+            "id": "84822f9611ffd48692e7de233bef855fcab6d4f0d94a1e793fc92b81c1f60a13",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0600000000015362,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  -3.9399999999984647,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  -4.0600000000015362,
+                  0.93999999999812367,
+                  -0.07000000000324981
+                ],
+                "upper": [
+                  -3.7398733136262421,
+                  2.057492984564893,
+                  0.07000000000324981
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "8",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": -0.10000000000000001,
+                  "upper": 0
+                },
+                {
+                  "lower": 0,
+                  "upper": 0.050000000000000003
+                }
+              ]
+            },
+            "end_tick": "16",
+            "id": "c10b1a3f1f9c7c152f8142216dfffb409e88f430b2fb356ae2e3a8af86f87660",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0600000000015362,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  -3.9399999999984647,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  -4.0612083437523623,
+                  0.93999999999812367,
+                  -0.070000000003249047
+                ],
+                "upper": [
+                  -3.8388333177062819,
+                  2.0624992188636799,
+                  0.070000000003249047
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "16",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": 0,
+                  "upper": 0.10000000000000003
+                },
+                {
+                  "lower": -0.050000000000000017,
+                  "upper": 0
+                }
+              ]
+            },
+            "end_tick": "24",
+            "id": "d5aa5fd7f22ba01fac76d35b34fc61c95c8882ea9075769870fce6e9a856a432",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0600000000015362,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  -3.9399999999984647,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  -4.161166682293719,
+                  0.93999999999812367,
+                  -0.070000000003249047
+                ],
+                "upper": [
+                  -3.9387916562476386,
+                  2.0624992188636799,
+                  0.070000000003249047
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "24",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": 0.10000000000000003,
+                  "upper": 0.20000000000000001
+                },
+                {
+                  "lower": -0.10000000000000001,
+                  "upper": -0.050000000000000017
+                }
+              ]
+            },
+            "end_tick": "32",
+            "id": "6dc8ecc0dff5bc7955956150fd79dbb241f39b82511f587fd6ef3dcd40edfb90",
+            "link_envelopes": [
+              {
+                "lower": [
+                  -4.0600000000015362,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  -3.9399999999984647,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  -4.2601266863737592,
+                  0.93999999999812367,
+                  -0.07000000000324981
+                ],
+                "upper": [
+                  -3.9399999999984647,
+                  2.057492984564893,
+                  0.07000000000324981
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          }
+        ],
+        "storage_schema": "2",
+        "timeline_id": "fixture-cell-clock-v1",
+        "trajectory": [
+          {
+            "configuration": [
+              -0.20000000000000001,
+              0.10000000000000001
+            ],
+            "tick": "0"
+          },
+          {
+            "configuration": [
+              0.20000000000000001,
+              -0.10000000000000001
+            ],
+            "tick": "32"
+          }
+        ],
+        "workspace_angular_uncertainty_radians": 0,
+        "workspace_frame_id": "fixture-cell-world",
+        "workspace_rotation": [
+          0,
+          -1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "workspace_translation": [
+          -4,
+          0,
+          0
+        ],
+        "workspace_translation_uncertainty": [
+          0.01,
+          0.01,
+          0.02
+        ]
+      },
+      {
+        "algorithm": "ifk-aa-piecewise-linear-swept-link-aabb",
+        "algorithm_version": "2",
+        "deployment_id": "arm-b",
+        "id": "8e85954d4e9005ce3a59f48d6cc26bad51e52050e74f9c58d6edfd76e1469534",
+        "link_padding": 0,
+        "maximum_normalized_joint_width": 0.050000000000000003,
+        "maximum_subdivision_depth": "16",
+        "robot_digest": "3c7ec874345f27baa1a829a629e32dc5a94ba446a9d8b8d12de995641b4e0784",
+        "slices": [
+          {
+            "begin_tick": "0",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": -0.20000000000000001,
+                  "upper": -0.10000000000000001
+                },
+                {
+                  "lower": 0.050000000000000003,
+                  "upper": 0.10000000000000001
+                }
+              ]
+            },
+            "end_tick": "8",
+            "id": "a683088563fe7be3298a75aba5ce2300d5ce0edcd7fa4006aae87d6a6e4618b1",
+            "link_envelopes": [
+              {
+                "lower": [
+                  3.9399999999984647,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  4.0600000000015362,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  3.9399999999984647,
+                  0.93999999999812367,
+                  -0.07000000000324981
+                ],
+                "upper": [
+                  4.2601266863737592,
+                  2.057492984564893,
+                  0.07000000000324981
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "8",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": -0.10000000000000001,
+                  "upper": 0
+                },
+                {
+                  "lower": 0,
+                  "upper": 0.050000000000000003
+                }
+              ]
+            },
+            "end_tick": "16",
+            "id": "f08834a82c1f07bda5b2017e2f64ca58cf80eac43e107dbbb46a3128c4f1396c",
+            "link_envelopes": [
+              {
+                "lower": [
+                  3.9399999999984647,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  4.0600000000015362,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  3.9387916562476386,
+                  0.93999999999812367,
+                  -0.070000000003249047
+                ],
+                "upper": [
+                  4.161166682293719,
+                  2.0624992188636799,
+                  0.070000000003249047
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "16",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": 0,
+                  "upper": 0.10000000000000003
+                },
+                {
+                  "lower": -0.050000000000000017,
+                  "upper": 0
+                }
+              ]
+            },
+            "end_tick": "24",
+            "id": "29aa33c489251213382ff299aaa8f479d623f8a5750433bcf5654b2ce1a7a341",
+            "link_envelopes": [
+              {
+                "lower": [
+                  3.9399999999984647,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  4.0600000000015362,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  3.8388333177062819,
+                  0.93999999999812367,
+                  -0.070000000003249047
+                ],
+                "upper": [
+                  4.0612083437523623,
+                  2.0624992188636799,
+                  0.070000000003249047
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          },
+          {
+            "begin_tick": "24",
+            "configuration_domain": {
+              "axes": [
+                {
+                  "lower": 0.10000000000000003,
+                  "upper": 0.20000000000000001
+                },
+                {
+                  "lower": -0.10000000000000001,
+                  "upper": -0.050000000000000017
+                }
+              ]
+            },
+            "end_tick": "32",
+            "id": "e101442d4cf0d6771db1e17b9d41f9ee955a18caf945eb80cf75a22d071c9dee",
+            "link_envelopes": [
+              {
+                "lower": [
+                  3.9399999999984647,
+                  -0.060000000000682147,
+                  -0.070000000001534807
+                ],
+                "upper": [
+                  4.0600000000015362,
+                  1.0600000000018768,
+                  0.070000000001534807
+                ]
+              },
+              {
+                "lower": [
+                  3.7398733136262421,
+                  0.93999999999812367,
+                  -0.07000000000324981
+                ],
+                "upper": [
+                  4.0600000000015362,
+                  2.057492984564893,
+                  0.07000000000324981
+                ]
+              }
+            ],
+            "trajectory_segment_index": "0"
+          }
+        ],
+        "storage_schema": "2",
+        "timeline_id": "fixture-cell-clock-v1",
+        "trajectory": [
+          {
+            "configuration": [
+              -0.20000000000000001,
+              0.10000000000000001
+            ],
+            "tick": "0"
+          },
+          {
+            "configuration": [
+              0.20000000000000001,
+              -0.10000000000000001
+            ],
+            "tick": "32"
+          }
+        ],
+        "workspace_angular_uncertainty_radians": 0,
+        "workspace_frame_id": "fixture-cell-world",
+        "workspace_rotation": [
+          0,
+          -1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "workspace_translation": [
+          4,
+          0,
+          0
+        ],
+        "workspace_translation_uncertainty": [
+          0.01,
+          0.01,
+          0.02
+        ]
+      }
+    ],
+    "report": {
+      "conflicts": [],
+      "id": "9a8b12df9ba0ca88142a9f44ef722a411cb33930a8986e4dd7b657d8d333053e",
+      "link_pair_evaluations": "16",
+      "minimum_separation": 1,
+      "occupancy_ids": [
+        "77cf98b080aa3a13269932d8af064f2043c9706d8d772213009aca6a6bae4931",
+        "8e85954d4e9005ce3a59f48d6cc26bad51e52050e74f9c58d6edfd76e1469534"
+      ],
+      "slice_pair_evaluations": "4",
+      "status": 0,
+      "timeline_id": "fixture-cell-clock-v1",
+      "workspace_frame_id": "fixture-cell-world"
+    },
+    "storage_schema": "2"
+  },
+  "schema": 2
+}

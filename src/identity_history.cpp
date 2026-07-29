@@ -26,10 +26,15 @@ constexpr std::size_t kCurrentHistorySchema = 2;
 constexpr std::size_t kMaximumIdentifierBytes = 256;
 constexpr std::size_t kMaximumStringBytes = 4096;
 
-std::filesystem::path unique_sibling(const std::filesystem::path& destination, std::string_view suffix) {
+std::string temporary_nonce() {
     const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
-    return destination.parent_path() /
-           (destination.filename().string() + std::string(suffix) + std::to_string(nonce));
+    return std::to_string(nonce);
+}
+
+std::filesystem::path short_history_temporary(const std::filesystem::path& destination,
+                                              std::string_view purpose, std::string_view extension) {
+    return destination.parent_path().parent_path() /
+           ("." + std::string(purpose) + "-" + temporary_nonce() + std::string(extension));
 }
 
 Result<internal::Json> read_bounded_json(const std::filesystem::path& path, std::uintmax_t maximum_bytes) {
@@ -385,7 +390,7 @@ Result<void> write_immutable_file(const std::filesystem::path& destination, cons
         return Result<void>::failure(StatusCode::IdentityMismatch,
                                      "immutable trust-history record already exists", destination.string());
     }
-    const auto temporary = unique_sibling(destination, ".tmp-");
+    const auto temporary = short_history_temporary(destination, "record", ".json");
     auto written = internal::write_text_file(temporary, content);
     if (!written) {
         std::error_code ignored;
@@ -397,6 +402,25 @@ Result<void> write_immutable_file(const std::filesystem::path& destination, cons
         std::error_code ignored;
         std::filesystem::remove(temporary, ignored);
         return Result<void>::failure(StatusCode::IoError, "failed to publish immutable trust-history record",
+                                     destination.string());
+    }
+    return Result<void>::success();
+}
+
+Result<void> publish_bundle_file(const ServiceTrustBundle& bundle, const std::filesystem::path& destination) {
+    const auto temporary = short_history_temporary(destination, "bundle", ".json");
+    auto saved = bundle.save(temporary);
+    if (!saved) {
+        std::error_code ignored;
+        std::filesystem::remove(temporary, ignored);
+        return saved.error();
+    }
+    std::error_code error;
+    std::filesystem::rename(temporary, destination, error);
+    if (error) {
+        std::error_code ignored;
+        std::filesystem::remove(temporary, ignored);
+        return Result<void>::failure(StatusCode::IoError, "failed to publish immutable trust-history bundle",
                                      destination.string());
     }
     return Result<void>::success();
@@ -545,7 +569,7 @@ Result<ServiceTrustHistory> ServiceTrustHistory::create(const std::filesystem::p
     root_record.bundle_id = root_bundle.id();
     root_record.id = internal::service_trust_rotation_record_identity(root_record);
 
-    const auto temporary = unique_sibling(directory, ".tmp-");
+    const auto temporary = directory.parent_path() / (".trust-history-" + temporary_nonce());
     const bool temporary_created = std::filesystem::create_directory(temporary, error);
     if (error || !temporary_created) {
         return Result<ServiceTrustHistory>::failure(StatusCode::IoError,
@@ -919,7 +943,7 @@ ServiceTrustHistory::publish_impl(const ServiceTrustBundle& successor,
                 successor.id());
         }
     } else {
-        auto saved = successor.save(bundle_path);
+        auto saved = publish_bundle_file(successor, bundle_path);
         if (!saved)
             return saved.error();
     }

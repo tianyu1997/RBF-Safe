@@ -3,6 +3,39 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.5.0] - 2026-07-28
+
+### Added
+
+- Independent `RotatingOccupancyPublicationHistory` with an embedded,
+  replayable `ServiceTrustHistory`; single-signature and canonical quorum
+  trust rotation; historical-bundle publication verification; monotonic
+  trust use; and publication appends restricted to the exact current trust
+  head.
+- Caller-pinned trust-root/head and publication-root/head opening plus a
+  signed-checkpoint trust-anchor overload. Deterministic dual-chain audit
+  reports independent trust and publication relations, common prefixes, and
+  forks.
+- Bounded schema-1 directory persistence with atomic creation,
+  cross-process expected-head publication, exact orphan recovery, aggregate
+  payload limits, cancellation, corruption and symlink rejection,
+  C++/Python APIs, native/Python inspection, dual-language quickstarts, and a
+  fixed two-key/two-publication fixture.
+
+### Compatibility and safety
+
+- All 4.4 APIs and storage schemas remain supported.
+  `OccupancyPublicationHistory` schema 1 remains fixed-trust; rotation uses
+  the new independent format and is never inferred or applied implicitly.
+- Authorized rotation authenticates retained software statements but does not
+  make a head globally newest. Callers must retain the newest accepted trust
+  head or checkpoint and publication head outside the directory's rollback
+  domain.
+- Rotating histories, records, verified publications, and dual-chain audits
+  remain `Unknown` and non-authorizing. Transport, peer discovery, gossip,
+  consensus, trustworthy clocks, perception, controller I/O, and physical
+  execution remain external.
+
 ## [4.4.0] - 2026-07-28
 
 ### Added

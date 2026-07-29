@@ -160,17 +160,23 @@
   exclusion; bounded schema-1 persistence; deterministic identical/extension/
   fork audits; fixed fixtures; and C++/Python/inspection tooling. Every result
   remains `Unknown` and non-authorizing.
-- **v4.4 (current) - Continuous moving-obstacle occupancy:** timestamped
+- **v4.4 - Continuous moving-obstacle occupancy:** timestamped
   piecewise-linear workspace AABB trajectories; outward-rounded padded swept
   unions; exact timeline/frame/complete-window binding; deterministic
   robot-link versus obstacle overlap and margin witnesses; replayable
   checksummed schema-1 persistence; fixed fixtures; and C++/Python/inspection
   tooling. Caller-supplied obstacle bounds remain untrusted `Unknown`
   assumptions and cannot authorize execution.
-- **v4.5+ candidates:** authenticated trust rotation across publication
-  histories, coordinated reservation protocols, remote head exchange/gossip,
-  independently certified hardware/deployment inputs, and trusted
-  perception/prediction adapters.
+- **v4.5 (current) - Authenticated trust rotation across occupancy
+  histories:** independent embedded service-trust histories; single/quorum
+  authorized rotation; historical-key publication replay; nondecreasing trust
+  use; caller-pinned trust/publication roots and heads or signed trust
+  checkpoints; expected-head publication; dual-chain prefix/fork audit;
+  bounded schema-1 persistence; fixed fixtures; and C++/Python/inspection
+  tooling. Every result remains `Unknown` and non-authorizing.
+- **v4.6+ candidates:** coordinated reservation protocols, authenticated
+  remote head exchange and gossip, independently certified
+  hardware/deployment inputs, and trusted perception/prediction adapters.
 
 RBF-Safe remains safety infrastructure rather than another motion planner.
 Paper experiments and RapidBoxForest legacy caches stay outside the standalone

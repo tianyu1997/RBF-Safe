@@ -46,7 +46,9 @@ from the directory: the caller must supply the expected head.
 
 `trust-bundle.json` uses the independently versioned service-trust-bundle
 format and must reproduce `trust_bundle_id`. Schema 1 does not rotate this
-bundle.
+bundle. RBF-Safe 4.5 provides rotation only through the separate
+[trust-rotating history format](rotating-occupancy-publication-history-format.md);
+this directory never changes meaning or upgrades implicitly.
 
 ## Immutable records
 
