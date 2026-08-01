@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 4.5
+geometric safety certificates in robot configuration space. Version 4.6
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
@@ -105,6 +105,11 @@ trust history, verifies each publication under its historical bundle, forbids
 backward trust use, restricts new publication commits to the current trust
 head, and audits trust and publication forks separately under caller-pinned
 roots plus heads or a signed trust checkpoint.
+The coordinated-reservation layer then requires every unique deployment to
+publish the exact same separated fleet-occupancy payload at one evaluation
+tick. It canonically binds all deployment, stream, key, trust/publication
+prefix, payload, timeline/frame, validity-window, protocol, round, and parent
+identities and replays older agreements against later-extended histories.
 Authenticated publications and histories remain non-authorizing.
 The moving-obstacle occupancy layer additionally turns timestamped
 piecewise-linear workspace AABBs into outward-rounded swept unions, requires
@@ -212,16 +217,20 @@ certificate.
   replay, trust/publication dual-chain audit, caller-pinned head or signed
   checkpoint anchors, checksummed independent schema-1 persistence, fixed
   fixtures, and C++/Python/inspection tools.
+- Deterministic unanimous coordinated reservation agreements across
+  independent rotating histories, with exact common-payload and participant
+  prefix binding, stable membership, parent-linked round succession, bounded
+  schema-1 persistence, fixed fixtures, and C++/Python/inspection tools.
 - Reviewed 3.x public source API, documented storage migrations, deterministic
   release benchmark/soak gates, and reproducible named release fixtures.
 
 RBF-Safe configures upstream OMPL planners but does not reimplement them.
 Higher-order Portal discovery,
 trusted obstacle perception/prediction, authenticated policy inference and metadata,
-moving/time-varying fleet frames, network fleet coordination or consensus,
+moving/time-varying fleet frames, network reservation transport or consensus,
 concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v4.5. TLS, endpoint/credential policy, trustworthy local clocks,
+remain outside v4.6. TLS, endpoint/credential policy, trustworthy local clocks,
 tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
 transport/discovery services, vendor evidence acquisition and adapter
 validation, private-key storage, and network I/O remain application
@@ -369,6 +378,8 @@ rbfsafe-inspect trust-checkpoint.json --trust-history service-trust-history \
   --expected-trust-checkpoint <checkpoint-id>
 rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json \
   --ik-target 1.9 0.6 0 0 0 0.1 0.995 --seed 0 0
+rbfsafe-inspect reservation.json \
+  --expected-reservation-agreement <caller-retained-agreement-id>
 ```
 
 ## Documentation
@@ -425,6 +436,8 @@ rbfsafe-inspect atlas --robot data/planar_2r.json --scene data/empty_scene.json 
 - [Occupancy publication-history schema 1](docs/occupancy-publication-history-format.md)
 - [Trust-rotating occupancy publication histories](docs/rotating-occupancy-publication-history.md)
 - [Trust-rotating occupancy publication-history schema 1](docs/rotating-occupancy-publication-history-format.md)
+- [Coordinated reservation agreements](docs/coordinated-reservation-agreements.md)
+- [Coordinated reservation agreement schema 1](docs/coordinated-reservation-agreement-format.md)
 - [Schema support and migrations](docs/schema-migrations.md)
 - [Release fixtures and benchmark](docs/release-fixtures.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)

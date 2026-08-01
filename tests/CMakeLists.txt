@@ -117,6 +117,11 @@ if(TARGET rbfsafe_inspect)
             829328cdffeca14a187430a3964651ef37ec249669dcbcf94c92f5a0d564b601
             31)
     add_test(
+        NAME rbfsafe_coordinated_reservation_agreement_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/coordinated_reservation_agreement_schema1/agreement.json
+            50ad0281ad0ec37b7b4a3869c7249d840f0870242d2ed600ade21ce62a77e040)
+    add_test(
         NAME rbfsafe_execution_ledger_fixture_inspect
         COMMAND rbfsafe_inspect
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/execution_ledger_schema1

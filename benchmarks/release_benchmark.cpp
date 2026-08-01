@@ -550,6 +550,63 @@ replay_rotating_occupancy_publication_history_fixture(const std::filesystem::pat
     return rbfsafe::Result<void>::success();
 }
 
+rbfsafe::Result<void>
+replay_coordinated_reservation_agreement_fixture(const std::filesystem::path& fixture_root,
+                                                 std::uint64_t& logical_hash) {
+    const auto reservation_root = fixture_root.parent_path() / "coordinated_reservation_agreement_schema1";
+    auto agreement = rbfsafe::CoordinatedReservationAgreement::load(reservation_root / "agreement.json");
+    if (!agreement)
+        return agreement.error();
+    auto occupancy = rbfsafe::ContinuousFleetOccupancyBundle::load(
+        fixture_root.parent_path() / "continuous_fleet_occupancy_schema2" / "occupancy.json");
+    if (!occupancy)
+        return occupancy.error();
+    auto arm_a = rbfsafe::RotatingOccupancyPublicationHistory::open(
+        reservation_root / "arm-a-history", "arm-a-reservation-stream-v1", "arm-a-reservation-publisher",
+        "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+        "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+        "cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658",
+        "cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658");
+    if (!arm_a)
+        return arm_a.error();
+    auto arm_b = rbfsafe::RotatingOccupancyPublicationHistory::open(
+        reservation_root / "arm-b-history", "arm-b-reservation-stream-v1", "arm-b-reservation-publisher",
+        "46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561",
+        "46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561",
+        "15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e",
+        "15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e");
+    if (!arm_b)
+        return arm_b.error();
+    std::vector<std::string> deployments{"arm-a", "arm-b"};
+    std::vector<rbfsafe::RotatingOccupancyPublicationHistory> histories{std::move(arm_a).value(),
+                                                                        std::move(arm_b).value()};
+    auto verified = rbfsafe::verify_coordinated_reservation_agreement(agreement.value(), occupancy.value(),
+                                                                      deployments, histories);
+    if (!verified)
+        return verified.error();
+    if (agreement.value().id != "50ad0281ad0ec37b7b4a3869c7249d840f0870242d2ed600ade21ce62a77e040" ||
+        agreement.value().participants.size() != 2 ||
+        agreement.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        agreement.value().authorizes_execution()) {
+        return rbfsafe::Result<void>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release coordinated reservation agreement replay was inconsistent");
+    }
+    hash_field(logical_hash, "unanimous-coordinated-reservation-but-non-authorizing");
+    hash_field(logical_hash, agreement.value().id);
+    hash_field(logical_hash, agreement.value().protocol_id);
+    hash_field(logical_hash, agreement.value().occupancy_bundle_id);
+    hash_field(logical_hash, agreement.value().occupancy_report_id);
+    hash_field(logical_hash, std::to_string(agreement.value().round));
+    for (const auto& participant : agreement.value().participants) {
+        hash_field(logical_hash, participant.id);
+        hash_field(logical_hash, participant.deployment_id);
+        hash_field(logical_hash, participant.publication_head_id);
+        hash_field(logical_hash, participant.trust_head_bundle_id);
+    }
+    return rbfsafe::Result<void>::success();
+}
+
 rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t iterations,
                                       std::uint64_t& logical_hash) {
     auto robot = rbfsafe::SerialRobotModel::from_json(fixture.robot);
@@ -1784,6 +1841,12 @@ int main(int argc, char** argv) {
         replay_rotating_occupancy_publication_history_fixture(options.fixtures, logical_hash);
     if (!rotating_occupancy_publication_history) {
         std::cerr << rotating_occupancy_publication_history.error().describe() << '\n';
+        return 1;
+    }
+    auto coordinated_reservation =
+        replay_coordinated_reservation_agreement_fixture(options.fixtures, logical_hash);
+    if (!coordinated_reservation) {
+        std::cerr << coordinated_reservation.error().describe() << '\n';
         return 1;
     }
     const std::string actual_digest = hex64(logical_hash);

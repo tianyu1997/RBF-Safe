@@ -94,11 +94,20 @@ trust successors use the identity module's existing protocol. Opens pin both
 chain roots and heads, or use a caller-pinned signed trust checkpoint; a
 dual-chain audit compares trust and publication prefixes independently.
 
+The 4.6 agreement backend composes multiple independently pinned rotating
+histories with one separated fleet-occupancy bundle. It verifies a common
+exact payload at one logical tick, canonicalizes unique deployment and
+publisher-stream membership, and binds each participant's trust/publication
+prefix to a parent-linked agreement round. Replay accepts retained prefixes
+inside later-extended histories, while successor validation requires every
+participant to publish a strictly newer statement.
+
 The target does not own transport, head distribution, peer discovery, clock
 synchronization, consensus, controller I/O, or hardware enforcement.
 Applications retain roots and newest heads/checkpoints externally and must
-bring both histories to the audit to detect a fork. Every publication,
-history, and audit result remains `Unknown`.
+bring compared histories to an audit to detect a fork. They also retain the
+newest accepted agreement identity outside its rollback domain. Every
+publication, history, audit, participant, and agreement remains `Unknown`.
 
 ### Corridor
 

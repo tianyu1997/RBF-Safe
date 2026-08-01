@@ -36,6 +36,11 @@ Include, when available:
   retained expected-head publication IDs, conflicting record/publication IDs,
   relation result, resource limits, and synthetic manifest/record layout;
   never include signing keys or sensitive production occupancy;
+- for coordinated-reservation issues, the retained agreement ID, protocol,
+  round/parent, evaluation tick, deployment mapping, occupancy bundle/report
+  IDs, participant trust/publication roots and heads, payload digest/length,
+  and a synthetic agreement/history fixture; never include private keys or
+  sensitive production trajectories;
 - a minimal reproducer and whether the result is deterministic;
 - expected impact and any known deployed use.
 
@@ -66,3 +71,11 @@ publication head. A valid older signed checkpoint is not automatically fresh;
 a fully rolled-back directory and rolled-back caller anchors cannot be
 detected locally. Dual-chain audit compares only supplied views and does not
 provide peer discovery, gossip, consensus, or execution authority.
+
+A coordinated reservation agreement proves unanimous exact-payload
+publication only among the explicit histories supplied to replay. The caller
+must retain the newest accepted agreement ID and all participant heads outside
+the artifacts' rollback domain. A valid agreement does not prove peer receipt,
+global newest state, clock synchronization, network consensus, controller
+admission, reservation enforcement, or physical execution. Agreements remain
+`Unknown` and non-authorizing.

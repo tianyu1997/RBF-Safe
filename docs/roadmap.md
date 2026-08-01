@@ -167,16 +167,25 @@
   checksummed schema-1 persistence; fixed fixtures; and C++/Python/inspection
   tooling. Caller-supplied obstacle bounds remain untrusted `Unknown`
   assumptions and cannot authorize execution.
-- **v4.5 (current) - Authenticated trust rotation across occupancy
+- **v4.5 - Authenticated trust rotation across occupancy
   histories:** independent embedded service-trust histories; single/quorum
   authorized rotation; historical-key publication replay; nondecreasing trust
   use; caller-pinned trust/publication roots and heads or signed trust
   checkpoints; expected-head publication; dual-chain prefix/fork audit;
   bounded schema-1 persistence; fixed fixtures; and C++/Python/inspection
   tooling. Every result remains `Unknown` and non-authorizing.
-- **v4.6+ candidates:** coordinated reservation protocols, authenticated
-  remote head exchange and gossip, independently certified
-  hardware/deployment inputs, and trusted perception/prediction adapters.
+- **v4.6 (current) - Unanimous coordinated occupancy reservation:**
+  exact common-payload agreement across unique trust-rotating deployment
+  histories; canonical deployment/occupancy/publisher/key/trust/publication
+  binding; common timeline/frame/window/separation binding; parent-linked
+  rounds with strictly advancing participant sequences; prefix replay against
+  extended histories; caller-pinned agreement identity; bounded schema-1
+  persistence; fixed fixtures; and C++/Python/inspection tooling. Every
+  result remains `Unknown` and non-authorizing.
+- **v4.7+ candidates:** authenticated remote reservation-head exchange and
+  gossip, independently certified hardware/deployment inputs, and trusted
+  perception/prediction adapters. Network consensus, lease enforcement,
+  global time, and controller admission require separate explicit designs.
 
 RBF-Safe remains safety infrastructure rather than another motion planner.
 Paper experiments and RapidBoxForest legacy caches stay outside the standalone

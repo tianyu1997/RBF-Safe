@@ -1,0 +1,22 @@
+{
+  "format": "rbfsafe-service-trust-bundle",
+  "id": "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+  "keys": [
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": true,
+      "id": "1acf7526069c843de9301bbe6505f37945ed6c753a01295550bb0785120c1757",
+      "public_key": "542821e9529dd1ad243bfdff5c640a65194b4816987a650de861d7ce9e417a63",
+      "service_id": "arm-a-reservation-publisher",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    }
+  ],
+  "library_version": "4.6.0",
+  "parent_id": "",
+  "schema": 2,
+  "sequence": "1"
+}

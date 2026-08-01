@@ -13,5 +13,8 @@ std::string occupancy_publication_history_record_identity(const OccupancyPublica
 std::string occupancy_publication_history_audit_identity(const OccupancyPublicationHistoryAudit& audit);
 std::string
 rotating_occupancy_publication_history_audit_identity(const RotatingOccupancyPublicationHistoryAudit& audit);
+std::string
+coordinated_reservation_participant_identity(const CoordinatedReservationParticipant& participant);
+std::string coordinated_reservation_agreement_identity(const CoordinatedReservationAgreement& agreement);
 
 } // namespace rbfsafe::internal

@@ -1,0 +1,25 @@
+{
+  "checksum": "ac18b867c8af20dfb06b485779fe32e8db7292a6e4f644e66cf835b94d2651bd",
+  "format": "rbfsafe-continuous-fleet-occupancy-publication",
+  "library_version": "4.6.0",
+  "payload": {
+    "algorithm": 1,
+    "authentication_tag": "181e912c4133263fedc9669ecf3c4bfa3a4f311c1178c2418e13b44e1e7d2f80c8bd27bb4d88a3811a78a22eec9cef7c2542bfb95f480bd4917e0017d606d402",
+    "id": "cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658",
+    "occupancy_bundle_id": "6030e3574db5634f60b6cf04ffc325077f944ef23d256ef7cc937fe857dce8d0",
+    "parent_publication_id": "",
+    "payload_bytes": "14171",
+    "payload_digest": "d5c566782ab97847dcef150b81cdaeb73c27192bfd8c12a7e34ea0787d010c2f",
+    "publisher_key_id": "1acf7526069c843de9301bbe6505f37945ed6c753a01295550bb0785120c1757",
+    "publisher_sequence": "1",
+    "publisher_service_id": "arm-a-reservation-publisher",
+    "storage_schema": 1,
+    "stream_id": "arm-a-reservation-stream-v1",
+    "timeline_id": "fixture-cell-clock-v1",
+    "trust_bundle_id": "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+    "valid_from_tick": "0",
+    "valid_through_tick": "32",
+    "workspace_frame_id": "fixture-cell-world"
+  },
+  "schema": 1
+}

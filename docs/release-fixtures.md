@@ -394,6 +394,34 @@ trust rollback and stale writers, exercise signed checkpoint opening, and
 compare trust and publication forks independently. The deterministic seeds
 are public quickstart material, never production credentials.
 
+`data/coordinated_reservation_agreement_schema1` is the fixed RBF-Safe 4.6
+unanimous two-deployment agreement. It contains one schema-1 agreement and
+the exact single-publication rotating history prefix for `arm-a` and `arm-b`.
+Both publications authenticate
+`data/continuous_fleet_occupancy_schema2/occupancy.json`. Stable identities
+are:
+
+- agreement:
+  `50ad0281ad0ec37b7b4a3869c7249d840f0870242d2ed600ade21ce62a77e040`;
+- occupancy bundle:
+  `6030e3574db5634f60b6cf04ffc325077f944ef23d256ef7cc937fe857dce8d0`;
+- separation report:
+  `9a8b12df9ba0ca88142a9f44ef722a411cb33930a8986e4dd7b657d8d333053e`;
+- arm-a publication/trust heads:
+  `cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658`
+  and
+  `0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11`;
+  and
+- arm-b publication/trust heads:
+  `15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e`
+  and
+  `46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561`.
+
+Native and Python tests open both histories with every retained root/head,
+reload the exact occupancy bytes, and semantically recompute the agreement.
+The fixture uses public deterministic keys and is not a credential,
+freshness/consensus claim, or execution permit.
+
 The reviewed RBF-Safe 3.5 cross-platform logical digest is
 `7fd992c40260981c`.
 
@@ -503,3 +531,11 @@ an identical dual-chain audit. Stable trust/publication identities, record
 counts, record IDs, verification IDs, and discrete relations enter the
 digest. Authorized rotation and every replay result remain non-authorizing
 `Unknown`.
+
+The reviewed RBF-Safe 4.6 cross-platform logical digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `99840d27b477d203`. It
+additionally replays the fixed unanimous reservation against both exact
+participant histories and common occupancy payload. Stable agreement,
+protocol, occupancy/report, round, participant, deployment,
+publication-head, and trust-head identities enter the digest. The unanimous
+result remains non-authorizing `Unknown`.

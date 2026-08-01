@@ -340,4 +340,84 @@ Result<RotatingOccupancyPublicationHistoryAudit>
 audit_rotating_occupancy_publication_histories(const RotatingOccupancyPublicationHistory& first,
                                                const RotatingOccupancyPublicationHistory& second);
 
+struct CoordinatedReservationParticipant {
+    std::uint32_t storage_schema = 1;
+    std::string id;
+    std::string deployment_id;
+    std::string occupancy_id;
+    std::string stream_id;
+    std::string publisher_service_id;
+    std::string publisher_key_id;
+    std::uint64_t publisher_sequence = 0;
+    std::string trust_root_bundle_id;
+    std::string trust_head_bundle_id;
+    std::string publication_trust_bundle_id;
+    std::string publication_root_id;
+    std::string publication_head_id;
+    std::string verified_publication_id;
+    std::string payload_digest;
+    std::uint64_t payload_bytes = 0;
+    std::uint64_t valid_from_tick = 0;
+    std::uint64_t valid_through_tick = 0;
+
+    bool valid() const;
+    EvidenceLevel evidence() const noexcept { return EvidenceLevel::Unknown; }
+    bool authorizes_execution() const noexcept { return false; }
+};
+
+struct CoordinatedReservationAgreementLoadOptions {
+    std::size_t maximum_participants = 10'000;
+    std::uintmax_t maximum_payload_bytes = 16'777'216ULL;
+    CancellationToken cancellation;
+};
+
+struct CoordinatedReservationAgreement {
+    std::uint32_t storage_schema = 1;
+    std::string id;
+    std::string protocol_id;
+    std::uint64_t round = 0;
+    std::string parent_agreement_id;
+    std::uint64_t evaluation_tick = 0;
+    std::uint64_t valid_from_tick = 0;
+    std::uint64_t valid_through_tick = 0;
+    std::string occupancy_bundle_id;
+    std::string occupancy_report_id;
+    std::string timeline_id;
+    std::string workspace_frame_id;
+    double minimum_separation = 0.0;
+    std::string payload_digest;
+    std::uint64_t payload_bytes = 0;
+    std::vector<CoordinatedReservationParticipant> participants;
+
+    bool valid() const;
+    EvidenceLevel evidence() const noexcept { return EvidenceLevel::Unknown; }
+    bool authorizes_execution() const noexcept { return false; }
+
+    Result<void> save(const std::filesystem::path& path, const SaveOptions& options = {}) const;
+    static Result<CoordinatedReservationAgreement>
+    load(const std::filesystem::path& path, const CoordinatedReservationAgreementLoadOptions& options = {});
+};
+
+Result<CoordinatedReservationAgreement>
+make_coordinated_reservation_agreement(std::string protocol_id, std::uint64_t round,
+                                       std::string parent_agreement_id, std::uint64_t evaluation_tick,
+                                       const ContinuousFleetOccupancyBundle& occupancy_bundle,
+                                       std::span<const std::string> deployment_ids,
+                                       std::span<const RotatingOccupancyPublicationHistory> histories,
+                                       const CoordinatedReservationAgreementLoadOptions& options = {});
+
+Result<void>
+verify_coordinated_reservation_agreement(const CoordinatedReservationAgreement& agreement,
+                                         const ContinuousFleetOccupancyBundle& occupancy_bundle,
+                                         std::span<const std::string> deployment_ids,
+                                         std::span<const RotatingOccupancyPublicationHistory> histories,
+                                         const CoordinatedReservationAgreementLoadOptions& options = {});
+
+Result<void>
+verify_coordinated_reservation_successor(const CoordinatedReservationAgreement& previous,
+                                         const CoordinatedReservationAgreement& successor,
+                                         std::span<const std::string> deployment_ids,
+                                         std::span<const RotatingOccupancyPublicationHistory> histories,
+                                         const CoordinatedReservationAgreementLoadOptions& options = {});
+
 } // namespace rbfsafe
