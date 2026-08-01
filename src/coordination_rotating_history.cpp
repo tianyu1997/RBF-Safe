@@ -37,13 +37,6 @@ bool valid_text(std::string_view value) {
                         [](unsigned char character) { return character < 0x20U || character == 0x7fU; });
 }
 
-bool valid_signature(std::string_view value) {
-    return value.size() == kEd25519SignatureBytes * 2 &&
-           std::all_of(value.begin(), value.end(), [](char character) {
-               return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f');
-           });
-}
-
 bool exact_object(const Json& value, std::size_t fields) {
     return value.is_object() && value.as_object().size() == fields;
 }
