@@ -493,6 +493,63 @@ rbfsafe::Result<void> replay_occupancy_publication_history_fixture(const std::fi
     return rbfsafe::Result<void>::success();
 }
 
+rbfsafe::Result<void>
+replay_rotating_occupancy_publication_history_fixture(const std::filesystem::path& fixture_root,
+                                                      std::uint64_t& logical_hash) {
+    const auto history_root = fixture_root.parent_path() / "rotating_occupancy_publication_history_schema1";
+    constexpr std::string_view trust_root_bundle_id =
+        "9767a5e8912af9192237924232daaf746c0107e98cc4a458ee8b773b6b0da051";
+    constexpr std::string_view trust_head_bundle_id =
+        "938c63c1c1bdf8c309189c4ca93b1093aa68f2b72adba49ba2dbe81a940d1517";
+    constexpr std::string_view root_publication_id =
+        "fc449d962cec661b52277926efa2a1d0f075a389fd488eeb7b7f9f5bd441429b";
+    constexpr std::string_view head_publication_id =
+        "829328cdffeca14a187430a3964651ef37ec249669dcbcf94c92f5a0d564b601";
+    auto history = rbfsafe::RotatingOccupancyPublicationHistory::open(
+        history_root, "rotating-cell-stream-v1", "rotating-occupancy-publisher", trust_root_bundle_id,
+        trust_head_bundle_id, root_publication_id, head_publication_id);
+    if (!history)
+        return history.error();
+    auto trust_history = history.value().trust_history();
+    auto root_verified = history.value().verify(root_publication_id, 16);
+    auto head_verified = history.value().verify(head_publication_id, 31);
+    auto audit = rbfsafe::audit_rotating_occupancy_publication_histories(history.value(), history.value());
+    if (!trust_history || !root_verified || !head_verified || !audit)
+        return rbfsafe::Result<void>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release rotating occupancy publication-history replay did not complete");
+    if (trust_history.value().records().size() != 2 || history.value().records().size() != 2 ||
+        history.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        history.value().authorizes_execution() ||
+        audit.value().trust_relation != rbfsafe::OccupancyPublicationHistoryRelation::Identical ||
+        audit.value().publication_relation != rbfsafe::OccupancyPublicationHistoryRelation::Identical ||
+        audit.value().fork_detected() || audit.value().evidence() != rbfsafe::EvidenceLevel::Unknown ||
+        audit.value().authorizes_execution()) {
+        return rbfsafe::Result<void>::failure(
+            rbfsafe::StatusCode::InternalError,
+            "release rotating occupancy publication-history replay was inconsistent");
+    }
+    hash_field(logical_hash, "authorized-trust-rotating-occupancy-publication-history-but-non-authorizing");
+    hash_field(logical_hash, history.value().trust_root_bundle_id());
+    hash_field(logical_hash, history.value().current_trust_bundle_id());
+    hash_field(logical_hash, history.value().root_publication_id());
+    hash_field(logical_hash, history.value().current_publication_id());
+    hash_field(logical_hash, std::to_string(trust_history.value().records().size()));
+    hash_field(logical_hash, std::to_string(history.value().records().size()));
+    for (const auto& record : trust_history.value().records())
+        hash_field(logical_hash, record.id);
+    for (const auto& record : history.value().records())
+        hash_field(logical_hash, record.id);
+    hash_field(logical_hash, root_verified.value().id);
+    hash_field(logical_hash, head_verified.value().id);
+    hash_field(logical_hash,
+               rbfsafe::occupancy_publication_history_relation_name(audit.value().trust_relation));
+    hash_field(logical_hash,
+               rbfsafe::occupancy_publication_history_relation_name(audit.value().publication_relation));
+    hash_field(logical_hash, audit.value().id);
+    return rbfsafe::Result<void>::success();
+}
+
 rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t iterations,
                                       std::uint64_t& logical_hash) {
     auto robot = rbfsafe::SerialRobotModel::from_json(fixture.robot);
@@ -1721,6 +1778,12 @@ int main(int argc, char** argv) {
         replay_occupancy_publication_history_fixture(options.fixtures, logical_hash);
     if (!occupancy_publication_history) {
         std::cerr << occupancy_publication_history.error().describe() << '\n';
+        return 1;
+    }
+    auto rotating_occupancy_publication_history =
+        replay_rotating_occupancy_publication_history_fixture(options.fixtures, logical_hash);
+    if (!rotating_occupancy_publication_history) {
+        std::cerr << rotating_occupancy_publication_history.error().describe() << '\n';
         return 1;
     }
     const std::string actual_digest = hex64(logical_hash);

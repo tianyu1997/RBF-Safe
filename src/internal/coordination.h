@@ -11,5 +11,7 @@ std::string occupancy_publication_signature_message(const OccupancyPublication& 
 std::string verified_occupancy_publication_identity(const VerifiedOccupancyPublication& verification);
 std::string occupancy_publication_history_record_identity(const OccupancyPublicationHistoryRecord& record);
 std::string occupancy_publication_history_audit_identity(const OccupancyPublicationHistoryAudit& audit);
+std::string
+rotating_occupancy_publication_history_audit_identity(const RotatingOccupancyPublicationHistoryAudit& audit);
 
 } // namespace rbfsafe::internal

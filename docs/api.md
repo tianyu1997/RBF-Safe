@@ -142,6 +142,33 @@ replication, consensus, and head distribution remain external. See
 [the complete contract](occupancy-publication-history.md) and
 [storage format](occupancy-publication-history-format.md).
 
+## Trust-rotating occupancy publication history
+
+`RotatingOccupancyPublicationHistory::create` takes a signed root
+publication, exact payload, and complete caller-pinned `ServiceTrustHistory`.
+It embeds a replayed copy of the trust chain and creates a separate schema-1
+directory. The original fixed-trust history API and format remain unchanged.
+
+`open` always pins stream, publisher, trust root, publication root, and
+publication head. One overload pins the current trust bundle ID; another
+accepts a complete `ServiceTrustCheckpoint` and separately retained
+checkpoint ID. `rotate_trust` delegates single-signature or canonical quorum
+successor verification to the service-trust protocol. `publish` requires both
+expected heads and accepts only a publication under the exact current trust
+bundle.
+
+Replay resolves every publication's `trust_bundle_id` to its historical
+bundle, authenticates its exact bytes, and rejects any backward bundle
+transition. `audit_rotating_occupancy_publication_histories` returns separate
+trust and publication relations, common prefixes, and a combined fork flag.
+It neither discovers nor selects a globally current view.
+
+`RotatingOccupancyPublicationHistoryLoadOptions` bounds both nested trust
+replay and occupancy decoding plus aggregate history bytes. All returned
+values remain `Unknown` and non-authorizing. See
+[the complete contract](rotating-occupancy-publication-history.md) and
+[storage format](rotating-occupancy-publication-history-format.md).
+
 ## Revocation-aware execution ledger
 
 Include `<rbfsafe/execution_ledger.h>` and link `RBFSafe::execution`.

@@ -938,3 +938,99 @@ histories that the caller supplies. It does not distribute heads, establish
 global consensus, provide trusted time, or authorize robot execution. See
 [occupancy publication histories](occupancy-publication-history.md) and the
 [schema-1 format](occupancy-publication-history-format.md).
+
+## 23. Rotate occupancy publication trust without losing history
+
+RBF-Safe 4.5 uses a separate history type when a publisher must retire or
+replace keys. Begin with a complete caller-pinned service trust history and a
+root publication signed under its current bundle:
+
+```python
+history = rbfsafe.RotatingOccupancyPublicationHistory.create(
+    "rotating-occupancy-history",
+    root_publication,
+    "fleet-occupancy-root.json",
+    source_trust_history,
+    root_publication.stream_id,
+    root_publication.publisher_service_id,
+    source_trust_history.root_bundle_id,
+    source_trust_history.current_bundle_id,
+    root_publication.id,
+)
+retained_trust_head = history.current_trust_bundle_id
+retained_publication_head = history.current_publication_id
+```
+
+Create a successor bundle with the existing trust APIs. The example below
+uses a single authorized signer; a schema-3 policy instead supplies the
+canonical authorization set:
+
+```python
+authorization = rbfsafe.authorize_service_trust_bundle_successor(
+    previous_bundle,
+    successor_bundle,
+    rotation_key.service_id,
+    rotation_key.id,
+    protected_rotation_secret,
+)
+history.rotate_trust(
+    successor_bundle,
+    authorization,
+    retained_trust_head,
+)
+retained_trust_head = history.current_trust_bundle_id
+```
+
+Sign and append the next occupancy publication under the successor bundle.
+Both expected heads are required, and trust cannot move backward:
+
+```python
+record = history.publish(
+    successor_publication,
+    "fleet-occupancy-successor.json",
+    retained_publication_head,
+    retained_trust_head,
+)
+retained_publication_head = history.current_publication_id
+
+assert history.verify(root_publication.id, 16).publication_id == root_publication.id
+assert history.verify(retained_publication_head, 31).publication_id == retained_publication_head
+```
+
+Reopen using the independently retained head IDs:
+
+```python
+replayed = rbfsafe.RotatingOccupancyPublicationHistory.open(
+    "rotating-occupancy-history",
+    root_publication.stream_id,
+    root_publication.publisher_service_id,
+    source_trust_history.root_bundle_id,
+    retained_trust_head,
+    root_publication.id,
+    retained_publication_head,
+)
+```
+
+For a portable quorum-authenticated trust anchor, replace the trust-head
+argument with a loaded `ServiceTrustCheckpoint` and its separately retained
+checkpoint ID. This still requires the publication head and does not make an
+old checkpoint current.
+
+Inspect the fixed fixture:
+
+```bash
+rbfsafe-inspect \
+  data/rotating_occupancy_publication_history_schema1 \
+  rotating-cell-stream-v1 rotating-occupancy-publisher \
+  9767a5e8912af9192237924232daaf746c0107e98cc4a458ee8b773b6b0da051 \
+  938c63c1c1bdf8c309189c4ca93b1093aa68f2b72adba49ba2dbe81a940d1517 \
+  fc449d962cec661b52277926efa2a1d0f075a389fd488eeb7b7f9f5bd441429b \
+  829328cdffeca14a187430a3964651ef37ec249669dcbcf94c92f5a0d564b601 \
+  31
+```
+
+The C++ and Python quickstarts are
+`examples/rotating_occupancy_publication_history_quickstart.cpp` and
+`.py`. See the
+[trust-rotating history contract](rotating-occupancy-publication-history.md)
+and [schema-1 format](rotating-occupancy-publication-history-format.md).

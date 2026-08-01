@@ -1,0 +1,23 @@
+{
+  "authorization": {
+    "algorithm": 1,
+    "authentication_tag": "e0b8cfbcaa1c0fdd71f638bcfa818d75445103fcaa2a81832919c052cad150908aea7e9493194b931abd73f6e2a1bdef9b8ccb1b1204e6f90bcc84f589ea410e",
+    "format": "rbfsafe-service-trust-bundle-authorization",
+    "id": "02c57c6191c290f46c43ff182b3f57cfac0bb6f1174b290eade7b1a2dcccca42",
+    "predecessor_bundle_id": "9767a5e8912af9192237924232daaf746c0107e98cc4a458ee8b773b6b0da051",
+    "predecessor_sequence": "1",
+    "schema": 1,
+    "signer_key_id": "03d7900ab0d6c667f0335387258f3dafbee6790f831c7b94572043d5d44f9181",
+    "signer_service_id": "rotating-occupancy-publisher",
+    "successor_bundle_id": "938c63c1c1bdf8c309189c4ca93b1093aa68f2b72adba49ba2dbe81a940d1517",
+    "successor_sequence": "2"
+  },
+  "bundle_id": "938c63c1c1bdf8c309189c4ca93b1093aa68f2b72adba49ba2dbe81a940d1517",
+  "format": "rbfsafe-service-trust-rotation-record",
+  "id": "13e19415c703e7fd0f2b48058a7e38f1cb1a46fb8ef280550b6ef98abaa03a09",
+  "library_version": "4.5.0",
+  "parent_id": "4ff3fa4b00f7609eb1a3a64d4673c320924e63f3c880de20629a16fda1bf21bb",
+  "schema": 1,
+  "sequence": "2",
+  "type": 1
+}

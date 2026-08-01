@@ -240,6 +240,215 @@ void bind_coordination(py::module_& module) {
             py::arg("publication"), py::arg("payload_path"), py::arg("expected_head_publication_id"),
             py::arg("maximum_publications") = 100'000);
 
+    py::class_<RotatingOccupancyPublicationHistoryLoadOptions>(
+        module, "RotatingOccupancyPublicationHistoryLoadOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_publications",
+                       &RotatingOccupancyPublicationHistoryLoadOptions::maximum_publications)
+        .def_readwrite("maximum_manifest_bytes",
+                       &RotatingOccupancyPublicationHistoryLoadOptions::maximum_manifest_bytes)
+        .def_readwrite("maximum_record_bytes",
+                       &RotatingOccupancyPublicationHistoryLoadOptions::maximum_record_bytes)
+        .def_readwrite("maximum_publication_bytes",
+                       &RotatingOccupancyPublicationHistoryLoadOptions::maximum_publication_bytes)
+        .def_readwrite("maximum_total_payload_bytes",
+                       &RotatingOccupancyPublicationHistoryLoadOptions::maximum_total_payload_bytes)
+        .def_readwrite("trust", &RotatingOccupancyPublicationHistoryLoadOptions::trust)
+        .def_readwrite("occupancy", &RotatingOccupancyPublicationHistoryLoadOptions::occupancy);
+
+    py::class_<RotatingOccupancyPublicationHistoryAudit>(module, "RotatingOccupancyPublicationHistoryAudit")
+        .def_readonly("storage_schema", &RotatingOccupancyPublicationHistoryAudit::storage_schema)
+        .def_readonly("id", &RotatingOccupancyPublicationHistoryAudit::id)
+        .def_readonly("publication_relation", &RotatingOccupancyPublicationHistoryAudit::publication_relation)
+        .def_readonly("trust_relation", &RotatingOccupancyPublicationHistoryAudit::trust_relation)
+        .def_readonly("stream_id", &RotatingOccupancyPublicationHistoryAudit::stream_id)
+        .def_readonly("publisher_service_id", &RotatingOccupancyPublicationHistoryAudit::publisher_service_id)
+        .def_readonly("trust_root_bundle_id", &RotatingOccupancyPublicationHistoryAudit::trust_root_bundle_id)
+        .def_readonly("root_publication_id", &RotatingOccupancyPublicationHistoryAudit::root_publication_id)
+        .def_readonly("first_trust_head_bundle_id",
+                      &RotatingOccupancyPublicationHistoryAudit::first_trust_head_bundle_id)
+        .def_readonly("second_trust_head_bundle_id",
+                      &RotatingOccupancyPublicationHistoryAudit::second_trust_head_bundle_id)
+        .def_readonly("first_head_publication_id",
+                      &RotatingOccupancyPublicationHistoryAudit::first_head_publication_id)
+        .def_readonly("second_head_publication_id",
+                      &RotatingOccupancyPublicationHistoryAudit::second_head_publication_id)
+        .def_readonly("first_trust_bundle_count",
+                      &RotatingOccupancyPublicationHistoryAudit::first_trust_bundle_count)
+        .def_readonly("second_trust_bundle_count",
+                      &RotatingOccupancyPublicationHistoryAudit::second_trust_bundle_count)
+        .def_readonly("common_trust_prefix_count",
+                      &RotatingOccupancyPublicationHistoryAudit::common_trust_prefix_count)
+        .def_readonly("common_trust_bundle_id",
+                      &RotatingOccupancyPublicationHistoryAudit::common_trust_bundle_id)
+        .def_readonly("first_publication_count",
+                      &RotatingOccupancyPublicationHistoryAudit::first_publication_count)
+        .def_readonly("second_publication_count",
+                      &RotatingOccupancyPublicationHistoryAudit::second_publication_count)
+        .def_readonly("common_publication_prefix_count",
+                      &RotatingOccupancyPublicationHistoryAudit::common_publication_prefix_count)
+        .def_readonly("common_publication_id",
+                      &RotatingOccupancyPublicationHistoryAudit::common_publication_id)
+        .def("valid", &RotatingOccupancyPublicationHistoryAudit::valid)
+        .def_property_readonly("fork_detected", &RotatingOccupancyPublicationHistoryAudit::fork_detected)
+        .def_property_readonly("evidence", &RotatingOccupancyPublicationHistoryAudit::evidence)
+        .def_property_readonly("authorizes_execution",
+                               &RotatingOccupancyPublicationHistoryAudit::authorizes_execution);
+
+    py::class_<RotatingOccupancyPublicationHistory>(module, "RotatingOccupancyPublicationHistory")
+        .def_static(
+            "create",
+            [](const std::filesystem::path& directory, const OccupancyPublication& root_publication,
+               const std::filesystem::path& root_payload_path, const ServiceTrustHistory& trust_history,
+               std::string expected_stream_id, std::string expected_publisher_service_id,
+               std::string expected_trust_root_bundle_id, std::string expected_trust_head_bundle_id,
+               std::string expected_root_publication_id,
+               const RotatingOccupancyPublicationHistoryLoadOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return RotatingOccupancyPublicationHistory::create(
+                        directory, root_publication, root_payload_path, trust_history, expected_stream_id,
+                        expected_publisher_service_id, expected_trust_root_bundle_id,
+                        expected_trust_head_bundle_id, expected_root_publication_id, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("directory"), py::arg("root_publication"), py::arg("root_payload_path"),
+            py::arg("trust_history"), py::arg("expected_stream_id"), py::arg("expected_publisher_service_id"),
+            py::arg("expected_trust_root_bundle_id"), py::arg("expected_trust_head_bundle_id"),
+            py::arg("expected_root_publication_id"),
+            py::arg("options") = RotatingOccupancyPublicationHistoryLoadOptions{})
+        .def_static(
+            "open",
+            [](const std::filesystem::path& directory, std::string expected_stream_id,
+               std::string expected_publisher_service_id, std::string expected_trust_root_bundle_id,
+               std::string expected_trust_head_bundle_id, std::string expected_root_publication_id,
+               std::string expected_head_publication_id,
+               const RotatingOccupancyPublicationHistoryLoadOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return RotatingOccupancyPublicationHistory::open(
+                        directory, expected_stream_id, expected_publisher_service_id,
+                        expected_trust_root_bundle_id, expected_trust_head_bundle_id,
+                        expected_root_publication_id, expected_head_publication_id, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("directory"), py::arg("expected_stream_id"), py::arg("expected_publisher_service_id"),
+            py::arg("expected_trust_root_bundle_id"), py::arg("expected_trust_head_bundle_id"),
+            py::arg("expected_root_publication_id"), py::arg("expected_head_publication_id"),
+            py::arg("options") = RotatingOccupancyPublicationHistoryLoadOptions{})
+        .def_static(
+            "open",
+            [](const std::filesystem::path& directory, std::string expected_stream_id,
+               std::string expected_publisher_service_id, std::string expected_trust_root_bundle_id,
+               const ServiceTrustCheckpoint& checkpoint, std::string expected_checkpoint_id,
+               std::string expected_root_publication_id, std::string expected_head_publication_id,
+               const RotatingOccupancyPublicationHistoryLoadOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return RotatingOccupancyPublicationHistory::open(
+                        directory, expected_stream_id, expected_publisher_service_id,
+                        expected_trust_root_bundle_id, checkpoint, expected_checkpoint_id,
+                        expected_root_publication_id, expected_head_publication_id, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("directory"), py::arg("expected_stream_id"), py::arg("expected_publisher_service_id"),
+            py::arg("expected_trust_root_bundle_id"), py::arg("checkpoint"),
+            py::arg("expected_checkpoint_id"), py::arg("expected_root_publication_id"),
+            py::arg("expected_head_publication_id"),
+            py::arg("options") = RotatingOccupancyPublicationHistoryLoadOptions{})
+        .def_property_readonly("directory", &RotatingOccupancyPublicationHistory::directory)
+        .def_property_readonly("storage_schema", &RotatingOccupancyPublicationHistory::storage_schema)
+        .def_property_readonly("stream_id", &RotatingOccupancyPublicationHistory::stream_id)
+        .def_property_readonly("publisher_service_id",
+                               &RotatingOccupancyPublicationHistory::publisher_service_id)
+        .def_property_readonly("trust_root_bundle_id",
+                               &RotatingOccupancyPublicationHistory::trust_root_bundle_id)
+        .def_property_readonly("current_trust_bundle_id",
+                               &RotatingOccupancyPublicationHistory::current_trust_bundle_id)
+        .def_property_readonly("root_publication_id",
+                               &RotatingOccupancyPublicationHistory::root_publication_id)
+        .def_property_readonly("current_publication_id",
+                               &RotatingOccupancyPublicationHistory::current_publication_id)
+        .def_property_readonly("timeline_id", &RotatingOccupancyPublicationHistory::timeline_id)
+        .def_property_readonly("workspace_frame_id", &RotatingOccupancyPublicationHistory::workspace_frame_id)
+        .def_property_readonly("records", &RotatingOccupancyPublicationHistory::records)
+        .def("valid", &RotatingOccupancyPublicationHistory::valid)
+        .def_property_readonly("evidence", &RotatingOccupancyPublicationHistory::evidence)
+        .def_property_readonly("authorizes_execution",
+                               &RotatingOccupancyPublicationHistory::authorizes_execution)
+        .def("trust_history",
+             [](const RotatingOccupancyPublicationHistory& history) {
+                 return unwrap(history.trust_history());
+             })
+        .def("current_trust_bundle",
+             [](const RotatingOccupancyPublicationHistory& history) {
+                 return unwrap(history.current_trust_bundle());
+             })
+        .def("current_publication",
+             [](const RotatingOccupancyPublicationHistory& history) {
+                 return unwrap(history.current_publication());
+             })
+        .def("publication",
+             [](const RotatingOccupancyPublicationHistory& history, const std::string& publication_id) {
+                 return unwrap(history.publication(publication_id));
+             })
+        .def(
+            "verify",
+            [](const RotatingOccupancyPublicationHistory& history, const std::string& publication_id,
+               std::uint64_t evaluation_tick) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return history.verify(publication_id, evaluation_tick);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("publication_id"), py::arg("evaluation_tick"))
+        .def(
+            "rotate_trust",
+            [](RotatingOccupancyPublicationHistory& history, const ServiceTrustBundle& successor,
+               const ServiceTrustBundleAuthorization& authorization,
+               const std::string& expected_trust_head_bundle_id, std::size_t maximum_trust_bundles) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return history.rotate_trust(successor, authorization, expected_trust_head_bundle_id,
+                                                maximum_trust_bundles);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("successor"), py::arg("authorization"), py::arg("expected_trust_head_bundle_id"),
+            py::arg("maximum_trust_bundles") = 100'000)
+        .def(
+            "rotate_trust",
+            [](RotatingOccupancyPublicationHistory& history, const ServiceTrustBundle& successor,
+               const ServiceTrustBundleAuthorizationSet& authorization_set,
+               const std::string& expected_trust_head_bundle_id, std::size_t maximum_trust_bundles) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return history.rotate_trust(successor, authorization_set, expected_trust_head_bundle_id,
+                                                maximum_trust_bundles);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("successor"), py::arg("authorization_set"), py::arg("expected_trust_head_bundle_id"),
+            py::arg("maximum_trust_bundles") = 100'000)
+        .def(
+            "publish",
+            [](RotatingOccupancyPublicationHistory& history, const OccupancyPublication& publication,
+               const std::filesystem::path& payload_path, const std::string& expected_head_publication_id,
+               const std::string& expected_trust_head_bundle_id, std::size_t maximum_publications) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return history.publish(publication, payload_path, expected_head_publication_id,
+                                           expected_trust_head_bundle_id, maximum_publications);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("publication"), py::arg("payload_path"), py::arg("expected_head_publication_id"),
+            py::arg("expected_trust_head_bundle_id"), py::arg("maximum_publications") = 100'000);
+
     module.def(
         "sign_continuous_fleet_occupancy_publication",
         [](const std::filesystem::path& occupancy_payload_path, const ServiceTrustBundle& trust_bundle,
@@ -300,6 +509,18 @@ void bind_coordination(py::module_& module) {
             auto result = [&]() {
                 py::gil_scoped_release release;
                 return rbfsafe::audit_occupancy_publication_histories(first, second);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("first"), py::arg("second"));
+
+    module.def(
+        "audit_rotating_occupancy_publication_histories",
+        [](const RotatingOccupancyPublicationHistory& first,
+           const RotatingOccupancyPublicationHistory& second) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::audit_rotating_occupancy_publication_histories(first, second);
             }();
             return unwrap(std::move(result));
         },

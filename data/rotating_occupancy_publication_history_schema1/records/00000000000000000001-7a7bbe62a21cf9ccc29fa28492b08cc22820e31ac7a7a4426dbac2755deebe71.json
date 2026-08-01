@@ -1,0 +1,16 @@
+{
+  "checksum": "222ecb231f398140332b9725e680756d4bcdcc4eab1b29d0954c9066b5b0cdfc",
+  "format": "rbfsafe-occupancy-publication-history-record",
+  "library_version": "4.5.0",
+  "payload": {
+    "authentication_tag": "197b54cd2efd5e4e6a1b4c93ba8dac0d153918a022ae3c99802f99d61797c14db59b43875932feea635ad27905b19887a31e9d0b25d7ded3d627e9857984af0b",
+    "id": "7a7bbe62a21cf9ccc29fa28492b08cc22820e31ac7a7a4426dbac2755deebe71",
+    "parent_record_id": "",
+    "payload_bytes": "14171",
+    "payload_digest": "d5c566782ab97847dcef150b81cdaeb73c27192bfd8c12a7e34ea0787d010c2f",
+    "publication_id": "fc449d962cec661b52277926efa2a1d0f075a389fd488eeb7b7f9f5bd441429b",
+    "sequence": "1",
+    "storage_schema": 1
+  },
+  "schema": 1
+}

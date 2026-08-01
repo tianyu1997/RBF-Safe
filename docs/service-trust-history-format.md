@@ -85,9 +85,11 @@ the immutable rotation record. An exact orphan bundle left by interruption is
 accepted on retry only after its full identity is revalidated. Existing
 record names are never overwritten.
 
-Initial creation builds a sibling temporary directory and renames it into
-place only after the root bundle, root record, and manifest have been written.
-Existing destinations are rejected.
+Initial creation builds a compact sibling temporary directory and renames it
+into place only after the root bundle, root record, and manifest have been
+written. Appends stage bundles and records under compact dot-prefixed names at
+the history root before the immutable rename, avoiding destination-name
+amplification on Windows. Existing destinations are rejected.
 
 ## Rollback and trust boundary
 

@@ -420,9 +420,15 @@ proof of global freshness. An unseen branch cannot be detected, and an
 attacker who can replace both the directory and the caller's external head
 anchor remains outside this model.
 
-Histories fix one exact trust bundle. They do not authenticate trust rotation,
-replicate heads, establish time, or decide which branch should be used. Every
-history record and audit remains `Unknown` and non-authorizing.
+The v4.3 history type fixes one exact trust bundle. The independent v4.5
+rotating type embeds a complete service-trust history, verifies every
+single/quorum-authorized successor, verifies publications under their exact
+historical bundles, prevents backward trust use, and compares trust and
+publication forks independently. This authenticates retained rotation
+statements but still does not replicate heads, establish time, prove a
+globally newest checkpoint, or decide which branch should be used. Every
+history record, historical verification, and audit remains `Unknown` and
+non-authorizing.
 
 The execution, transparency, witness, provenance, and occupancy layers do not
 prove that an endpoint key belongs to physical hardware, that the clock or
@@ -432,7 +438,7 @@ scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions in v4.3
+## Explicit exclusions through v4.5
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -460,7 +466,9 @@ responsibilities.
   occupancy, fleet separation report, occupancy bundle, authenticated
   occupancy publication, verified publication result, occupancy publication
   history/record, and history prefix/fork audit are not runtime-execution
-  approvals.
+  approvals. The same is true for a trust-rotating occupancy history,
+  authorized trust rotation record, signed history checkpoint, and dual-chain
+  audit.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic

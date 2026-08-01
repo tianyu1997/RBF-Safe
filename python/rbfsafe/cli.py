@@ -23,6 +23,7 @@ from . import (
     MemoryArtifactType,
     OccupancyPublication,
     OccupancyPublicationHistory,
+    RotatingOccupancyPublicationHistory,
     PolicyFeedbackDatabase,
     PolicyFeedbackLabel,
     PolicyFeedbackQuery,
@@ -56,6 +57,7 @@ from . import (
     analyze_continuous_fleet_occupancy,
     analyze_continuous_robot_scene_occupancy,
     audit_occupancy_publication_histories,
+    audit_rotating_occupancy_publication_histories,
     continuous_fleet_occupancy_status_name,
     continuous_occupancy_conflict_reason_name,
     continuous_robot_scene_occupancy_status_name,
@@ -327,6 +329,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="caller-retained current publication ID required for an occupancy publication history",
     )
     parser.add_argument(
+        "--expected-occupancy-trust-root",
+        help=(
+            "caller-retained root trust-bundle ID required for a rotating "
+            "occupancy publication history"
+        ),
+    )
+    parser.add_argument(
+        "--expected-occupancy-trust-head",
+        help=(
+            "caller-retained current trust-bundle ID required for a rotating "
+            "occupancy publication history"
+        ),
+    )
+    parser.add_argument(
         "--compare-occupancy-history",
         type=Path,
         help="second occupancy publication-history directory to audit for a fork",
@@ -334,6 +350,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--expected-compare-occupancy-head",
         help="caller-retained current publication ID for --compare-occupancy-history",
+    )
+    parser.add_argument(
+        "--expected-compare-occupancy-trust-head",
+        help=(
+            "caller-retained current trust-bundle ID for a rotating "
+            "--compare-occupancy-history"
+        ),
     )
     parser.add_argument(
         "--dispatch-monotonic-ns",
@@ -450,8 +473,11 @@ def main(argv: list[str] | None = None) -> int:
             or args.occupancy_minimum_separation is not None
             or args.expected_occupancy_root is not None
             or args.expected_occupancy_head is not None
+            or args.expected_occupancy_trust_root is not None
+            or args.expected_occupancy_trust_head is not None
             or args.compare_occupancy_history is not None
             or args.expected_compare_occupancy_head is not None
+            or args.expected_compare_occupancy_trust_head is not None
         ):
             parser.error(
                 "bundle and history options do not apply to a single "
@@ -745,6 +771,187 @@ def main(argv: list[str] | None = None) -> int:
         print("evidence=unknown")
         print("authorizes_execution=false")
         return 0
+    if (
+        manifest.get("format")
+        == "rbfsafe-rotating-occupancy-publication-history"
+    ):
+        _reject_unrelated_options(
+            parser,
+            args,
+            {
+                "atlas",
+                "expected_occupancy_stream",
+                "expected_occupancy_publisher",
+                "expected_occupancy_trust_root",
+                "expected_occupancy_trust_head",
+                "expected_occupancy_root",
+                "expected_occupancy_head",
+                "trust_checkpoint",
+                "expected_trust_checkpoint",
+                "occupancy_evaluation_tick",
+                "compare_occupancy_history",
+                "expected_compare_occupancy_trust_head",
+                "expected_compare_occupancy_head",
+            },
+            "a rotating occupancy publication history",
+        )
+        required = (
+            args.expected_occupancy_stream,
+            args.expected_occupancy_publisher,
+            args.expected_occupancy_trust_root,
+            args.expected_occupancy_root,
+            args.expected_occupancy_head,
+        )
+        if any(value is None for value in required):
+            parser.error(
+                "rotating occupancy publication-history inspection requires "
+                "--expected-occupancy-stream, --expected-occupancy-publisher, "
+                "--expected-occupancy-trust-root, "
+                "--expected-occupancy-root, and --expected-occupancy-head"
+            )
+        checkpoint_values = (
+            args.trust_checkpoint,
+            args.expected_trust_checkpoint,
+        )
+        if any(value is not None for value in checkpoint_values) and any(
+            value is None for value in checkpoint_values
+        ):
+            parser.error(
+                "--trust-checkpoint and --expected-trust-checkpoint must be "
+                "supplied together"
+            )
+        anchored_by_head = args.expected_occupancy_trust_head is not None
+        anchored_by_checkpoint = args.trust_checkpoint is not None
+        if anchored_by_head == anchored_by_checkpoint:
+            parser.error(
+                "rotating occupancy publication-history inspection requires "
+                "exactly one trust anchor: --expected-occupancy-trust-head or "
+                "--trust-checkpoint with --expected-trust-checkpoint"
+            )
+        if (
+            args.occupancy_evaluation_tick is not None
+            and args.occupancy_evaluation_tick < 0
+        ):
+            parser.error("--occupancy-evaluation-tick must be non-negative")
+        comparison_values = (
+            args.compare_occupancy_history,
+            args.expected_compare_occupancy_trust_head,
+            args.expected_compare_occupancy_head,
+        )
+        if any(value is not None for value in comparison_values) and any(
+            value is None for value in comparison_values
+        ):
+            parser.error(
+                "--compare-occupancy-history, "
+                "--expected-compare-occupancy-trust-head, and "
+                "--expected-compare-occupancy-head must be supplied together"
+            )
+        if anchored_by_checkpoint:
+            checkpoint = ServiceTrustCheckpoint.load(args.trust_checkpoint)
+            history = RotatingOccupancyPublicationHistory.open(
+                args.atlas,
+                args.expected_occupancy_stream,
+                args.expected_occupancy_publisher,
+                args.expected_occupancy_trust_root,
+                checkpoint,
+                args.expected_trust_checkpoint,
+                args.expected_occupancy_root,
+                args.expected_occupancy_head,
+            )
+        else:
+            history = RotatingOccupancyPublicationHistory.open(
+                args.atlas,
+                args.expected_occupancy_stream,
+                args.expected_occupancy_publisher,
+                args.expected_occupancy_trust_root,
+                args.expected_occupancy_trust_head,
+                args.expected_occupancy_root,
+                args.expected_occupancy_head,
+            )
+        print(
+            "RBF-Safe rotating-occupancy-publication-history "
+            f"schema={history.storage_schema}"
+        )
+        print(
+            f"stream={history.stream_id} "
+            f"publisher={history.publisher_service_id}"
+        )
+        trust_history = history.trust_history()
+        print(
+            f"trust_bundles={len(trust_history.records)} "
+            f"trust_root={history.trust_root_bundle_id} "
+            f"trust_head={history.current_trust_bundle_id}"
+        )
+        print(
+            f"publications={len(history.records)} "
+            f"root={history.root_publication_id} "
+            f"head={history.current_publication_id}"
+        )
+        print(
+            f"timeline={history.timeline_id} "
+            f"workspace_frame={history.workspace_frame_id}"
+        )
+        for record in history.records:
+            publication = history.publication(record.publication_id)
+            print(
+                f"record={record.id} sequence={record.sequence} "
+                f"parent_record={record.parent_record_id or '-'} "
+                f"publication={record.publication_id} "
+                f"trust_bundle={publication.trust_bundle_id} "
+                f"payload_digest={record.payload_digest} "
+                f"payload_bytes={record.payload_bytes}"
+            )
+        if args.occupancy_evaluation_tick is not None:
+            history.verify(
+                history.current_publication_id,
+                args.occupancy_evaluation_tick,
+            )
+            print(
+                f"head_evaluation_tick={args.occupancy_evaluation_tick} "
+                "head_valid_at_tick=true"
+            )
+        if args.compare_occupancy_history is not None:
+            comparison = RotatingOccupancyPublicationHistory.open(
+                args.compare_occupancy_history,
+                args.expected_occupancy_stream,
+                args.expected_occupancy_publisher,
+                args.expected_occupancy_trust_root,
+                args.expected_compare_occupancy_trust_head,
+                args.expected_occupancy_root,
+                args.expected_compare_occupancy_head,
+            )
+            audit = audit_rotating_occupancy_publication_histories(
+                history, comparison
+            )
+            print(
+                "trust_history_relation="
+                + occupancy_publication_history_relation_name(
+                    audit.trust_relation
+                )
+            )
+            print(f"common_trust_prefix={audit.common_trust_prefix_count}")
+            print(
+                "publication_history_relation="
+                + occupancy_publication_history_relation_name(
+                    audit.publication_relation
+                )
+            )
+            print(
+                f"common_publication_prefix="
+                f"{audit.common_publication_prefix_count}"
+            )
+            print(f"fork_detected={str(audit.fork_detected).lower()}")
+        print("caller_pinned=true")
+        print(
+            "trust_anchor="
+            + ("signed_checkpoint" if anchored_by_checkpoint else "head_id")
+        )
+        print("expected_trust_head_verified=true")
+        print("expected_publication_head_verified=true")
+        print("replay_verified=true")
+        print("evidence=unknown")
+        print("authorizes_execution=false")
+        return 0
     if manifest.get("format") == "rbfsafe-occupancy-publication-history":
         unsupported = (
             args.plot,
@@ -799,6 +1006,9 @@ def main(argv: list[str] | None = None) -> int:
             args.occupancy_payload,
             args.occupancy_trust_bundle,
             args.expected_occupancy_parent,
+            args.expected_occupancy_trust_root,
+            args.expected_occupancy_trust_head,
+            args.expected_compare_occupancy_trust_head,
             args.occupancy_minimum_separation,
             args.dispatch_monotonic_ns,
         )
@@ -920,8 +1130,11 @@ def main(argv: list[str] | None = None) -> int:
         or args.occupancy_evaluation_tick is not None
         or args.expected_occupancy_root is not None
         or args.expected_occupancy_head is not None
+        or args.expected_occupancy_trust_root is not None
+        or args.expected_occupancy_trust_head is not None
         or args.compare_occupancy_history is not None
         or args.expected_compare_occupancy_head is not None
+        or args.expected_compare_occupancy_trust_head is not None
     ):
         parser.error(
             "continuous occupancy options require a continuous fleet occupancy "

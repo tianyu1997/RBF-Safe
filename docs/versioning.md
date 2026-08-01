@@ -55,6 +55,11 @@ Version 4.4 additively adds deterministic moving workspace-AABB occupancy,
 bounded robot-scene swept-envelope analysis and conflict witnesses, exact
 moving-obstacle replay, and an independent schema-1 robot-scene bundle while
 retaining every 4.3 history, publication, and fleet-occupancy API and format.
+Version 4.5 additively adds an independent trust-rotating occupancy history,
+single/quorum trust successor commits, historical-bundle replay,
+trust/publication dual-chain audit, expected-head and signed-checkpoint trust
+anchors, and schema-1 persistence while retaining the fixed-trust 4.3 history
+unchanged.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 4.x line. Additive API changes may appear in

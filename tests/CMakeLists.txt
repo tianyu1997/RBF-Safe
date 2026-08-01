@@ -106,6 +106,17 @@ if(TARGET rbfsafe_inspect)
             83a6952083ac661aacff43168473c1938e29adfe738275d2230458dd6074dfb9
             31)
     add_test(
+        NAME rbfsafe_rotating_occupancy_publication_history_fixture_inspect
+        COMMAND rbfsafe_inspect
+            ${CMAKE_CURRENT_SOURCE_DIR}/../data/rotating_occupancy_publication_history_schema1
+            rotating-cell-stream-v1
+            rotating-occupancy-publisher
+            9767a5e8912af9192237924232daaf746c0107e98cc4a458ee8b773b6b0da051
+            938c63c1c1bdf8c309189c4ca93b1093aa68f2b72adba49ba2dbe81a940d1517
+            fc449d962cec661b52277926efa2a1d0f075a389fd488eeb7b7f9f5bd441429b
+            829328cdffeca14a187430a3964651ef37ec249669dcbcf94c92f5a0d564b601
+            31)
+    add_test(
         NAME rbfsafe_execution_ledger_fixture_inspect
         COMMAND rbfsafe_inspect
             ${CMAKE_CURRENT_SOURCE_DIR}/../data/execution_ledger_schema1

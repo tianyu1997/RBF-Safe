@@ -57,3 +57,12 @@ expected head is retained in a separate rollback domain. Fork auditing detects
 only histories supplied to the audit; it is not a gossip network or global
 consensus service. Successful replay and audit remain `Unknown`,
 non-authorizing evidence.
+
+A trust-rotating occupancy history authenticates each publication under the
+exact historical service-trust bundle it names and verifies every intervening
+single/quorum-authorized rotation. It still depends on a caller-retained trust
+root plus newest trust head or checkpoint, and publication root plus newest
+publication head. A valid older signed checkpoint is not automatically fresh;
+a fully rolled-back directory and rolled-back caller anchors cannot be
+detected locally. Dual-chain audit compares only supplied views and does not
+provide peer discovery, gossip, consensus, or execution authority.

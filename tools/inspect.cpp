@@ -77,6 +77,11 @@ bool is_occupancy_publication_history(const std::filesystem::path& path) {
     return bounded_file_contains(path / "manifest.json", "\"rbfsafe-occupancy-publication-history\"");
 }
 
+bool is_rotating_occupancy_publication_history(const std::filesystem::path& path) {
+    return bounded_file_contains(path / "manifest.json",
+                                 "\"rbfsafe-rotating-occupancy-publication-history\"");
+}
+
 bool decode_uint64(std::string_view text, std::uint64_t& result) {
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
     return !text.empty() && parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
@@ -136,9 +141,131 @@ int main(int argc, char** argv) {
                   << "       rbfsafe-inspect <occupancy-publication-history> <expected-stream> "
                      "<expected-publisher> <expected-trust-bundle> <expected-root> <expected-head> "
                      "<evaluation-tick-or-dash> [comparison-history comparison-head]\n"
+                  << "       rbfsafe-inspect <rotating-occupancy-publication-history> "
+                     "<expected-stream> <expected-publisher> <expected-trust-root> "
+                     "<expected-trust-head | checkpoint expected-checkpoint> "
+                     "<expected-root> <expected-head> "
+                     "<evaluation-tick-or-dash> "
+                     "[comparison-history comparison-trust-head comparison-head]\n"
                   << "       rbfsafe-inspect <continuous-robot-scene-occupancy-bundle>\n"
                   << "       rbfsafe-inspect <continuous-fleet-occupancy-bundle>\n";
         return 2;
+    }
+    if (is_rotating_occupancy_publication_history(std::filesystem::path(argv[1]))) {
+        const bool checkpoint_anchor = argc == 10 || argc == 13;
+        if (argc != 9 && argc != 10 && argc != 12 && argc != 13) {
+            std::cerr
+                << "rotating occupancy publication-history inspection requires caller-pinned stream, "
+                   "publisher, trust root, either trust head or checkpoint plus expected checkpoint ID, "
+                   "publication root, publication head, and an evaluation tick or dash; an optional "
+                   "comparison requires its directory, expected trust head, and expected publication head\n";
+            return 2;
+        }
+        const int publication_root_index = checkpoint_anchor ? 7 : 6;
+        const int publication_head_index = checkpoint_anchor ? 8 : 7;
+        const int evaluation_index = checkpoint_anchor ? 9 : 8;
+        const int comparison_index = checkpoint_anchor ? 10 : 9;
+        std::uint64_t evaluation_tick = 0;
+        const bool evaluate = std::string_view(argv[evaluation_index]) != "-";
+        if (evaluate && !decode_uint64(argv[evaluation_index], evaluation_tick)) {
+            std::cerr << "rotating occupancy history evaluation tick must be an unsigned decimal value "
+                         "or dash\n";
+            return 2;
+        }
+        rbfsafe::Result<rbfsafe::RotatingOccupancyPublicationHistory> history =
+            rbfsafe::Result<rbfsafe::RotatingOccupancyPublicationHistory>::failure(
+                rbfsafe::StatusCode::InternalError, "rotating occupancy history was not opened");
+        if (checkpoint_anchor) {
+            auto checkpoint = rbfsafe::ServiceTrustCheckpoint::load(std::filesystem::path(argv[5]));
+            if (!checkpoint) {
+                std::cerr << checkpoint.error().describe() << '\n';
+                return 1;
+            }
+            history = rbfsafe::RotatingOccupancyPublicationHistory::open(
+                std::filesystem::path(argv[1]), argv[2], argv[3], argv[4], checkpoint.value(), argv[6],
+                argv[publication_root_index], argv[publication_head_index]);
+        } else {
+            history = rbfsafe::RotatingOccupancyPublicationHistory::open(
+                std::filesystem::path(argv[1]), argv[2], argv[3], argv[4], argv[5],
+                argv[publication_root_index], argv[publication_head_index]);
+        }
+        if (!history) {
+            std::cerr << history.error().describe() << '\n';
+            return 1;
+        }
+        if (evaluate) {
+            auto verified = history.value().verify(history.value().current_publication_id(), evaluation_tick);
+            if (!verified) {
+                std::cerr << verified.error().describe() << '\n';
+                return 1;
+            }
+        }
+        auto trust_history = history.value().trust_history();
+        if (!trust_history) {
+            std::cerr << trust_history.error().describe() << '\n';
+            return 1;
+        }
+        std::cout << "RBF-Safe rotating occupancy publication history\n"
+                  << "schema: " << history.value().storage_schema() << '\n'
+                  << "stream: " << history.value().stream_id() << '\n'
+                  << "publisher: " << history.value().publisher_service_id() << '\n'
+                  << "trust root: " << history.value().trust_root_bundle_id() << '\n'
+                  << "trust head: " << history.value().current_trust_bundle_id() << '\n'
+                  << "trust bundles: " << trust_history.value().records().size() << '\n'
+                  << "publication root: " << history.value().root_publication_id() << '\n'
+                  << "publication head: " << history.value().current_publication_id() << '\n'
+                  << "timeline: " << history.value().timeline_id() << '\n'
+                  << "workspace frame: " << history.value().workspace_frame_id() << '\n'
+                  << "publications: " << history.value().records().size() << '\n';
+        for (const auto& record : history.value().records()) {
+            auto publication = history.value().publication(record.publication_id);
+            if (!publication) {
+                std::cerr << publication.error().describe() << '\n';
+                return 1;
+            }
+            std::cout << "record: " << record.id << " sequence=" << record.sequence
+                      << " parent=" << (record.parent_record_id.empty() ? "-" : record.parent_record_id)
+                      << " publication=" << record.publication_id
+                      << " trust_bundle=" << publication.value().trust_bundle_id
+                      << " payload_digest=" << record.payload_digest
+                      << " payload_bytes=" << record.payload_bytes << '\n';
+        }
+        if (evaluate)
+            std::cout << "head evaluation tick: " << evaluation_tick << "\nhead valid at tick: true\n";
+        if (argc == 12 || argc == 13) {
+            auto comparison = rbfsafe::RotatingOccupancyPublicationHistory::open(
+                std::filesystem::path(argv[comparison_index]), argv[2], argv[3], argv[4],
+                argv[comparison_index + 1], argv[publication_root_index], argv[comparison_index + 2]);
+            if (!comparison) {
+                std::cerr << comparison.error().describe() << '\n';
+                return 1;
+            }
+            auto audit =
+                rbfsafe::audit_rotating_occupancy_publication_histories(history.value(), comparison.value());
+            if (!audit) {
+                std::cerr << audit.error().describe() << '\n';
+                return 1;
+            }
+            std::cout << "trust history relation: "
+                      << rbfsafe::occupancy_publication_history_relation_name(audit.value().trust_relation)
+                      << '\n'
+                      << "common trust prefix: " << audit.value().common_trust_prefix_count << '\n'
+                      << "publication history relation: "
+                      << rbfsafe::occupancy_publication_history_relation_name(
+                             audit.value().publication_relation)
+                      << '\n'
+                      << "common publication prefix: " << audit.value().common_publication_prefix_count
+                      << '\n'
+                      << "fork detected: " << (audit.value().fork_detected() ? "true" : "false") << '\n';
+        }
+        std::cout << "caller pinned: true\n"
+                  << "trust anchor: " << (checkpoint_anchor ? "signed checkpoint" : "head ID") << '\n'
+                  << "expected trust head verified: true\n"
+                  << "expected publication head verified: true\n"
+                  << "replay verified: true\n"
+                  << "evidence: unknown\n"
+                  << "runtime executable: false\n";
+        return 0;
     }
     if (is_occupancy_publication_history(std::filesystem::path(argv[1]))) {
         if (argc != 8 && argc != 10) {

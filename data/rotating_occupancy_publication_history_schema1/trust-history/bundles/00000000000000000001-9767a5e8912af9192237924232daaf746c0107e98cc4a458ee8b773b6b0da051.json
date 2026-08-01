@@ -1,0 +1,22 @@
+{
+  "format": "rbfsafe-service-trust-bundle",
+  "id": "9767a5e8912af9192237924232daaf746c0107e98cc4a458ee8b773b6b0da051",
+  "keys": [
+    {
+      "algorithm": 1,
+      "allow_fetch": false,
+      "allow_publish": true,
+      "allow_rotate": true,
+      "id": "03d7900ab0d6c667f0335387258f3dafbee6790f831c7b94572043d5d44f9181",
+      "public_key": "c7aa4a6ce4f5e6842b3dec9bf79d3189b680482a422d9da835fe9bffa67f2ef1",
+      "service_id": "rotating-occupancy-publisher",
+      "state": 1,
+      "valid_from_sequence": "1",
+      "valid_through_sequence": "0"
+    }
+  ],
+  "library_version": "4.5.0",
+  "parent_id": "",
+  "schema": 2,
+  "sequence": "1"
+}
