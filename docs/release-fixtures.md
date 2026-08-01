@@ -539,3 +539,10 @@ participant histories and common occupancy payload. Stable agreement,
 protocol, occupancy/report, round, participant, deployment,
 publication-head, and trust-head identities enter the digest. The unanimous
 result remains non-authorizing `Unknown`.
+
+RBF-Safe 4.7 additionally evaluates the public analytic geometric Jacobian
+for every fixture start state, rejects malformed or non-finite results, and
+binds its shape plus nanounit-quantized entries into the logical digest. The
+reviewed cross-platform digest is recorded in
+`data/release-fixtures/logical_digest.txt` as `da1c963f7d137ef3`; the Jacobian
+remains numerical point kinematics and non-authorizing evidence.

@@ -6,11 +6,17 @@
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
 RBF-Safe is a C++20 and Python library for building reusable, conservative
-geometric safety certificates in robot configuration space. Version 4.6
+geometric safety certificates in robot configuration space. Version 4.7
 supports serial DH robots, workspace AABB obstacles, a public deterministic
 LECT partition, certified C-space AABB regions, connectivity queries, and a
 portable versioned atlas format. It also audits continuous piecewise-linear
 trajectories against the certified region union.
+
+The geometry API exposes modified-DH point FK, end-effector pose, an analytic
+workspace-frame 6-by-N geometric Jacobian, and conservative IFK-AA link
+envelopes. A checked [project scope matrix](docs/project-scope-matrix.md)
+traces the original engineering plan to public APIs, behavioral tests, and
+maintained documentation.
 
 An optional C++ OMPL component maps certified Atlas coverage to state and
 continuous-motion validity and samples directly from certified regions.
@@ -130,6 +136,8 @@ certificate.
 - Public mutable `LectTree` and immutable `LectSnapshot` APIs.
 - Seed-guided `SafeAtlas` construction, region lookup, nearest-region lookup,
   certificate-connectivity queries, and an immutable region query BVH.
+- Public modified-DH point/pose kinematics, analytic revolute/prismatic
+  `GeometricJacobian`, and conservative IFK-AA/LinkIAABB envelopes.
 - Robot/scene identity binding with SHA-256.
 - Checksummed, explicitly little-endian Atlas schema 2 with schema-1 loading.
 - CMake install/export targets and a high-level `rbfsafe` Python package.
@@ -230,7 +238,7 @@ trusted obstacle perception/prediction, authenticated policy inference and metad
 moving/time-varying fleet frames, network reservation transport or consensus,
 concrete network artifact clients,
 general hardware guarantees and legacy RapidBoxForest cache compatibility
-remain outside v4.6. TLS, endpoint/credential policy, trustworthy local clocks,
+remain outside v4.7. TLS, endpoint/credential policy, trustworthy local clocks,
 tracking enforcement, trust-root/head/checkpoint distribution, checkpoint
 transport/discovery services, vendor evidence acquisition and adapter
 validation, private-key storage, and network I/O remain application
@@ -387,6 +395,7 @@ rbfsafe-inspect reservation.json \
 - [Installation](docs/installation.md)
 - [Getting started](docs/getting-started.md)
 - [Input formats](docs/input-formats.md)
+- [Kinematics and geometric Jacobian](docs/kinematics.md)
 - [Architecture](docs/architecture.md)
 - [API overview](docs/api.md)
 - [API stability policy](docs/api-stability.md)
@@ -441,6 +450,7 @@ rbfsafe-inspect reservation.json \
 - [Schema support and migrations](docs/schema-migrations.md)
 - [Release fixtures and benchmark](docs/release-fixtures.md)
 - [Migration map](docs/migration-map.md) and [provenance](docs/provenance.md)
+- [`project.md` completion matrix](docs/project-scope-matrix.md)
 - [Roadmap](docs/roadmap.md)
 
 Read the safety model before using RBF-Safe in a robot system. A certificate

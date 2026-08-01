@@ -68,6 +68,10 @@ audit values, and an independent schema-1 directory. RBF-Safe 4.6 additively
 introduces `CoordinatedReservationParticipant`,
 `CoordinatedReservationAgreement`, bounded agreement load options,
 canonical make/replay/successor functions, and an independent schema-1 file.
+RBF-Safe 4.7 additively introduces `GeometricJacobian`,
+`SerialRobotModel::end_effector_geometric_jacobian`, the mirrored Python
+type/method, and repository scope-traceability artifacts. No prior declaration
+or storage schema changes.
 Public
 headers under `include/rbfsafe`, installed CMake targets, and names exported
 from `rbfsafe.__init__` are tracked by the current

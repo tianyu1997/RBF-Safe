@@ -134,6 +134,7 @@ from ._rbfsafe import (
     ExecutionSessionRequestInput,
     EvidenceLevel,
     EnvelopeOptions,
+    GeometricJacobian,
     HigherOrderRegionValidator,
     HigherOrderValidation,
     Interval,

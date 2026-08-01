@@ -2,6 +2,7 @@
 
 int main() {
     const rbfsafe::Interval interval{-1.0, 1.0};
+    const rbfsafe::GeometricJacobian jacobian{1, std::vector<double>(6, 0.0)};
     const rbfsafe::TrajectoryAuditOptions options;
     const rbfsafe::TrajectoryAuditReport report;
     const rbfsafe::HipacOptions hipac_options;
@@ -43,13 +44,14 @@ int main() {
     const rbfsafe::DeploymentFrameBounds deployment_frame;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
-    return RBFSAFE_VERSION_MAJOR == 4 && RBFSAFE_VERSION_MINOR == 6 && RBFSAFE_VERSION_PATCH == 0 &&
-                   interval.contains(0.0) && options.maximum_region_tests > 0 &&
-                   hipac_options.maximum_validations > 0 && safe_ik_options.maximum_iterations > 0 &&
-                   update_options.maximum_validations > 0 && obb_atlas_options.maximum_validations > 0 &&
-                   sampler_options.maximum_attempts > 0 && roadmap_options.maximum_nodes > 0 &&
-                   projection_options.maximum_iterations > 0 && shield_options.maximum_input_waypoints > 0 &&
-                   policy_options.maximum_proposals > 0 && memory_load_options.maximum_artifacts > 0 &&
+    return RBFSAFE_VERSION_MAJOR == 4 && RBFSAFE_VERSION_MINOR == 7 && RBFSAFE_VERSION_PATCH == 0 &&
+                   interval.contains(0.0) && jacobian.valid() && jacobian.at(5, 0) == 0.0 &&
+                   options.maximum_region_tests > 0 && hipac_options.maximum_validations > 0 &&
+                   safe_ik_options.maximum_iterations > 0 && update_options.maximum_validations > 0 &&
+                   obb_atlas_options.maximum_validations > 0 && sampler_options.maximum_attempts > 0 &&
+                   roadmap_options.maximum_nodes > 0 && projection_options.maximum_iterations > 0 &&
+                   shield_options.maximum_input_waypoints > 0 && policy_options.maximum_proposals > 0 &&
+                   memory_load_options.maximum_artifacts > 0 &&
                    calibrated_policy_options.minimum_total_samples > 0 &&
                    calibration_lifecycle_options.maximum_reports > 0 &&
                    memory_store_options.maximum_revisions > 0 && memory.identity().size() == 64 &&

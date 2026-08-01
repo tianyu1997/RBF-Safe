@@ -64,6 +64,10 @@ Version 4.6 additively adds unanimous coordinated reservation participants and
 agreements, exact multi-history payload/prefix replay, parent-linked round
 succession, and independent schema-1 persistence while retaining every 4.5
 history and format unchanged.
+Version 4.7 additively adds a standard-library `GeometricJacobian`, analytic
+modified-DH end-effector Jacobian evaluation, the corresponding Python API,
+and a checked original-project scope traceability manifest. It changes no
+input or storage schema and retains every 4.6 declaration and format.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 4.x line. Additive API changes may appear in

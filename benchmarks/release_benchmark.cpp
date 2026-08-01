@@ -42,6 +42,7 @@ struct FixtureCase {
 struct CaseMetrics {
     std::string name;
     std::size_t dimension = 0;
+    std::size_t jacobian_columns = 0;
     std::size_t regions = 0;
     std::size_t certificates = 0;
     std::size_t queries = 0;
@@ -631,6 +632,21 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     CaseMetrics metrics;
     metrics.name = fixture.name;
     metrics.dimension = robot.value().dimension();
+    auto start_jacobian = robot.value().end_effector_geometric_jacobian(fixture.start);
+    if (!start_jacobian)
+        return start_jacobian.error();
+    if (!start_jacobian.value().valid() || start_jacobian.value().columns != robot.value().dimension()) {
+        return rbfsafe::Result<CaseMetrics>::failure(rbfsafe::StatusCode::InternalError,
+                                                     "release fixture Jacobian has an invalid shape",
+                                                     fixture.name);
+    }
+    for (const double value : start_jacobian.value().values) {
+        if (!std::isfinite(value)) {
+            return rbfsafe::Result<CaseMetrics>::failure(
+                rbfsafe::StatusCode::InternalError, "release fixture Jacobian is non-finite", fixture.name);
+        }
+    }
+    metrics.jacobian_columns = start_jacobian.value().columns;
     rbfsafe::Result<rbfsafe::AtlasBuildResult> built = rbfsafe::Result<rbfsafe::AtlasBuildResult>::failure(
         rbfsafe::StatusCode::InternalError, "benchmark build did not run");
     metrics.build_ms = elapsed_ms([&] {
@@ -1592,6 +1608,10 @@ rbfsafe::Result<CaseMetrics> run_case(const FixtureCase& fixture, std::size_t it
     hash_field(logical_hash, robot.value().digest());
     hash_field(logical_hash, scene.value().digest());
     hash_field(logical_hash, std::to_string(metrics.dimension));
+    hash_field(logical_hash, "analytic-geometric-jacobian-valid");
+    hash_field(logical_hash, std::to_string(metrics.jacobian_columns));
+    for (const double value : start_jacobian.value().values)
+        hash_field(logical_hash, std::to_string(std::llround(value * 1'000'000'000.0)));
     hash_field(logical_hash, std::to_string(metrics.regions));
     hash_field(logical_hash, std::to_string(metrics.certificates));
     hash_field(logical_hash, std::to_string(metrics.false_safe));
@@ -1676,8 +1696,9 @@ void print_json(std::span<const CaseMetrics> metrics, std::size_t iterations, st
             std::cout << ',';
         const auto& item = metrics[index];
         std::cout << "{\"name\":\"" << item.name << "\",\"dimension\":" << item.dimension
-                  << ",\"regions\":" << item.regions << ",\"certificates\":" << item.certificates
-                  << ",\"queries\":" << item.queries << ",\"false_safe\":" << item.false_safe
+                  << ",\"jacobian_columns\":" << item.jacobian_columns << ",\"regions\":" << item.regions
+                  << ",\"certificates\":" << item.certificates << ",\"queries\":" << item.queries
+                  << ",\"false_safe\":" << item.false_safe
                   << ",\"estimated_memory_bytes\":" << item.estimated_memory_bytes
                   << ",\"inherited_certificates\":" << item.inherited_certificates
                   << ",\"policy_feedback_records\":" << item.policy_feedback_records
@@ -1731,7 +1752,8 @@ void print_text(std::span<const CaseMetrics> metrics, std::size_t iterations, st
               << " digest=" << hex64(logical_hash) << '\n';
     for (const auto& item : metrics) {
         std::cout << item.name << " dimension=" << item.dimension << " regions=" << item.regions
-                  << " false_safe=" << item.false_safe << " coverage=" << item.certified_path_ratio
+                  << " jacobian_columns=" << item.jacobian_columns << " false_safe=" << item.false_safe
+                  << " coverage=" << item.certified_path_ratio
                   << " estimated_memory_bytes=" << item.estimated_memory_bytes
                   << " policy_feedback_records=" << item.policy_feedback_records
                   << " policy_calibration_profiles=" << item.policy_calibration_profiles

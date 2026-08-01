@@ -35,9 +35,10 @@ RBFSafe::occupancy + RBFSafe::identity -> RBFSafe::coordination
 
 ### Geometry
 
-Owns standard-library value types, modified-DH forward kinematics, robot and
-scene canonical identity, affine-arithmetic endpoint propagation, conservative
-LinkIAABB construction, and the default `RegionValidator`.
+Owns standard-library value types, modified-DH forward kinematics, the
+analytic workspace-frame geometric Jacobian, robot and scene canonical
+identity, affine-arithmetic endpoint propagation, conservative LinkIAABB
+construction, and the default `RegionValidator`.
 
 ### LECT
 
