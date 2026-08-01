@@ -430,6 +430,15 @@ globally newest checkpoint, or decide which branch should be used. Every
 history record, historical verification, and audit remains `Unknown` and
 non-authorizing.
 
+The v4.6 coordinated agreement proves that every explicitly listed deployment
+has a valid publication in its independently authenticated rotating history
+for the same exact separated fleet-occupancy bytes at one evaluation tick. It
+also proves canonical membership and parent-linked round succession when the
+successor verifier succeeds. It does not prove that peers observed or accepted
+the agreement, that the round is globally newest, that clocks agree, that a
+network commit occurred, or that controllers enforce mutual exclusion.
+Agreement and participant values remain `Unknown` and non-authorizing.
+
 The execution, transparency, witness, provenance, and occupancy layers do not
 prove that an endpoint key belongs to physical hardware, that the clock or
 observation is trustworthy, that a command was transmitted or executed, that
@@ -438,7 +447,7 @@ scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions through v4.5
+## Explicit exclusions through v4.6
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included
@@ -468,7 +477,8 @@ responsibilities.
   history/record, and history prefix/fork audit are not runtime-execution
   approvals. The same is true for a trust-rotating occupancy history,
   authorized trust rotation record, signed history checkpoint, and dual-chain
-  audit.
+  audit, or a unanimous coordinated reservation agreement and its successor
+  relation.
 - Planner success, optimizer convergence, and certified sampling do not imply
   timing, dynamic feasibility, tracking accuracy, or `RuntimeExecutable`.
 - Shield acceptance, repair, telemetry, on-plan classification, and monotonic

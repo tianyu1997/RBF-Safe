@@ -64,7 +64,11 @@ and schema-1 robot-scene occupancy bundles. RBF-Safe 4.5 additively
 introduces `RotatingOccupancyPublicationHistory`, combined trust/publication
 load options, signed-head-checkpoint opening, authorized single/quorum trust
 rotation, current-trust publication, historical verification, dual-chain
-audit values, and an independent schema-1 directory. Public
+audit values, and an independent schema-1 directory. RBF-Safe 4.6 additively
+introduces `CoordinatedReservationParticipant`,
+`CoordinatedReservationAgreement`, bounded agreement load options,
+canonical make/replay/successor functions, and an independent schema-1 file.
+Public
 headers under `include/rbfsafe`, installed CMake targets, and names exported
 from `rbfsafe.__init__` are tracked by the current
 `data/api_surface_v4.sha256` snapshot. Preserved v1, v2, and v3 snapshots
@@ -138,7 +142,9 @@ Authenticated occupancy publications and verification results also remain
 remain `Unknown` as well. Trust-rotating histories, historical verifications,
 and trust/publication fork audits remain `Unknown`, including when every
 rotation and signature is valid. A valid Ed25519 signature or consistent
-local history never becomes execution evidence.
+local history never becomes execution evidence. Coordinated reservation
+participants and agreements also remain `Unknown`, including unanimous
+agreements over a separated occupancy bundle.
 The application must still enforce its separately reviewed tracking,
 uncertainty, clock, transport, device, and emergency-stop assumptions.
 

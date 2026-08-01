@@ -1,6 +1,6 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 4.4 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 4.6 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
@@ -34,6 +34,7 @@ RapidBoxForest cache as RBF-Safe data.
 | Authenticated occupancy publication | 1 | 1 | Independent signed statement; an unsigned occupancy bundle is never upgraded implicitly |
 | Occupancy publication history | 1 | 1 | Independent pinned stream history; standalone publications are never enrolled or ordered implicitly |
 | Trust-rotating occupancy publication history | 1 | 1 | Independent dual history; fixed-trust histories and standalone trust/publication files are never combined implicitly |
+| Coordinated reservation agreement | 1 | 1 | Independent unanimous statement; histories and publications are never enrolled implicitly |
 | Continuous robot-scene occupancy bundle | 1 | 1 | Independent moving-obstacle format; static scenes and fleet bundles are never upgraded implicitly |
 
 Unknown schemas fail with `IncompatibleFormat`; malformed known schemas fail
@@ -269,3 +270,12 @@ publications are not discovered, merged, or enrolled. Every subsequent trust
 rotation must carry its original single/quorum authorization, and every
 publication must extend the retained publication head under the current
 retained trust head.
+
+Coordinated-reservation-agreement schema 1 is specified in
+[Coordinated reservation agreement format](coordinated-reservation-agreement-format.md).
+It is an independent statement over one exact occupancy bundle and an explicit
+deployment-to-rotating-history mapping. Existing histories are not scanned or
+combined automatically. Create a new agreement under an application-owned
+protocol and round only after retaining all participant roots and heads.
+Migration never invents membership, agreement acceptance, global freshness,
+consensus, time synchronization, or controller enforcement.

@@ -139,6 +139,10 @@ Run `rbfsafe_rotating_occupancy_publication_history_quickstart
 <occupancy-payload> <new-history-directory>` to retire a publication key
 through an authorized trust successor, publish under its replacement, and
 replay both historical signatures.
+Run `rbfsafe_coordinated_reservation_quickstart
+<occupancy-payload> <new-output-directory>` to create two independent
+authenticated participant histories, assemble a unanimous agreement, replay
+it, and persist its caller-pinnable identity.
 
 To build the optional adapter, install OMPL and configure with
 `-DRBFSAFE_BUILD_OMPL=ON`. Installed consumers request the component explicitly:

@@ -60,6 +60,10 @@ single/quorum trust successor commits, historical-bundle replay,
 trust/publication dual-chain audit, expected-head and signed-checkpoint trust
 anchors, and schema-1 persistence while retaining the fixed-trust 4.3 history
 unchanged.
+Version 4.6 additively adds unanimous coordinated reservation participants and
+agreements, exact multi-history payload/prefix replay, parent-linked round
+succession, and independent schema-1 persistence while retaining every 4.5
+history and format unchanged.
 Documented public C++
 declarations, installed CMake target names, and high-level Python names remain
 source compatible throughout the 4.x line. Additive API changes may appear in
@@ -315,6 +319,14 @@ parent. The head is reconstructed and must match a caller-retained pin.
 Schema 1 does not rotate trust, infer a globally current head, or migrate a
 standalone publication implicitly.
 
+The v4.6 coordinated-reservation-agreement schema 1 is an independent
+checksummed JSON file. It binds one separated occupancy payload and exact
+participant trust/publication prefixes into a canonical protocol round.
+Loading validates structure, checksum, and internal identity. Semantic replay
+requires the external exact occupancy bundle and every caller-mapped rotating
+history. No standalone publication or history is enrolled implicitly, and no
+globally newest round, consensus, or execution authority is inferred.
+
 ## Identity compatibility
 
 Certificates and Atlases bind SHA-256 digests of canonical robot and scene
@@ -347,6 +359,7 @@ bounded-execution-session/execution-ledger/transparency-log/
 transparency-gossip-archive/continuous-fleet-occupancy schema-1/schema-2 fixtures,
 authenticated-occupancy-publication schema-1 fixtures,
 occupancy-publication-history schema-1 fixtures,
+coordinated-reservation-agreement schema-1 fixtures,
 and the v0.5 schema-1 Atlas fixture
 enforce interoperability across CI platforms.
 

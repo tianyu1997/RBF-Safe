@@ -1034,3 +1034,52 @@ The C++ and Python quickstarts are
 `.py`. See the
 [trust-rotating history contract](rotating-occupancy-publication-history.md)
 and [schema-1 format](rotating-occupancy-publication-history-format.md).
+
+## 24. Assemble a unanimous coordinated reservation
+
+RBF-Safe 4.6 can bind one selected publication from every independent rotating
+history to the same separated fleet-occupancy payload:
+
+```python
+agreement = rbfsafe.make_coordinated_reservation_agreement(
+    "cell-reservation-v1",
+    1,
+    "",
+    16,
+    occupancy,
+    ["arm-a", "arm-b"],
+    [arm_a_history, arm_b_history],
+)
+rbfsafe.verify_coordinated_reservation_agreement(
+    agreement,
+    occupancy,
+    ["arm-a", "arm-b"],
+    [arm_a_history, arm_b_history],
+)
+agreement.save("reservation.json")
+```
+
+Retain `agreement.id` separately. Reopen or inspect only against that retained
+value:
+
+```bash
+rbfsafe-inspect reservation.json \
+  --expected-reservation-agreement <agreement-id>
+```
+
+Every participant must authenticate the exact same payload at the evaluation
+tick. The result is deterministic, `Unknown`, and non-authorizing; it is not a
+network consensus or controller reservation.
+
+Run the complete quickstarts as:
+
+```bash
+rbfsafe_coordinated_reservation_quickstart \
+  data/continuous_fleet_occupancy_schema2/occupancy.json reservation-output
+
+python examples/coordinated_reservation_quickstart.py \
+  data/continuous_fleet_occupancy_schema2/occupancy.json reservation-output-py
+```
+
+See [the agreement contract](coordinated-reservation-agreements.md) and
+[schema-1 format](coordinated-reservation-agreement-format.md).

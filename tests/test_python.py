@@ -9,7 +9,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.5.0"
+    assert rbfsafe.__version__ == "4.6.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -3794,3 +3794,204 @@ def test_rotating_occupancy_publication_history(
     checkpoint_output = capsys.readouterr().out
     assert "trust_anchor=signed_checkpoint" in checkpoint_output
     assert "replay_verified=true" in checkpoint_output
+
+
+def test_coordinated_reservation_agreement(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "continuous_fleet_occupancy_schema2"
+        / "occupancy.json"
+    )
+    occupancy = rbfsafe.ContinuousFleetOccupancyBundle.load(payload)
+
+    def make_history(
+        deployment: str, seed_start: int
+    ) -> tuple[
+        rbfsafe.RotatingOccupancyPublicationHistory,
+        rbfsafe.Ed25519KeyPair,
+        rbfsafe.ServicePublicKey,
+        rbfsafe.ServiceTrustBundle,
+        rbfsafe.OccupancyPublication,
+    ]:
+        pair = rbfsafe.ed25519_key_pair_from_seed(
+            bytes(range(seed_start, seed_start + 32))
+        )
+        service = f"{deployment}-reservation-publisher"
+        stream = f"{deployment}-reservation-stream-v1"
+        key = rbfsafe.make_service_public_key(
+            service,
+            pair.public_key,
+            1,
+            0,
+            rbfsafe.ServiceKeyState.ACTIVE,
+            False,
+            True,
+            True,
+        )
+        trust = rbfsafe.ServiceTrustBundle.create(1, "", [key])
+        source = rbfsafe.ServiceTrustHistory.create(
+            tmp_path / f"{deployment}-source-trust", trust, trust.id
+        )
+        publication = rbfsafe.sign_continuous_fleet_occupancy_publication(
+            payload,
+            trust,
+            stream,
+            service,
+            key.id,
+            pair.secret_key,
+            1,
+            "",
+            0,
+            32,
+        )
+        history = rbfsafe.RotatingOccupancyPublicationHistory.create(
+            tmp_path / f"{deployment}-history",
+            publication,
+            payload,
+            source,
+            stream,
+            service,
+            trust.id,
+            trust.id,
+            publication.id,
+        )
+        return history, pair, key, trust, publication
+
+    first = make_history("arm-a", 11)
+    second = make_history("arm-b", 51)
+    deployment_ids = ["arm-a", "arm-b"]
+    histories = [first[0], second[0]]
+    agreement = rbfsafe.make_coordinated_reservation_agreement(
+        "python-coordinated-reservation-v1",
+        1,
+        "",
+        16,
+        occupancy,
+        deployment_ids,
+        histories,
+    )
+    assert agreement.valid()
+    assert agreement.round == 1
+    assert agreement.valid_from_tick == 0
+    assert agreement.valid_through_tick == 32
+    assert [item.deployment_id for item in agreement.participants] == deployment_ids
+    assert agreement.evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not agreement.authorizes_execution
+    assert agreement.participants[0].evidence == rbfsafe.EvidenceLevel.UNKNOWN
+    assert not agreement.participants[0].authorizes_execution
+    rbfsafe.verify_coordinated_reservation_agreement(
+        agreement, occupancy, deployment_ids, histories
+    )
+    reordered = rbfsafe.make_coordinated_reservation_agreement(
+        "python-coordinated-reservation-v1",
+        1,
+        "",
+        16,
+        occupancy,
+        list(reversed(deployment_ids)),
+        list(reversed(histories)),
+    )
+    assert reordered.id == agreement.id
+
+    agreement_path = tmp_path / "coordinated-reservation.json"
+    agreement.save(agreement_path)
+    loaded = rbfsafe.CoordinatedReservationAgreement.load(agreement_path)
+    assert loaded.id == agreement.id
+    limits = rbfsafe.CoordinatedReservationAgreementLoadOptions()
+    limits.maximum_participants = 1
+    with pytest.raises(MemoryError):
+        rbfsafe.CoordinatedReservationAgreement.load(agreement_path, limits)
+    with pytest.raises(rbfsafe.IdentityMismatchError):
+        rbfsafe.verify_coordinated_reservation_agreement(
+            agreement, occupancy, ["arm-b", "arm-a"], histories
+        )
+    from rbfsafe.cli import main
+
+    assert (
+        main(
+            [
+                str(agreement_path),
+                "--expected-reservation-agreement",
+                agreement.id,
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "coordinated-reservation-agreement schema=1" in output
+    assert "participants=2" in output
+    assert "identity_verified=true" in output
+    assert "authorizes_execution=false" in output
+
+    next_histories: list[rbfsafe.RotatingOccupancyPublicationHistory] = []
+    for index, (history, pair, key, trust, publication) in enumerate(
+        (first, second)
+    ):
+        successor = rbfsafe.sign_continuous_fleet_occupancy_publication(
+            payload,
+            trust,
+            history.stream_id,
+            history.publisher_service_id,
+            key.id,
+            pair.secret_key,
+            2,
+            publication.id,
+            1,
+            31,
+        )
+        history.publish(successor, payload, publication.id, trust.id)
+        next_histories.append(history)
+    successor_agreement = rbfsafe.make_coordinated_reservation_agreement(
+        "python-coordinated-reservation-v1",
+        2,
+        agreement.id,
+        16,
+        occupancy,
+        deployment_ids,
+        next_histories,
+    )
+    rbfsafe.verify_coordinated_reservation_successor(
+        agreement, successor_agreement, deployment_ids, next_histories
+    )
+    rbfsafe.verify_coordinated_reservation_agreement(
+        agreement, occupancy, deployment_ids, next_histories
+    )
+
+    fixture_root = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "coordinated_reservation_agreement_schema1"
+    )
+    fixture_agreement = rbfsafe.CoordinatedReservationAgreement.load(
+        fixture_root / "agreement.json"
+    )
+    assert (
+        fixture_agreement.id
+        == "50ad0281ad0ec37b7b4a3869c7249d840f0870242d2ed600ade21ce62a77e040"
+    )
+    fixture_histories = [
+        rbfsafe.RotatingOccupancyPublicationHistory.open(
+            fixture_root / "arm-a-history",
+            "arm-a-reservation-stream-v1",
+            "arm-a-reservation-publisher",
+            "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+            "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+            "cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658",
+            "cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658",
+        ),
+        rbfsafe.RotatingOccupancyPublicationHistory.open(
+            fixture_root / "arm-b-history",
+            "arm-b-reservation-stream-v1",
+            "arm-b-reservation-publisher",
+            "46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561",
+            "46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561",
+            "15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e",
+            "15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e",
+        ),
+    ]
+    rbfsafe.verify_coordinated_reservation_agreement(
+        fixture_agreement, occupancy, deployment_ids, fixture_histories
+    )

@@ -3,6 +3,40 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.6.0] - 2026-07-29
+
+### Added
+
+- Deterministic `CoordinatedReservationAgreement` assembly and replay across
+  independent trust-rotating occupancy histories. Every unique participant
+  must authenticate the exact same separated continuous-fleet payload at one
+  evaluation tick.
+- Canonical order-independent membership, exact deployment/occupancy,
+  publisher/stream/key/sequence, trust/publication prefix,
+  verified-publication, timeline/frame, payload, separation-report, common
+  validity-window, protocol/round/parent binding, and stable identities.
+- Strict successor verification with stable membership/protocol, exact parent
+  linkage, increasing rounds and participant publication sequences, plus
+  replay of older agreements against later-extended histories.
+- Bounded checksummed schema-1 persistence, atomic non-overwriting
+  publication, corruption and symlink rejection, C++/Python APIs, native and
+  Python inspection, dual-language quickstarts, and a fixed two-deployment
+  cross-platform fixture.
+
+### Compatibility and safety
+
+- All 4.5 APIs and storage schemas remain supported. Coordinated agreements
+  are independent artifacts; existing publications and histories are never
+  enrolled, merged, or upgraded implicitly.
+- An agreement authenticates unanimous retained software statements. It does
+  not prove global freshness, participant receipt, network consensus, clock
+  synchronization, controller admission, reservation enforcement, or
+  physical execution. Callers retain newest trust/publication heads and the
+  accepted agreement ID outside the stored artifacts' rollback domain.
+- Agreements and participants remain `Unknown` and non-authorizing, including
+  agreements built over a
+  `CertifiedSeparatedUnderSweptEnvelopes` occupancy result.
+
 ## [4.5.0] - 2026-07-28
 
 ### Added

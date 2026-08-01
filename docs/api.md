@@ -169,6 +169,32 @@ values remain `Unknown` and non-authorizing. See
 [the complete contract](rotating-occupancy-publication-history.md) and
 [storage format](rotating-occupancy-publication-history-format.md).
 
+## Coordinated reservation agreement
+
+`make_coordinated_reservation_agreement` requires one unique deployment and
+independent `RotatingOccupancyPublicationHistory` for every participant. It
+verifies that every selected publication authenticates the exact same
+`CertifiedSeparatedUnderSweptEnvelopes` continuous-fleet payload at the
+evaluation tick, then canonically binds deployment/occupancy, publisher/
+stream/key/sequence, trust/publication prefixes, verification identities,
+timeline/frame, common validity window, separation report, protocol, round,
+and parent.
+
+`verify_coordinated_reservation_agreement` recomputes the agreement from the
+exact occupancy bundle and explicit deployment-to-history mapping. Retained
+participant heads may be prefixes of later-extended histories.
+`verify_coordinated_reservation_successor` additionally requires the current
+deployment-to-history mapping. It proves stable protocol and membership,
+exact parent and next round, nondecreasing evaluation time, a strictly newer
+publication sequence from every participant, publication-prefix extension,
+and non-regressing trust prefixes. A higher sequence on a fork is rejected.
+
+`CoordinatedReservationAgreement::save/load` provides a bounded checksummed
+schema-1 file. The caller must compare a separately retained agreement ID.
+Every participant and agreement remains `Unknown` and non-authorizing. See
+[the complete contract](coordinated-reservation-agreements.md) and
+[storage format](coordinated-reservation-agreement-format.md).
+
 ## Revocation-aware execution ledger
 
 Include `<rbfsafe/execution_ledger.h>` and link `RBFSafe::execution`.

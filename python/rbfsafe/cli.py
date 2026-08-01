@@ -14,6 +14,7 @@ from . import (
     BoundedExecutionSession,
     ContinuousFleetOccupancyBundle,
     ContinuousFleetOccupancyOptions,
+    CoordinatedReservationAgreement,
     ContinuousRobotSceneOccupancyBundle,
     ContinuousRobotSceneOccupancyOptions,
     ExecutionLedger,
@@ -359,6 +360,10 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--expected-reservation-agreement",
+        help="caller-retained coordinated reservation agreement ID",
+    )
+    parser.add_argument(
         "--dispatch-monotonic-ns",
         type=int,
         help="caller-supplied monotonic dispatch time for exact command evaluation",
@@ -464,6 +469,67 @@ def main(argv: list[str] | None = None) -> int:
         )
     except (OSError, UnicodeError, json.JSONDecodeError):
         manifest = {}
+    if (
+        file_document.get("format")
+        == "rbfsafe-coordinated-reservation-agreement"
+    ):
+        _reject_unrelated_options(
+            parser,
+            args,
+            {"atlas", "expected_reservation_agreement"},
+            "a coordinated reservation agreement",
+        )
+        if args.expected_reservation_agreement is None:
+            parser.error(
+                "coordinated reservation inspection requires "
+                "--expected-reservation-agreement"
+            )
+        agreement = CoordinatedReservationAgreement.load(args.atlas)
+        if agreement.id != args.expected_reservation_agreement:
+            parser.error(
+                "coordinated reservation does not match the caller-retained "
+                "agreement ID"
+            )
+        print(
+            "RBF-Safe coordinated-reservation-agreement "
+            f"schema={agreement.storage_schema}"
+        )
+        print(
+            f"agreement={agreement.id} protocol={agreement.protocol_id} "
+            f"round={agreement.round} "
+            f"parent={agreement.parent_agreement_id or 'root'}"
+        )
+        print(
+            f"evaluation_tick={agreement.evaluation_tick} "
+            f"valid_ticks=[{agreement.valid_from_tick},"
+            f"{agreement.valid_through_tick}]"
+        )
+        print(
+            f"occupancy_bundle={agreement.occupancy_bundle_id} "
+            f"occupancy_report={agreement.occupancy_report_id}"
+        )
+        print(
+            f"timeline={agreement.timeline_id} "
+            f"workspace_frame={agreement.workspace_frame_id} "
+            f"minimum_separation={agreement.minimum_separation}"
+        )
+        print(
+            f"payload_digest={agreement.payload_digest} "
+            f"payload_bytes={agreement.payload_bytes} "
+            f"participants={len(agreement.participants)}"
+        )
+        for participant in agreement.participants:
+            print(
+                f"participant={participant.deployment_id} "
+                f"publisher={participant.publisher_service_id} "
+                f"stream={participant.stream_id} "
+                f"publication_head={participant.publication_head_id} "
+                f"trust_head={participant.trust_head_bundle_id}"
+            )
+        print("identity_verified=true")
+        print("evidence=unknown")
+        print("authorizes_execution=false")
+        return 0
     if (
         file_document.get("format")
         == "rbfsafe-continuous-fleet-occupancy-publication"

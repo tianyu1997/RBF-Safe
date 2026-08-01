@@ -1,0 +1,15 @@
+{
+  "format": "rbfsafe-rotating-occupancy-publication-history",
+  "identity": "0711a8a01ec85335ffb9247bbf2c51ae6e8ab3f49eafd1a73a1110c3d7cf3958",
+  "library_version": "4.6.0",
+  "payload": {
+    "publisher_service_id": "arm-b-reservation-publisher",
+    "root_publication_id": "15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e",
+    "storage_schema": 1,
+    "stream_id": "arm-b-reservation-stream-v1",
+    "timeline_id": "fixture-cell-clock-v1",
+    "trust_root_bundle_id": "46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561",
+    "workspace_frame_id": "fixture-cell-world"
+  },
+  "schema": 1
+}

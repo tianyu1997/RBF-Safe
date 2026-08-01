@@ -82,6 +82,10 @@ bool is_rotating_occupancy_publication_history(const std::filesystem::path& path
                                  "\"rbfsafe-rotating-occupancy-publication-history\"");
 }
 
+bool is_coordinated_reservation_agreement(const std::filesystem::path& path) {
+    return bounded_file_contains(path, "\"rbfsafe-coordinated-reservation-agreement\"", 16'777'216);
+}
+
 bool decode_uint64(std::string_view text, std::uint64_t& result) {
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
     return !text.empty() && parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
@@ -147,9 +151,49 @@ int main(int argc, char** argv) {
                      "<expected-root> <expected-head> "
                      "<evaluation-tick-or-dash> "
                      "[comparison-history comparison-trust-head comparison-head]\n"
+                  << "       rbfsafe-inspect <coordinated-reservation-agreement> "
+                     "<expected-agreement-id>\n"
                   << "       rbfsafe-inspect <continuous-robot-scene-occupancy-bundle>\n"
                   << "       rbfsafe-inspect <continuous-fleet-occupancy-bundle>\n";
         return 2;
+    }
+    if (is_coordinated_reservation_agreement(std::filesystem::path(argv[1]))) {
+        if (argc != 3) {
+            std::cerr << "coordinated reservation inspection requires the caller-retained agreement ID\n";
+            return 2;
+        }
+        auto agreement = rbfsafe::CoordinatedReservationAgreement::load(std::filesystem::path(argv[1]));
+        if (!agreement) {
+            std::cerr << agreement.error().describe() << '\n';
+            return 1;
+        }
+        if (agreement.value().id != argv[2]) {
+            std::cerr << "coordinated reservation does not match the caller-retained agreement ID\n";
+            return 1;
+        }
+        std::cout << "RBF-Safe coordinated reservation agreement\n"
+                  << "schema: " << agreement.value().storage_schema << '\n'
+                  << "identity: " << agreement.value().id << '\n'
+                  << "protocol: " << agreement.value().protocol_id << '\n'
+                  << "round: " << agreement.value().round << '\n'
+                  << "parent: " << agreement.value().parent_agreement_id << '\n'
+                  << "evaluation tick: " << agreement.value().evaluation_tick << '\n'
+                  << "valid from: " << agreement.value().valid_from_tick << '\n'
+                  << "valid through: " << agreement.value().valid_through_tick << '\n'
+                  << "occupancy bundle: " << agreement.value().occupancy_bundle_id << '\n'
+                  << "occupancy report: " << agreement.value().occupancy_report_id << '\n'
+                  << "timeline: " << agreement.value().timeline_id << '\n'
+                  << "workspace frame: " << agreement.value().workspace_frame_id << '\n'
+                  << "minimum separation: " << agreement.value().minimum_separation << '\n'
+                  << "participants: " << agreement.value().participants.size() << '\n';
+        for (const auto& participant : agreement.value().participants) {
+            std::cout << "participant: " << participant.deployment_id << ' '
+                      << participant.publisher_service_id << ' ' << participant.stream_id << ' '
+                      << participant.publication_head_id << ' ' << participant.trust_head_bundle_id << '\n';
+        }
+        std::cout << "evidence: unknown\n"
+                  << "authorizes execution: false\n";
+        return 0;
     }
     if (is_rotating_occupancy_publication_history(std::filesystem::path(argv[1]))) {
         const bool checkpoint_anchor = argc == 10 || argc == 13;

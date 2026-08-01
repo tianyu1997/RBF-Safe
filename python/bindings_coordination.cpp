@@ -449,6 +449,136 @@ void bind_coordination(py::module_& module) {
             py::arg("publication"), py::arg("payload_path"), py::arg("expected_head_publication_id"),
             py::arg("expected_trust_head_bundle_id"), py::arg("maximum_publications") = 100'000);
 
+    py::class_<CoordinatedReservationParticipant>(module, "CoordinatedReservationParticipant")
+        .def_readonly("storage_schema", &CoordinatedReservationParticipant::storage_schema)
+        .def_readonly("id", &CoordinatedReservationParticipant::id)
+        .def_readonly("deployment_id", &CoordinatedReservationParticipant::deployment_id)
+        .def_readonly("occupancy_id", &CoordinatedReservationParticipant::occupancy_id)
+        .def_readonly("stream_id", &CoordinatedReservationParticipant::stream_id)
+        .def_readonly("publisher_service_id", &CoordinatedReservationParticipant::publisher_service_id)
+        .def_readonly("publisher_key_id", &CoordinatedReservationParticipant::publisher_key_id)
+        .def_readonly("publisher_sequence", &CoordinatedReservationParticipant::publisher_sequence)
+        .def_readonly("trust_root_bundle_id", &CoordinatedReservationParticipant::trust_root_bundle_id)
+        .def_readonly("trust_head_bundle_id", &CoordinatedReservationParticipant::trust_head_bundle_id)
+        .def_readonly("publication_trust_bundle_id",
+                      &CoordinatedReservationParticipant::publication_trust_bundle_id)
+        .def_readonly("publication_root_id", &CoordinatedReservationParticipant::publication_root_id)
+        .def_readonly("publication_head_id", &CoordinatedReservationParticipant::publication_head_id)
+        .def_readonly("verified_publication_id", &CoordinatedReservationParticipant::verified_publication_id)
+        .def_readonly("payload_digest", &CoordinatedReservationParticipant::payload_digest)
+        .def_readonly("payload_bytes", &CoordinatedReservationParticipant::payload_bytes)
+        .def_readonly("valid_from_tick", &CoordinatedReservationParticipant::valid_from_tick)
+        .def_readonly("valid_through_tick", &CoordinatedReservationParticipant::valid_through_tick)
+        .def("valid", &CoordinatedReservationParticipant::valid)
+        .def_property_readonly("evidence", &CoordinatedReservationParticipant::evidence)
+        .def_property_readonly("authorizes_execution",
+                               &CoordinatedReservationParticipant::authorizes_execution);
+
+    py::class_<CoordinatedReservationAgreementLoadOptions>(module,
+                                                           "CoordinatedReservationAgreementLoadOptions")
+        .def(py::init<>())
+        .def_readwrite("maximum_participants",
+                       &CoordinatedReservationAgreementLoadOptions::maximum_participants)
+        .def_readwrite("maximum_payload_bytes",
+                       &CoordinatedReservationAgreementLoadOptions::maximum_payload_bytes)
+        .def_readwrite("cancellation", &CoordinatedReservationAgreementLoadOptions::cancellation);
+
+    py::class_<CoordinatedReservationAgreement>(module, "CoordinatedReservationAgreement")
+        .def_static(
+            "load",
+            [](const std::filesystem::path& path, const CoordinatedReservationAgreementLoadOptions& options) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return CoordinatedReservationAgreement::load(path, options);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("path"), py::arg("options") = CoordinatedReservationAgreementLoadOptions{})
+        .def_readonly("storage_schema", &CoordinatedReservationAgreement::storage_schema)
+        .def_readonly("id", &CoordinatedReservationAgreement::id)
+        .def_readonly("protocol_id", &CoordinatedReservationAgreement::protocol_id)
+        .def_readonly("round", &CoordinatedReservationAgreement::round)
+        .def_readonly("parent_agreement_id", &CoordinatedReservationAgreement::parent_agreement_id)
+        .def_readonly("evaluation_tick", &CoordinatedReservationAgreement::evaluation_tick)
+        .def_readonly("valid_from_tick", &CoordinatedReservationAgreement::valid_from_tick)
+        .def_readonly("valid_through_tick", &CoordinatedReservationAgreement::valid_through_tick)
+        .def_readonly("occupancy_bundle_id", &CoordinatedReservationAgreement::occupancy_bundle_id)
+        .def_readonly("occupancy_report_id", &CoordinatedReservationAgreement::occupancy_report_id)
+        .def_readonly("timeline_id", &CoordinatedReservationAgreement::timeline_id)
+        .def_readonly("workspace_frame_id", &CoordinatedReservationAgreement::workspace_frame_id)
+        .def_readonly("minimum_separation", &CoordinatedReservationAgreement::minimum_separation)
+        .def_readonly("payload_digest", &CoordinatedReservationAgreement::payload_digest)
+        .def_readonly("payload_bytes", &CoordinatedReservationAgreement::payload_bytes)
+        .def_readonly("participants", &CoordinatedReservationAgreement::participants)
+        .def("valid", &CoordinatedReservationAgreement::valid)
+        .def_property_readonly("evidence", &CoordinatedReservationAgreement::evidence)
+        .def_property_readonly("authorizes_execution", &CoordinatedReservationAgreement::authorizes_execution)
+        .def(
+            "save",
+            [](const CoordinatedReservationAgreement& agreement, const std::filesystem::path& path,
+               bool overwrite) {
+                SaveOptions options;
+                options.overwrite = overwrite;
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return agreement.save(path, options);
+                }();
+                unwrap_void(std::move(result));
+            },
+            py::arg("path"), py::arg("overwrite") = false);
+
+    module.def(
+        "make_coordinated_reservation_agreement",
+        [](std::string protocol_id, std::uint64_t round, std::string parent_agreement_id,
+           std::uint64_t evaluation_tick, const ContinuousFleetOccupancyBundle& occupancy_bundle,
+           const std::vector<std::string>& deployment_ids,
+           const std::vector<RotatingOccupancyPublicationHistory>& histories,
+           const CoordinatedReservationAgreementLoadOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::make_coordinated_reservation_agreement(
+                    std::move(protocol_id), round, std::move(parent_agreement_id), evaluation_tick,
+                    occupancy_bundle, deployment_ids, histories, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("protocol_id"), py::arg("round"), py::arg("parent_agreement_id"), py::arg("evaluation_tick"),
+        py::arg("occupancy_bundle"), py::arg("deployment_ids"), py::arg("histories"),
+        py::arg("options") = CoordinatedReservationAgreementLoadOptions{});
+
+    module.def(
+        "verify_coordinated_reservation_agreement",
+        [](const CoordinatedReservationAgreement& agreement,
+           const ContinuousFleetOccupancyBundle& occupancy_bundle,
+           const std::vector<std::string>& deployment_ids,
+           const std::vector<RotatingOccupancyPublicationHistory>& histories,
+           const CoordinatedReservationAgreementLoadOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::verify_coordinated_reservation_agreement(agreement, occupancy_bundle,
+                                                                         deployment_ids, histories, options);
+            }();
+            unwrap_void(std::move(result));
+        },
+        py::arg("agreement"), py::arg("occupancy_bundle"), py::arg("deployment_ids"), py::arg("histories"),
+        py::arg("options") = CoordinatedReservationAgreementLoadOptions{});
+
+    module.def(
+        "verify_coordinated_reservation_successor",
+        [](const CoordinatedReservationAgreement& previous, const CoordinatedReservationAgreement& successor,
+           const std::vector<std::string>& deployment_ids,
+           const std::vector<RotatingOccupancyPublicationHistory>& histories,
+           const CoordinatedReservationAgreementLoadOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return rbfsafe::verify_coordinated_reservation_successor(previous, successor, deployment_ids,
+                                                                         histories, options);
+            }();
+            unwrap_void(std::move(result));
+        },
+        py::arg("previous"), py::arg("successor"), py::arg("deployment_ids"), py::arg("histories"),
+        py::arg("options") = CoordinatedReservationAgreementLoadOptions{});
+
     module.def(
         "sign_continuous_fleet_occupancy_publication",
         [](const std::filesystem::path& occupancy_payload_path, const ServiceTrustBundle& trust_bundle,

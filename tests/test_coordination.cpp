@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -761,6 +762,195 @@ int main() {
     CHECK(rotating_quorum.value().publish(rotating_quorum_successor_publication.value(), occupancy_path,
                                           rotating_quorum_root_publication.value().id,
                                           rotating_quorum_successor.value().id()));
+
+    std::vector<std::string> reservation_deployments{"arm-a", "arm-b"};
+    std::vector<RotatingOccupancyPublicationHistory> reservation_histories{rotating.value(),
+                                                                           rotating_quorum.value()};
+    auto reservation = make_coordinated_reservation_agreement("fixture-coordinated-reservation-v1", 1, "", 16,
+                                                              loaded_from_bytes.value(),
+                                                              reservation_deployments, reservation_histories);
+    CHECK(reservation);
+    CHECK(reservation.value().valid());
+    CHECK(reservation.value().round == 1);
+    CHECK(reservation.value().parent_agreement_id.empty());
+    CHECK(reservation.value().participants.size() == 2);
+    CHECK(reservation.value().participants[0].deployment_id == "arm-a");
+    CHECK(reservation.value().participants[1].deployment_id == "arm-b");
+    CHECK(reservation.value().valid_from_tick == 1);
+    CHECK(reservation.value().valid_through_tick == 31);
+    CHECK(reservation.value().occupancy_bundle_id == loaded_from_bytes.value().id());
+    CHECK(reservation.value().evidence() == EvidenceLevel::Unknown);
+    CHECK(!reservation.value().authorizes_execution());
+    CHECK(reservation.value().participants.front().evidence() == EvidenceLevel::Unknown);
+    CHECK(!reservation.value().participants.front().authorizes_execution());
+    CHECK(verify_coordinated_reservation_agreement(reservation.value(), loaded_from_bytes.value(),
+                                                   reservation_deployments, reservation_histories));
+
+    std::vector<std::string> reversed_reservation_deployments{"arm-b", "arm-a"};
+    std::vector<RotatingOccupancyPublicationHistory> reversed_reservation_histories{rotating_quorum.value(),
+                                                                                    rotating.value()};
+    auto reordered_reservation = make_coordinated_reservation_agreement(
+        "fixture-coordinated-reservation-v1", 1, "", 16, loaded_from_bytes.value(),
+        reversed_reservation_deployments, reversed_reservation_histories);
+    CHECK(reordered_reservation);
+    CHECK(reordered_reservation.value().id == reservation.value().id);
+
+    const auto reservation_path = temporary / "coordinated-reservation-agreement-with-compact-staging.json";
+    CHECK(reservation.value().save(reservation_path));
+    CHECK(!reservation.value().save(reservation_path));
+    auto loaded_reservation = CoordinatedReservationAgreement::load(reservation_path);
+    CHECK(loaded_reservation);
+    CHECK(loaded_reservation.value().id == reservation.value().id);
+    CHECK(reservation.value().save(reservation_path, overwrite));
+    CoordinatedReservationAgreementLoadOptions one_reservation_participant;
+    one_reservation_participant.maximum_participants = 1;
+    auto reservation_participant_limit =
+        CoordinatedReservationAgreement::load(reservation_path, one_reservation_participant);
+    CHECK(!reservation_participant_limit);
+    CHECK(reservation_participant_limit.error().code == StatusCode::ResourceLimit);
+    CoordinatedReservationAgreementLoadOptions reservation_byte_limit;
+    reservation_byte_limit.maximum_payload_bytes = 16;
+    auto reservation_bytes_rejected =
+        CoordinatedReservationAgreement::load(reservation_path, reservation_byte_limit);
+    CHECK(!reservation_bytes_rejected);
+    CHECK(reservation_bytes_rejected.error().code == StatusCode::ResourceLimit);
+    CoordinatedReservationAgreementLoadOptions cancelled_reservation_load;
+    cancelled_reservation_load.cancellation.cancel();
+    auto cancelled_reservation =
+        CoordinatedReservationAgreement::load(reservation_path, cancelled_reservation_load);
+    CHECK(!cancelled_reservation);
+    CHECK(cancelled_reservation.error().code == StatusCode::Cancelled);
+
+    const auto reservation_text = read_text(reservation_path);
+    auto reservation_checksum_tamper = reservation_text;
+    const auto reservation_checksum_position = reservation_checksum_tamper.find("\"checksum\": \"");
+    CHECK(reservation_checksum_position != std::string::npos);
+    reservation_checksum_tamper[reservation_checksum_position + 13] =
+        reservation_checksum_tamper[reservation_checksum_position + 13] == 'a' ? 'b' : 'a';
+    const auto reservation_tamper_path = temporary / "reservation-tamper.json";
+    write_text(reservation_tamper_path, reservation_checksum_tamper);
+    auto reservation_tamper_rejected = CoordinatedReservationAgreement::load(reservation_tamper_path);
+    CHECK(!reservation_tamper_rejected);
+    CHECK(reservation_tamper_rejected.error().code == StatusCode::CorruptData);
+    auto reservation_unknown_schema = reservation_text;
+    const auto reservation_schema_position = reservation_unknown_schema.rfind("\"schema\": 1");
+    CHECK(reservation_schema_position != std::string::npos);
+    reservation_unknown_schema.replace(reservation_schema_position, 11, "\"schema\": 2");
+    const auto reservation_schema_path = temporary / "reservation-schema.json";
+    write_text(reservation_schema_path, reservation_unknown_schema);
+    auto reservation_schema_rejected = CoordinatedReservationAgreement::load(reservation_schema_path);
+    CHECK(!reservation_schema_rejected);
+    CHECK(reservation_schema_rejected.error().code == StatusCode::IncompatibleFormat);
+
+    const auto reservation_symlink = temporary / "reservation-link.json";
+    symlink_error.clear();
+    std::filesystem::create_symlink(reservation_path, reservation_symlink, symlink_error);
+    if (!symlink_error) {
+        auto reservation_indirect = CoordinatedReservationAgreement::load(reservation_symlink);
+        CHECK(!reservation_indirect);
+        CHECK(reservation_indirect.error().code == StatusCode::CorruptData);
+    }
+
+    std::vector<std::string> wrong_reservation_deployments{"arm-b", "arm-a"};
+    CHECK(!verify_coordinated_reservation_agreement(reservation.value(), loaded_from_bytes.value(),
+                                                    wrong_reservation_deployments, reservation_histories));
+    CoordinatedReservationAgreementLoadOptions cancelled_reservation_verification;
+    cancelled_reservation_verification.cancellation.cancel();
+    auto reservation_verification_cancelled = verify_coordinated_reservation_agreement(
+        reservation.value(), loaded_from_bytes.value(), reservation_deployments, reservation_histories,
+        cancelled_reservation_verification);
+    CHECK(!reservation_verification_cancelled);
+    CHECK(reservation_verification_cancelled.error().code == StatusCode::Cancelled);
+
+    ContinuousFleetOccupancyOptions conflicting_reservation_options;
+    conflicting_reservation_options.minimum_separation = 1000.0;
+    auto conflicting_reservation_bundle = ContinuousFleetOccupancyBundle::create(
+        loaded_from_bytes.value().occupancies(), conflicting_reservation_options);
+    CHECK(conflicting_reservation_bundle);
+    CHECK(conflicting_reservation_bundle.value().report().status ==
+          ContinuousFleetOccupancyStatus::PotentialConflict);
+    CHECK(!make_coordinated_reservation_agreement("fixture-coordinated-reservation-v1", 1, "", 16,
+                                                  conflicting_reservation_bundle.value(),
+                                                  reservation_deployments, reservation_histories));
+
+    auto rotating_third_publication = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotation_successor_bundle.value(), "rotating-cell-stream-v1",
+        "rotating-occupancy-publisher", successor_key.value().id, successor_pair.value().secret_key, 3,
+        rotated_publication.value().id, 2, 30);
+    CHECK(rotating_third_publication);
+    CHECK(rotating.value().publish(rotating_third_publication.value(), occupancy_path,
+                                   rotated_publication.value().id, rotation_successor_bundle.value().id()));
+    auto rotating_quorum_third_publication = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotating_quorum_successor.value(), "rotating-quorum-stream-v1",
+        "quorum-occupancy-publisher", quorum_publisher_key.value().id, rotation_pair.value().secret_key, 3,
+        rotating_quorum_successor_publication.value().id, 2, 30);
+    CHECK(rotating_quorum_third_publication);
+    CHECK(rotating_quorum.value().publish(rotating_quorum_third_publication.value(), occupancy_path,
+                                          rotating_quorum_successor_publication.value().id,
+                                          rotating_quorum_successor.value().id()));
+    reservation_histories = {rotating.value(), rotating_quorum.value()};
+    auto reservation_successor = make_coordinated_reservation_agreement(
+        "fixture-coordinated-reservation-v1", 2, reservation.value().id, 16, loaded_from_bytes.value(),
+        reservation_deployments, reservation_histories);
+    CHECK(reservation_successor);
+    CHECK(verify_coordinated_reservation_successor(reservation.value(), reservation_successor.value(),
+                                                   reservation_deployments, reservation_histories));
+    CHECK(verify_coordinated_reservation_agreement(reservation.value(), loaded_from_bytes.value(),
+                                                   reservation_deployments, reservation_histories));
+    CHECK(verify_coordinated_reservation_agreement(reservation_successor.value(), loaded_from_bytes.value(),
+                                                   reservation_deployments, reservation_histories));
+    CHECK(!verify_coordinated_reservation_successor(reservation.value(), reservation.value(),
+                                                    reservation_deployments, reservation_histories));
+
+    auto rotating_publication_fork_third = sign_continuous_fleet_occupancy_publication(
+        occupancy_path, rotation_successor_bundle.value(), "rotating-cell-stream-v1",
+        "rotating-occupancy-publisher", successor_key.value().id, successor_pair.value().secret_key, 3,
+        alternate_publication.value().id, 2, 30);
+    CHECK(rotating_publication_fork_third);
+    CHECK(rotating_publication_fork.value().publish(rotating_publication_fork_third.value(), occupancy_path,
+                                                    alternate_publication.value().id,
+                                                    rotation_successor_bundle.value().id()));
+    std::vector<RotatingOccupancyPublicationHistory> forked_reservation_histories{
+        rotating_publication_fork.value(), rotating_quorum.value()};
+    auto forked_reservation_successor = make_coordinated_reservation_agreement(
+        "fixture-coordinated-reservation-v1", 2, reservation.value().id, 16, loaded_from_bytes.value(),
+        reservation_deployments, forked_reservation_histories);
+    CHECK(forked_reservation_successor);
+    auto forked_reservation_rejected =
+        verify_coordinated_reservation_successor(reservation.value(), forked_reservation_successor.value(),
+                                                 reservation_deployments, forked_reservation_histories);
+    CHECK(!forked_reservation_rejected);
+    CHECK(forked_reservation_rejected.error().code == StatusCode::IdentityMismatch);
+
+    const auto fixed_reservation_root =
+        std::filesystem::path(RBFSAFE_TEST_DATA_DIR) / "coordinated_reservation_agreement_schema1";
+    auto fixed_reservation = CoordinatedReservationAgreement::load(fixed_reservation_root / "agreement.json");
+    CHECK(fixed_reservation);
+    CHECK(fixed_reservation.value().id == "50ad0281ad0ec37b7b4a3869c7249d840f0870242d2ed600ade21ce62a77e040");
+    auto fixed_reservation_occupancy =
+        ContinuousFleetOccupancyBundle::load(std::filesystem::path(RBFSAFE_TEST_DATA_DIR) /
+                                             "continuous_fleet_occupancy_schema2" / "occupancy.json");
+    CHECK(fixed_reservation_occupancy);
+    auto fixed_arm_a = RotatingOccupancyPublicationHistory::open(
+        fixed_reservation_root / "arm-a-history", "arm-a-reservation-stream-v1",
+        "arm-a-reservation-publisher", "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+        "0b87bee460049d63eb898995fc4db3405fcb2163e2ff006c13ddd58421a4ed11",
+        "cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658",
+        "cfd625f47345f50509f83c597d6fe5a0ee9ebf87b6b641d39db6f4c952867658");
+    auto fixed_arm_b = RotatingOccupancyPublicationHistory::open(
+        fixed_reservation_root / "arm-b-history", "arm-b-reservation-stream-v1",
+        "arm-b-reservation-publisher", "46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561",
+        "46a41667db35c2ede6887000e19e1f26e37e9df58068b9d4b6c5e25f518c6561",
+        "15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e",
+        "15a6f4e5a8265705bc537f0d20f5d4ce0dfe4687e9ef843bba18f0dcd81c999e");
+    CHECK(fixed_arm_a);
+    CHECK(fixed_arm_b);
+    std::vector<std::string> fixed_reservation_deployments{"arm-a", "arm-b"};
+    std::vector<RotatingOccupancyPublicationHistory> fixed_reservation_histories{fixed_arm_a.value(),
+                                                                                 fixed_arm_b.value()};
+    CHECK(verify_coordinated_reservation_agreement(
+        fixed_reservation.value(), fixed_reservation_occupancy.value(), fixed_reservation_deployments,
+        fixed_reservation_histories));
 
     ContinuousFleetOccupancyBundleLoadOptions cancelled;
     cancelled.cancellation.cancel();
