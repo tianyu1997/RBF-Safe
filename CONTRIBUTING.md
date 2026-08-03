@@ -1,5 +1,7 @@
 # Contributing
 
+[简体中文](CONTRIBUTING.zh-CN.md) | English
+
 Thank you for helping improve RBF-Safe. Contributions should keep the
 certification claim small, conservative, deterministic, and auditable.
 
@@ -52,6 +54,9 @@ clang-format -i $(find include src tests tools examples python \
   coverage, and an explicit schema compatibility decision.
 - Derived or materially reused work must update `docs/provenance.md` and retain
   applicable copyright notices.
+- User-facing documentation changes must update the same-name Simplified
+  Chinese mirror in `docs/zh-CN/`; run
+  `python tools/check_chinese_docs.py --root .` before submitting.
 - Do not commit build trees, wheels, caches, local paths, paper assets, or
   experiment outputs.
 

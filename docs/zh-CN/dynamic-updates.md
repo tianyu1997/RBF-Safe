@@ -1,0 +1,26 @@
+# 动态场景更新与 Atlas 版本
+
+> 英文原文：[Dynamic scene updates and Atlas versions](../dynamic-updates.md)
+
+场景摘要改变后，旧证书不能直接用于新场景。`AtlasUpdater` 比较精确的旧/新 `SceneSnapshot`，并对每个区域执行显式继承、重新验证、失效或局部修复。
+
+## 更新流程
+
+1. 验证旧 Atlas 与旧机器人/场景兼容；
+2. 计算稳定障碍物 ID 的增加、删除和 AABB 变化；
+3. 使用区域依赖包络筛选可能受影响的证书；
+4. 未受影响区域通过检查后的转换关系继承；
+5. 受影响区域对新场景重新运行保守验证；
+6. 在失效域和调用方修复样本周围进行有预算的局部构建；
+7. 重建确定性索引、邻接和连通分量。
+
+```python
+update = rbfsafe.AtlasUpdater().update(
+    robot, previous_scene, next_scene, atlas,
+    repair_samples=[[0.0, 0.0]],
+)
+```
+
+继承证书绑定旧证书 ID、场景差分和转换摘要；仅凭障碍物 ID 未变化或新摘要不同不能继承。
+
+`AtlasVersionStore` 发布不可变父子版本并支持历史读取和回滚。回滚只选择旧快照，不让旧证书对当前场景重新生效。更新统计明确报告继承、重新认证、失效、修复和预算耗尽数量。

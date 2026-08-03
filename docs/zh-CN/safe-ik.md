@@ -1,0 +1,27 @@
+# Safe IK
+
+> 英文原文：[Safe IK](../safe-ik.md)
+
+`SafeIkSolver` 在认证 Atlas 区域内求解末端位姿，并尝试从调用方给定的当前配置恢复到解的认证路线。
+
+## 约束
+
+- 机器人和场景必须与 Atlas 身份匹配；
+- 初始配置必须位于认证区域；
+- 每个数值迭代被投影/限制在当前认证凸区域内；
+- 位姿误差、最大迭代、阻尼、步长和区域尝试数都有明确上限；
+- 取消和资源耗尽会失败关闭。
+
+```python
+target = robot.end_effector_pose([0.4, -0.2])
+report = rbfsafe.SafeIkSolver().solve(
+    robot, scene, atlas, target, [0.0, 0.0]
+)
+```
+
+## 结果解释
+
+- `SAFE_CONNECTED`：数值解收敛、解点位于认证区域，并具有从种子到解的 `CertifiedConnectivity` 路线；
+- 其他状态会区分未收敛、无认证区域、无连接、无效输入和预算限制。
+
+位姿收敛本身是点级数值证据。即使结果连接，也不包含速度、奇异性裕度、动力学或控制器执行保证。MoveIt 插件使用同一失败关闭语义。

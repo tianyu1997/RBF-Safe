@@ -1,7 +1,17 @@
 # Changelog
 
+[简体中文](CHANGELOG.zh-CN.md) | English
+
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
+
+## [Unreleased]
+
+### Documentation
+
+- Add a complete Simplified Chinese documentation mirror for all 64 top-level
+  guides, Chinese repository/community guides, bilingual navigation, and a CI
+  coverage/link checker.
 
 ## [4.7.0] - 2026-08-01
 

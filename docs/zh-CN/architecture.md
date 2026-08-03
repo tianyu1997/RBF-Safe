@@ -1,0 +1,40 @@
+# 体系结构
+
+> 英文原文：[Architecture](../architecture.md)
+
+RBF-Safe 使用单向依赖，使底层几何和分区模块可以独立使用：
+
+```text
+geometry → lect → atlas
+                 ├→ occupancy
+                 ├→ update
+                 ├→ corridor / regions / planning / optimization / ik
+                 └→ shield / policy / memory / trust / deployment
+```
+
+## 公共 CMake 目标
+
+- `RBFSafe::geometry`：基础类型、modified-DH、FK、Jacobian、IFK-AA/LinkIAABB；
+- `RBFSafe::lect`：确定性分区树与稳定路径键；
+- `RBFSafe::atlas`：区域、证书、索引、连通图与持久化；
+- `RBFSafe::corridor`：OBB、Portal 与 HiPaC；
+- `RBFSafe::regions`：统一区域数据库；
+- `RBFSafe::planning` / `RBFSafe::optimization` / `RBFSafe::ik`：消费者接口；
+- `RBFSafe::shield` / `RBFSafe::policy`：动作与学习策略门；
+- `RBFSafe::memory`、`trust`、`identity`、`deployment`、`execution`：持久身份和部署审计；
+- `RBFSafe::rbfsafe`：聚合入口。
+
+## ABI 与错误模型
+
+公共头文件只暴露标准库类型；Eigen、JSON 解析器和磁盘实现不进入公共 ABI。预期失败使用 `Result<T>` 与 `StatusCode`。Python 将参数、I/O、资源和身份错误映射为明确异常。
+
+## 数据流
+
+1. `SerialRobotModel` 与 `SceneSnapshot` 建立稳定身份；
+2. `RegionValidator` 通过保守包络生成 `Certificate`；
+3. Atlas/走廊/区域数据库组织空间覆盖和连通性；
+4. 规划器、IK、审核器和 shield 只消费与当前身份兼容的证据；
+5. 动态更新和安全记忆保留可追踪的父子关系；
+6. 部署与执行层重新绑定外部身份、时间窗和控制器确认。
+
+任何上层模块都不能修改底层证书的事实含义。
