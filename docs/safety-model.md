@@ -41,6 +41,9 @@ digital signatures and do not establish publisher authenticity.
 
 - Modified-DH parameters, joint limits, tool transform, link radii, units, and
   frame conventions accurately and conservatively describe the robot.
+- Point FK, pose FK, and `GeometricJacobian` are deterministic numerical
+  kinematics. They do not by themselves prove collision freedom or carry a
+  certificate evidence level.
 - Each represented link is conservatively covered by the straight segment
   between adjacent DH origins expanded by its configured radius.
 - Every relevant static environment object is conservatively covered by a
@@ -447,7 +450,7 @@ scene/profile/keys were not revoked unless the caller supplies authenticated
 current state to the ledger. Those are application and deployment safety
 responsibilities.
 
-## Explicit exclusions through v4.6
+## Explicit exclusions through v4.7
 
 - Robot self-collision is not checked.
 - Joint bodies, cables, payloads, or end effectors are covered only if included

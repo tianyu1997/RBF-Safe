@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import math
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.6.0"
+    assert rbfsafe.__version__ == "4.7.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -22,6 +23,47 @@ def make_robot() -> rbfsafe.SerialRobotModel:
         [rbfsafe.Interval(-1.5, 1.5), rbfsafe.Interval(-1.5, 1.5)],
         [0.05, 0.05],
     )
+
+
+def test_geometric_jacobian() -> None:
+    robot = make_robot()
+    configuration = [0.2, -0.3]
+    jacobian = robot.end_effector_geometric_jacobian(configuration)
+    assert jacobian.valid()
+    assert jacobian.rows == 6
+    assert jacobian.columns == 2
+    assert len(jacobian.values) == 12
+    assert jacobian.at(0, 0) == pytest.approx(-math.sin(configuration[0]))
+    assert jacobian.at(1, 0) == pytest.approx(math.cos(configuration[0]))
+    assert jacobian.at(2, 0) == pytest.approx(0.0)
+    assert jacobian.at(0, 1) == pytest.approx(0.0)
+    assert jacobian.at(1, 1) == pytest.approx(0.0)
+    assert jacobian.at(2, 1) == pytest.approx(0.0)
+    assert jacobian.at(5, 0) == pytest.approx(1.0)
+    assert jacobian.at(5, 1) == pytest.approx(1.0)
+
+    step = 1e-6
+    for joint in range(robot.dimension):
+        lower = list(configuration)
+        upper = list(configuration)
+        lower[joint] -= step
+        upper[joint] += step
+        lower_pose = robot.end_effector_pose(lower)
+        upper_pose = robot.end_effector_pose(upper)
+        for axis in range(3):
+            numerical = (
+                upper_pose.position[axis] - lower_pose.position[axis]
+            ) / (2.0 * step)
+            assert jacobian.at(axis, joint) == pytest.approx(
+                numerical, abs=1e-9
+            )
+
+    with pytest.raises(IndexError):
+        jacobian.at(6, 0)
+    with pytest.raises(ValueError):
+        robot.end_effector_geometric_jacobian([0.0])
+    with pytest.raises(ValueError):
+        robot.end_effector_geometric_jacobian([2.0, 0.0])
 
 
 def test_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

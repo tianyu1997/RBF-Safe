@@ -1,0 +1,429 @@
+{
+  "schema": 1,
+  "source_plan": "RBF-Safe/project.md Software Engineering Development Plan",
+  "requirements": [
+    {
+      "id": "application.ik.safe",
+      "claim": "Safe IK solves inside certified regions and returns region and connectivity evidence.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/safe_ik.h",
+          "contains": ["class SafeIkSolver", "SafeConnected", "AtlasRoute"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_safe_ik.cpp",
+          "contains": ["SafeIkSolver", "EvidenceLevel::CertifiedConnectivity"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/safe-ik.md",
+          "contains": ["SafeIkSolver", "connectivity_route"]
+        }
+      ]
+    },
+    {
+      "id": "application.learning.shield",
+      "claim": "Joint, end-effector, and trajectory actions receive deterministic accept, repair, or reject decisions.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/shield.h",
+          "contains": ["class RuntimeShield", "JointDelta", "EndEffectorPose", "Trajectory"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_shield.cpp",
+          "contains": ["ShieldOutcome::Accept", "ShieldOutcome::Repair", "ShieldOutcome::Reject"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/runtime-shield.md",
+          "contains": ["ACCEPT", "REPAIR", "REJECT"]
+        }
+      ]
+    },
+    {
+      "id": "application.optimization.adapters",
+      "claim": "Solver-neutral certified-region constraints are exposed through TrajOpt, CHOMP, STOMP, and MPC front ends.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/optimization.h",
+          "contains": ["class TrajOptRegionAdapter", "class ChompRegionAdapter", "class StompRegionAdapter", "class MpcRegionAdapter"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_optimization.cpp",
+          "contains": ["TrajOptRegionAdapter", "ChompRegionAdapter", "StompRegionAdapter", "MpcRegionAdapter"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/optimization.md",
+          "contains": ["TrajOpt", "CHOMP", "STOMP", "MPC"]
+        }
+      ]
+    },
+    {
+      "id": "application.planning.moveit",
+      "claim": "MoveIt 2 request, response, constraint-sampling, and kinematics plugins fail closed against RBF-Safe evidence.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "plugins/moveit2/rbfsafe_moveit/src/planning_adapters.cpp",
+          "contains": ["PlanningRequestAdapter", "PlanningResponseAdapter", "TrajectoryAuditor"]
+        },
+        {
+          "kind": "test",
+          "path": "plugins/moveit2/rbfsafe_moveit/test/test_plugin_loader.cpp",
+          "contains": ["exported_classes_are_discoverable_and_constructible", "safe_ik_plugin_solves_an_atlas_connected_pose"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/moveit2.md",
+          "contains": ["PlanningRequestAdapter", "ConstraintSampler", "KinematicsBase"]
+        }
+      ]
+    },
+    {
+      "id": "application.planning.ompl",
+      "claim": "The optional OMPL adapter provides certified state, motion, sampling, and RRT/RRT*/PRM/BIT* orchestration.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/ompl.h",
+          "contains": ["class OmplAdapter", "class OmplPlanner", "RegionSamplingPolicy", "OmplPlannerKind"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_ompl.cpp",
+          "contains": ["OmplAdapter", "OmplPlanner", "TrajectoryAuditor"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/ompl-adapter.md",
+          "contains": ["RRT*", "PRM", "BIT*", "audits the returned path"]
+        }
+      ]
+    },
+    {
+      "id": "application.planning.output-audit",
+      "claim": "Arbitrary planner and trajectory outputs are continuously audited as certified, partial, or invalid.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/trajectory.h",
+          "contains": ["class TrajectoryAuditor", "Certified", "Partial", "Invalid"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_trajectory.cpp",
+          "contains": ["TrajectoryAuditStatus::Certified", "TrajectoryAuditStatus::Partial", "TrajectoryAuditStatus::Invalid"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/trajectory-auditor.md",
+          "contains": ["CERTIFIED", "PARTIAL", "INVALID"]
+        }
+      ]
+    },
+    {
+      "id": "core.atlas.database-connectivity",
+      "claim": "SafeAtlas stores certified regions and certificates and answers membership, nearest-region, route, and connectivity queries.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/atlas.h",
+          "contains": ["class SafeAtlas", "regions_at", "nearest_region", "connected", "route"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_atlas.cpp",
+          "contains": ["atlas.contains", "nearest_region", "atlas.connected", "atlas.route"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/api.md",
+          "contains": ["regions_at(q)", "nearest_region(q)", "connected(q1, q2)"]
+        }
+      ]
+    },
+    {
+      "id": "core.certification.region-corridor",
+      "claim": "Conservative validators certify free AABB/OBB regions and shared-witness connected corridors.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/geometry.h",
+          "contains": ["class RegionValidator", "class IfkAaLinkAabbValidator"]
+        },
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/corridor.h",
+          "contains": ["class ObbRegionValidator", "class HipacCorridorBuilder"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_hipac.cpp",
+          "contains": ["HipacBuildStatus::Certified", "EvidenceLevel::CertifiedConnectivity"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/corridors.md",
+          "contains": ["ObbRegionValidator", "witness portals", "CertifiedConnectivity"]
+        }
+      ]
+    },
+    {
+      "id": "core.geometry.fk-jacobian-envelope",
+      "claim": "The geometry core provides modified-DH FK, a workspace-frame analytic geometric Jacobian, and conservative link envelopes.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/model.h",
+          "contains": ["forward_kinematics", "end_effector_pose", "end_effector_geometric_jacobian", "struct GeometricJacobian"]
+        },
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/geometry.h",
+          "contains": ["compute_ifk_aa_link_envelope"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_geometry.cpp",
+          "contains": ["end_effector_geometric_jacobian", "difference_step", "10'000"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/kinematics.md",
+          "contains": ["modified DH", "GeometricJacobian", "IFK-AA"]
+        }
+      ]
+    },
+    {
+      "id": "core.partition.lect-hipac",
+      "claim": "LECT supplies deterministic adaptive partitioning and HiPaC supplies recursive certified corridor covering.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/lect.h",
+          "contains": ["class LectTree", "LectNodeKey", "overlap_leaves"]
+        },
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/corridor.h",
+          "contains": ["class HipacCorridorBuilder", "HipacOptions"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_lect.cpp",
+          "contains": ["LectTree::create", "overlap_leaves"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_hipac.cpp",
+          "contains": ["HipacCorridorBuilder", "HipacBuildStatus::Partial"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/corridors.md",
+          "contains": ["HipacCorridorBuilder", "recursively"]
+        }
+      ]
+    },
+    {
+      "id": "core.update.dynamic-repair",
+      "claim": "Scene changes conservatively invalidate, inherit, locally repair, version, and roll back Atlas evidence.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/dynamic.h",
+          "contains": ["class AtlasUpdater", "AtlasUpdateStats", "repair_invalidated_regions"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_dynamic.cpp",
+          "contains": ["regions_invalidated", "repaired_regions", "rollback"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/dynamic-updates.md",
+          "contains": ["invalidates", "Local repair", "Rollback"]
+        }
+      ]
+    },
+    {
+      "id": "data.certificate-levels",
+      "claim": "Evidence distinguishes unknown, point-checked, certified-region, certified-connectivity, and runtime-executable results.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/certificate.h",
+          "contains": ["Unknown", "PointChecked", "CertifiedRegion", "CertifiedConnectivity", "RuntimeExecutable"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_execution.cpp",
+          "contains": ["EvidenceLevel::RuntimeExecutable", "EvidenceLevel::Unknown"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/safety-model.md",
+          "contains": ["PointChecked", "CertifiedRegion", "CertifiedConnectivity", "RuntimeExecutable"]
+        }
+      ]
+    },
+    {
+      "id": "data.safe-region-family",
+      "claim": "The unified region database represents AABB, OBB, Portal, TrajectoryTube, zonotope, and Taylor regions.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/region_database.h",
+          "contains": ["Aabb", "Obb", "Portal", "TrajectoryTube", "Zonotope", "Taylor"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_region_database.cpp",
+          "contains": ["RegionType::TrajectoryTube", "RegionType::Zonotope", "RegionType::Taylor"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/region-database.md",
+          "contains": ["AABB", "OBB", "Portal", "TrajectoryTube", "Zonotope", "Taylor"]
+        }
+      ]
+    },
+    {
+      "id": "interface.cpp-python-query",
+      "claim": "Stable C++ targets and the high-level Python package build, persist, query, audit, visualize, update, solve IK, and shield actions.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/rbfsafe.h",
+          "contains": ["rbfsafe/atlas.h", "rbfsafe/safe_ik.h", "rbfsafe/shield.h"]
+        },
+        {
+          "kind": "public-api",
+          "path": "python/rbfsafe/__init__.py",
+          "contains": ["AtlasBuilder", "TrajectoryAuditor", "SafeIkSolver", "RuntimeShield"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_python.py",
+          "contains": ["test_end_to_end", "test_safe_ik", "test_dynamic_update_and_version_store", "test_geometric_jacobian"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/getting-started.md",
+          "contains": ["Build and query in C++", "Inspect and visualize", "Solve a Safe IK query"]
+        }
+      ]
+    },
+    {
+      "id": "quality.benchmarks",
+      "claim": "Deterministic fixtures cover IIWA, UR5, Panda, Franka and shelf, clutter, industrial-cell, and mobile-manipulation metrics.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/rbfsafe.h",
+          "contains": ["rbfsafe/geometry.h", "rbfsafe/trajectory.h", "rbfsafe/dynamic.h"]
+        },
+        {
+          "kind": "test",
+          "path": "benchmarks/release_benchmark.cpp",
+          "contains": ["false_safe", "estimated_memory_bytes", "certified_path_ratio", "update_ms"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/release-fixtures.md",
+          "contains": ["IIWA", "UR5", "Panda", "Franka", "shelf", "clutter", "industrial"]
+        }
+      ]
+    },
+    {
+      "id": "release.v1-geometric-library",
+      "claim": "The version-1 product scope provides safe regions, planner integration, Safe IK, and trajectory audit.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/rbfsafe.h",
+          "contains": ["rbfsafe/region_database.h", "rbfsafe/planning.h", "rbfsafe/safe_ik.h", "rbfsafe/trajectory.h"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_golden.cpp",
+          "contains": ["legacy_geometry_v1.json", "forward_kinematics", "compute_ifk_aa_link_envelope"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/roadmap.md",
+          "contains": ["v1.0 - Stable geometric safety library"]
+        }
+      ]
+    },
+    {
+      "id": "release.v2-learning-runtime",
+      "claim": "The version-2 product scope provides learning-policy safety, a runtime shield, and a runtime state monitor.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/policy.h",
+          "contains": ["class LearningPolicySafetyGate"]
+        },
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/shield.h",
+          "contains": ["class RuntimeShield", "class RuntimeShieldMonitor"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_policy.cpp",
+          "contains": ["LearningPolicySafetyGate", "ShieldRepaired", "ShieldRejected"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/roadmap.md",
+          "contains": ["v2.0 - Learning-policy safety"]
+        }
+      ]
+    },
+    {
+      "id": "release.v3-memory-multirobot-deployment",
+      "claim": "The version-3 product scope provides persistent cross-task memory, multi-robot coordination, and deployment evidence.",
+      "evidence": [
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/memory.h",
+          "contains": ["class SafetyMemory", "class SafetyMemoryStore", "FleetSnapshot"]
+        },
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/coordination.h",
+          "contains": ["ContinuousFleetOccupancyBundle", "CoordinatedReservationAgreement"]
+        },
+        {
+          "kind": "public-api",
+          "path": "include/rbfsafe/deployment.h",
+          "contains": ["DeploymentProfile", "ReviewedDeploymentProfile"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_memory.cpp",
+          "contains": ["SafetyMemoryStore", "analyze_fleet_schedule"]
+        },
+        {
+          "kind": "test",
+          "path": "tests/test_coordination.cpp",
+          "contains": ["make_coordinated_reservation_agreement"]
+        },
+        {
+          "kind": "documentation",
+          "path": "docs/roadmap.md",
+          "contains": ["v3.0 - Robot safety memory"]
+        }
+      ]
+    }
+  ]
+}

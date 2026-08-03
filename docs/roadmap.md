@@ -174,7 +174,7 @@
   checkpoints; expected-head publication; dual-chain prefix/fork audit;
   bounded schema-1 persistence; fixed fixtures; and C++/Python/inspection
   tooling. Every result remains `Unknown` and non-authorizing.
-- **v4.6 (current) - Unanimous coordinated occupancy reservation:**
+- **v4.6 - Unanimous coordinated occupancy reservation:**
   exact common-payload agreement across unique trust-rotating deployment
   histories; canonical deployment/occupancy/publisher/key/trust/publication
   binding; common timeline/frame/window/separation binding; parent-linked
@@ -182,7 +182,14 @@
   extended histories; caller-pinned agreement identity; bounded schema-1
   persistence; fixed fixtures; and C++/Python/inspection tooling. Every
   result remains `Unknown` and non-authorizing.
-- **v4.7+ candidates:** authenticated remote reservation-head exchange and
+- **v4.7 (current) - Original project scope closure:** public analytic
+  modified-DH workspace-frame `GeometricJacobian`; C++ and Python access;
+  analytic, prismatic, central-difference, error-path, and downstream
+  consumer tests; kinematics documentation; and a machine-checked
+  `project.md` completion matrix linking eighteen requirements to public API,
+  behavioral test, and documentation evidence. No storage schema changes and
+  no new safety evidence are introduced.
+- **v4.8+ candidates:** authenticated remote reservation-head exchange and
   gossip, independently certified hardware/deployment inputs, and trusted
   perception/prediction adapters. Network consensus, lease enforcement,
   global time, and controller admission require separate explicit designs.

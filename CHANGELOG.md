@@ -3,6 +3,37 @@
 All notable changes are documented here. The project follows Semantic
 Versioning for library releases and versions its on-disk schemas separately.
 
+## [4.7.0] - 2026-08-01
+
+### Added
+
+- Public analytic `GeometricJacobian` and
+  `SerialRobotModel::end_effector_geometric_jacobian` for modified-DH serial
+  robots. The deterministic 6-by-N row-major result is expressed in the
+  workspace frame, supports revolute and prismatic joints plus fixed tool
+  frames, uses only standard-library public types, and mirrors into Python.
+- Analytic planar and prismatic regressions, central finite-difference
+  translation checks, error-path tests, and independent downstream CMake
+  consumption of the new public type.
+- A machine-readable `project.md` scope manifest, maintained completion
+  matrix, and CI traceability gate. Eighteen product requirements now each
+  retain public-API, behavioral-test, and documentation evidence.
+- A kinematics guide documenting the modified-DH convention, geometric
+  Jacobian rows and columns, error behavior, and its relationship to
+  IFK-AA/LinkIAABB certification.
+
+### Compatibility and safety
+
+- All 4.6 APIs and storage schemas remain supported. The Jacobian is an
+  additive point-kinematics API and no persisted identity or format changes.
+- A Jacobian is deterministic numerical geometry, not collision evidence,
+  region/corridor certification, or permission to execute. Existing
+  certificate, audit, and exact runtime checks remain mandatory for their
+  respective claims.
+- The completion matrix proves repository traceability for the original
+  software plan; it does not certify hardware, perception, clocks, transport,
+  controller admission, or physical execution.
+
 ## [4.6.0] - 2026-07-29
 
 ### Added

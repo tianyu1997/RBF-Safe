@@ -12,6 +12,20 @@ examples. See [input formats](input-formats.md) for field-level definitions.
 Seeds are configurations of length equal to the robot dimension. They direct
 which unresolved LECT branches are refined; they are not evidence.
 
+Point kinematics can be checked before building an Atlas. The analytic
+workspace-frame geometric Jacobian is a row-major 6-by-N matrix:
+
+```python
+pose = robot.end_effector_pose([0.0, 0.0])
+jacobian = robot.end_effector_geometric_jacobian([0.0, 0.0])
+print(pose.translation)
+print(jacobian.values[: jacobian.columns])  # first linear-velocity row
+```
+
+This Jacobian is numerical geometry rather than a collision or execution
+certificate. See [kinematics](kinematics.md) for conventions and error
+behavior.
+
 ## 2. Build and query in C++
 
 ```cpp

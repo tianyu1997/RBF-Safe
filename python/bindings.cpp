@@ -177,6 +177,13 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_readwrite("orientation", &Pose3d::orientation)
         .def("valid", &Pose3d::valid, py::arg("tolerance") = 1e-9);
 
+    py::class_<GeometricJacobian>(module, "GeometricJacobian")
+        .def_property_readonly("rows", [](const GeometricJacobian&) { return 6; })
+        .def_readonly("columns", &GeometricJacobian::columns)
+        .def_readonly("values", &GeometricJacobian::values)
+        .def("valid", &GeometricJacobian::valid)
+        .def("at", &GeometricJacobian::at, py::arg("row"), py::arg("column"));
+
     py::class_<SerialRobotModel>(module, "SerialRobotModel")
         .def(py::init([](std::string name, std::vector<DhJoint> joints, std::vector<Interval> limits,
                          std::vector<double> radii, std::optional<DhJoint> tool) {
@@ -199,8 +206,12 @@ PYBIND11_MODULE(_rbfsafe, module) {
              [](const SerialRobotModel& robot, const Configuration& q) {
                  return unwrap(robot.forward_kinematics(view(q)));
              })
-        .def("end_effector_pose", [](const SerialRobotModel& robot, const Configuration& q) {
-            return unwrap(robot.end_effector_pose(view(q)));
+        .def("end_effector_pose",
+             [](const SerialRobotModel& robot, const Configuration& q) {
+                 return unwrap(robot.end_effector_pose(view(q)));
+             })
+        .def("end_effector_geometric_jacobian", [](const SerialRobotModel& robot, const Configuration& q) {
+            return unwrap(robot.end_effector_geometric_jacobian(view(q)));
         });
 
     py::class_<SceneObstacle>(module, "SceneObstacle")

@@ -10,6 +10,9 @@
 4. Confirm provenance for all migrated or derived code and fixtures.
 5. Run `python tools/check_api_surface.py --root .`; any snapshot update must
    have an explicit compatibility review.
+6. Run `python tools/check_project_scope.py --root .`; every requirement must
+   retain public-API, behavioral-test, and documentation evidence, and the
+   checked matrix must contain exactly one matching marker.
 
 ## 2. Validate
 

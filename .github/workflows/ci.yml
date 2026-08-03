@@ -22,6 +22,8 @@ jobs:
           xargs -0 clang-format --dry-run --Werror
       - name: Check stable API surface
         run: python3 tools/check_api_surface.py --root .
+      - name: Check project scope traceability
+        run: python3 tools/check_project_scope.py --root .
 
   cpp:
     strategy:

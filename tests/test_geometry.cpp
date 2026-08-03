@@ -37,6 +37,54 @@ int main() {
     CHECK(close(end_pose.value().orientation[2], std::sin(-0.05)));
     CHECK(close(end_pose.value().orientation[3], std::cos(-0.05)));
 
+    auto jacobian = robot.end_effector_geometric_jacobian(Configuration{0.2, -0.3});
+    CHECK(jacobian);
+    CHECK(jacobian.value().valid());
+    CHECK(jacobian.value().columns == 2);
+    CHECK(jacobian.value().values.size() == 12);
+    CHECK(close(jacobian.value().at(0, 0), -std::sin(0.2)));
+    CHECK(close(jacobian.value().at(1, 0), std::cos(0.2)));
+    CHECK(close(jacobian.value().at(2, 0), 0.0));
+    CHECK(close(jacobian.value().at(0, 1), 0.0));
+    CHECK(close(jacobian.value().at(1, 1), 0.0));
+    CHECK(close(jacobian.value().at(2, 1), 0.0));
+    CHECK(close(jacobian.value().at(3, 0), 0.0));
+    CHECK(close(jacobian.value().at(4, 0), 0.0));
+    CHECK(close(jacobian.value().at(5, 0), 1.0));
+    CHECK(close(jacobian.value().at(5, 1), 1.0));
+
+    constexpr double difference_step = 1e-6;
+    const Configuration jacobian_configuration{0.2, -0.3};
+    for (std::size_t joint = 0; joint < robot.dimension(); ++joint) {
+        auto lower = jacobian_configuration;
+        auto upper = jacobian_configuration;
+        lower[joint] -= difference_step;
+        upper[joint] += difference_step;
+        auto lower_pose = robot.end_effector_pose(lower);
+        auto upper_pose = robot.end_effector_pose(upper);
+        CHECK(lower_pose);
+        CHECK(upper_pose);
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            const double numerical = (upper_pose.value().position[axis] - lower_pose.value().position[axis]) /
+                                     (2.0 * difference_step);
+            CHECK(close(jacobian.value().at(axis, joint), numerical, 1e-9));
+        }
+    }
+
+    SerialRobotModel prismatic("test-prismatic", {{0.0, 0.0, 0.0, 0.0, JointType::Prismatic}}, {{0.0, 2.0}},
+                               {0.05});
+    auto prismatic_jacobian = prismatic.end_effector_geometric_jacobian(Configuration{0.75});
+    CHECK(prismatic_jacobian);
+    CHECK(prismatic_jacobian.value().valid());
+    CHECK(close(prismatic_jacobian.value().at(0, 0), 0.0));
+    CHECK(close(prismatic_jacobian.value().at(1, 0), 0.0));
+    CHECK(close(prismatic_jacobian.value().at(2, 0), 1.0));
+    CHECK(close(prismatic_jacobian.value().at(3, 0), 0.0));
+    CHECK(close(prismatic_jacobian.value().at(4, 0), 0.0));
+    CHECK(close(prismatic_jacobian.value().at(5, 0), 0.0));
+    CHECK(!robot.end_effector_geometric_jacobian(Configuration{0.0}));
+    CHECK(!robot.end_effector_geometric_jacobian(Configuration{2.0, 0.0}));
+
     CspaceAabb domain({{-0.7, 0.9}, {-0.5, 0.8}});
     auto envelope = compute_ifk_aa_link_envelope(robot, domain);
     CHECK(envelope);

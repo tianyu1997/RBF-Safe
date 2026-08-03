@@ -22,6 +22,17 @@ struct Pose3d {
     bool valid(double tolerance = 1e-9) const noexcept;
 };
 
+// A 6-by-N geometric Jacobian expressed in the robot workspace frame.
+// Rows 0..2 map joint rates to end-effector linear velocity; rows 3..5
+// map joint rates to angular velocity. Values use row-major storage.
+struct GeometricJacobian {
+    std::size_t columns = 0;
+    std::vector<double> values;
+
+    bool valid() const noexcept;
+    double at(std::size_t row, std::size_t column) const;
+};
+
 struct DhJoint {
     double alpha = 0.0;
     double a = 0.0;
@@ -54,6 +65,7 @@ class SerialRobotModel {
     Result<std::vector<std::array<double, 3>>>
     forward_kinematics(std::span<const double> configuration) const;
     Result<Pose3d> end_effector_pose(std::span<const double> configuration) const;
+    Result<GeometricJacobian> end_effector_geometric_jacobian(std::span<const double> configuration) const;
     std::string canonical_json() const;
     std::string digest() const;
 

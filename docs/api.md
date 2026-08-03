@@ -16,6 +16,11 @@ module headers directly and link only the corresponding CMake target.
 `SerialRobotModel::forward_kinematics(q)` returns `link_count() + 1` frame
 origins, beginning with the base origin. `end_effector_pose(q)` returns a
 `Pose3d` with position and an `x,y,z,w` unit quaternion.
+`end_effector_geometric_jacobian(q)` returns a valid 6-by-N row-major
+`GeometricJacobian` in the workspace frame. Its first three rows map joint
+rates to linear end-effector velocity and its final three rows map them to
+angular velocity. `at(row, column)` is bounds checked. See
+[kinematics](kinematics.md) for the modified-DH convention.
 
 ## Geometry and certification
 

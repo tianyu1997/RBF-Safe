@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <set>
+#include <stdexcept>
 #include <utility>
 
 namespace rbfsafe {
@@ -185,6 +186,18 @@ bool Pose3d::valid(double tolerance) const noexcept {
     return std::abs(std::sqrt(squared_norm) - 1.0) <= tolerance;
 }
 
+bool GeometricJacobian::valid() const noexcept {
+    return columns > 0 && values.size() % 6 == 0 && values.size() / 6 == columns &&
+           std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); });
+}
+
+double GeometricJacobian::at(std::size_t row, std::size_t column) const {
+    if (row >= 6 || column >= columns || columns > std::numeric_limits<std::size_t>::max() / 6) {
+        throw std::out_of_range("geometric Jacobian index is out of range");
+    }
+    return values.at(row * columns + column);
+}
+
 SerialRobotModel::SerialRobotModel(std::string name, std::vector<DhJoint> joints,
                                    std::vector<Interval> joint_limits, std::vector<double> link_radii,
                                    std::optional<DhJoint> tool_frame)
@@ -289,6 +302,66 @@ Result<Pose3d> SerialRobotModel::end_effector_pose(std::span<const double> confi
     if (tool_frame_)
         transform = multiply(transform, joint_matrix(*tool_frame_, 0.0));
     return pose_from_matrix(transform);
+}
+
+Result<GeometricJacobian>
+SerialRobotModel::end_effector_geometric_jacobian(std::span<const double> configuration) const {
+    auto model_status = validate();
+    if (!model_status)
+        return model_status.error();
+    auto configuration_status = validate_configuration(configuration, dimension());
+    if (!configuration_status)
+        return configuration_status.error();
+    for (std::size_t index = 0; index < dimension(); ++index) {
+        if (!joint_limits_[index].contains(configuration[index], 1e-12)) {
+            return Result<GeometricJacobian>::failure(StatusCode::InvalidArgument,
+                                                      "configuration lies outside joint limits",
+                                                      std::to_string(index));
+        }
+    }
+
+    std::vector<std::array<double, 3>> joint_origins;
+    std::vector<std::array<double, 3>> joint_axes;
+    joint_origins.reserve(dimension());
+    joint_axes.reserve(dimension());
+
+    Matrix4 transform = identity_matrix();
+    for (std::size_t index = 0; index < dimension(); ++index) {
+        transform = multiply(transform, joint_matrix(joints_[index], configuration[index]));
+        // RBF-Safe uses modified DH transforms. The transformed frame's z axis
+        // is the current joint axis, and its origin lies on that axis even
+        // after the joint's constant/variable d translation.
+        joint_origins.push_back({transform[3], transform[7], transform[11]});
+        joint_axes.push_back({transform[2], transform[6], transform[10]});
+    }
+    if (tool_frame_)
+        transform = multiply(transform, joint_matrix(*tool_frame_, 0.0));
+    const std::array<double, 3> end_effector{transform[3], transform[7], transform[11]};
+
+    GeometricJacobian jacobian;
+    jacobian.columns = dimension();
+    jacobian.values.assign(6 * dimension(), 0.0);
+    for (std::size_t joint = 0; joint < dimension(); ++joint) {
+        const auto& axis = joint_axes[joint];
+        if (joints_[joint].type == JointType::Revolute) {
+            const std::array<double, 3> offset{
+                end_effector[0] - joint_origins[joint][0],
+                end_effector[1] - joint_origins[joint][1],
+                end_effector[2] - joint_origins[joint][2],
+            };
+            jacobian.values[joint] = axis[1] * offset[2] - axis[2] * offset[1];
+            jacobian.values[dimension() + joint] = axis[2] * offset[0] - axis[0] * offset[2];
+            jacobian.values[2 * dimension() + joint] = axis[0] * offset[1] - axis[1] * offset[0];
+            jacobian.values[3 * dimension() + joint] = axis[0];
+            jacobian.values[4 * dimension() + joint] = axis[1];
+            jacobian.values[5 * dimension() + joint] = axis[2];
+        } else {
+            jacobian.values[joint] = axis[0];
+            jacobian.values[dimension() + joint] = axis[1];
+            jacobian.values[2 * dimension() + joint] = axis[2];
+        }
+    }
+    return jacobian;
 }
 
 std::string SerialRobotModel::canonical_json() const {

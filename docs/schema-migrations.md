@@ -1,10 +1,10 @@
 # Schema support and migrations
 
-Library SemVer and storage schema numbers are independent. RBF-Safe 4.6 reads
+Library SemVer and storage schema numbers are independent. RBF-Safe 4.7 reads
 every standalone format released by 0.x and never interprets a legacy
 RapidBoxForest cache as RBF-Safe data.
 
-| Format | Read | Write | Migration in 4.4 |
+| Format | Read | Write | Migration in 4.7 |
 |---|---:|---:|---|
 | Robot JSON | 1 | 1 | None required |
 | Scene JSON | 1 | 1 | None required |
