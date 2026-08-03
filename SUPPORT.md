@@ -1,7 +1,5 @@
 # Support
 
-[简体中文](SUPPORT.zh-CN.md) | English
-
 RBF-Safe is currently maintained on a best-effort basis.
 
 - Use [GitHub Issues](https://github.com/tianyu1997/RBF-Safe/issues) for

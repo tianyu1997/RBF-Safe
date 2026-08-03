@@ -1,20 +1,35 @@
-.venv/
+# Build, install, and package output
 build*/
 consumer-build*/
+consumer-*/
 dist/
 dist-*/
+install*/
+wheel-test*/
 wheelhouse/
 _skbuild/
 *.egg-info/
+Testing/
+
+# Python environments, caches, and coverage
+.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
+
+# Local tool caches and scratch directories
+.cache/
+.pc*/
+.tmp*/
+log/
+*.log
+
+# IDE and platform-local files
 .idea/
 .vscode/
 *.user
 *.suo
 *.VC.db
-Testing/
-log/
-*.log
+.DS_Store
+Thumbs.db

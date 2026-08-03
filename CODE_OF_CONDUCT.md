@@ -1,7 +1,5 @@
 # Code of Conduct
 
-[简体中文](CODE_OF_CONDUCT.zh-CN.md) | English
-
 ## Our standard
 
 Project participants are expected to communicate respectfully, welcome

@@ -9,7 +9,7 @@
 3. 审查 API、安全、格式、兼容性和来源；
 4. 运行 `tools/check_api_surface.py`；
 5. 运行 `tools/check_project_scope.py` 与
-   `tools/check_chinese_docs.py`。
+   `tools/check_documentation.py`。
 
 ## 2. 验证
 

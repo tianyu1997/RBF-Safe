@@ -9,9 +9,13 @@ Versioning for library releases and versions its on-disk schemas separately.
 
 ### Documentation
 
-- Add a complete Simplified Chinese documentation mirror for all 64 top-level
-  guides, Chinese repository/community guides, bilingual navigation, and a CI
-  coverage/link checker.
+- Add a curated Simplified Chinese documentation set for the most important
+  user, safety, integration, and maintainer guides, with bilingual navigation
+  and a CI coverage/link checker. Detailed English specifications remain the
+  authoritative reference.
+- Add a categorized English documentation index, simplify the root README,
+  unify Markdown link/index validation, and ignore recurring local build,
+  install, wheel-test, package-cache, and temporary outputs.
 
 ## [4.7.0] - 2026-08-01
 

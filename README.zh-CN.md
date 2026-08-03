@@ -135,16 +135,16 @@ rbfsafe-inspect atlas --plot slice.png --dims 0 1
 ## 文档
 
 - [中文文档总览](docs/zh-CN/README.md)
+- [完整英文文档索引](docs/README.md)
 - [入门教程](docs/zh-CN/getting-started.md)
 - [API 总览](docs/zh-CN/api.md)
 - [体系结构](docs/zh-CN/architecture.md)
 - [运动学与 Jacobian](docs/zh-CN/kinematics.md)
 - [轨迹审核](docs/zh-CN/trajectory-auditor.md)
 - [动态更新](docs/zh-CN/dynamic-updates.md)
-- [项目范围完成矩阵](docs/zh-CN/project-scope-matrix.md)
 - [中文变更日志](CHANGELOG.zh-CN.md)
 
-`docs/zh-CN/` 中为中文说明；同名英文文件仍是精确字段名、磁盘编码与兼容性约束的权威规范。公共标识符、JSON 字段、错误码和命令行参数不会翻译。
+`docs/zh-CN/` 提供精选核心指南；详细 schema、历史格式和审计协议保留英文规范。公共标识符、JSON 字段、错误码和命令行参数不会翻译。
 
 ## 验证状态
 
@@ -152,7 +152,7 @@ rbfsafe-inspect atlas --plot slice.png --dims 0 1
 
 ## 贡献
 
-提交改动前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md) 和[发布流程中文版](docs/zh-CN/releasing.md)。新增或修改英文文档时，应同步更新对应的中文文件。
+提交改动前请阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md) 和[发布流程中文版](docs/zh-CN/releasing.md)。修改中文索引所列核心指南时，应同步更新对应的中文文件。
 
 ## 许可证
 

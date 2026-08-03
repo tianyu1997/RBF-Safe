@@ -34,14 +34,19 @@ pytest tests/test_python.py
 Run clang-format before submitting C++ changes:
 
 ```bash
-clang-format -i $(find include src tests tools examples python \
+clang-format -i $(find include src tests tools examples benchmarks python plugins \
   -type f \( -name '*.h' -o -name '*.cpp' \))
+
+python tools/check_api_surface.py --root .
+python tools/check_project_scope.py --root .
+python tools/check_documentation.py --root .
 ```
 
 ## Change rules
 
-- Keep changes within one responsibility layer: `geometry`, `lect`, or
-  `atlas`, unless an API change genuinely crosses layers.
+- Keep changes within one component or responsibility layer unless a public
+  contract genuinely crosses modules. Preserve the one-way dependencies shown
+  in `docs/architecture.md`.
 - Public headers use standard-library value types and must not expose Eigen,
   JSON, pybind11, or storage implementation details.
 - Expected failures use `Result<T>`. Assertions are reserved for internal
@@ -54,9 +59,10 @@ clang-format -i $(find include src tests tools examples python \
   coverage, and an explicit schema compatibility decision.
 - Derived or materially reused work must update `docs/provenance.md` and retain
   applicable copyright notices.
-- User-facing documentation changes must update the same-name Simplified
-  Chinese mirror in `docs/zh-CN/`; run
-  `python tools/check_chinese_docs.py --root .` before submitting.
+- Changes to a guide listed in `docs/zh-CN/README.md` must update its same-name
+  Simplified Chinese edition; run `python tools/check_documentation.py --root .`
+  before submitting. Detailed English-only specifications do not require a
+  Chinese mirror.
 - Do not commit build trees, wheels, caches, local paths, paper assets, or
   experiment outputs.
 

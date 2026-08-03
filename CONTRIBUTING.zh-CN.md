@@ -24,21 +24,26 @@ python -m pip install --force-reinstall dist/rbfsafe-*.whl
 pytest tests/test_python.py
 ```
 
-C++ 改动提交前运行 clang-format。文档改动运行：
+C++ 改动提交前运行格式化，并执行仓库一致性检查：
 
 ```bash
-python tools/check_chinese_docs.py --root .
+clang-format -i $(find include src tests tools examples benchmarks python plugins \
+  -type f \( -name '*.h' -o -name '*.cpp' \))
+
+python tools/check_api_surface.py --root .
+python tools/check_project_scope.py --root .
+python tools/check_documentation.py --root .
 ```
 
 ## 改动规则
 
-- 尽量只修改一个职责层；跨层 API 变化必须有真实依赖理由；
+- 尽量只修改一个组件或职责层；公共契约确需跨模块时，保持 `docs/architecture.md` 规定的单向依赖；
 - 公共头文件使用标准库值类型，不暴露 Eigen、JSON、pybind11 或存储实现；
 - 预期失败返回 `Result<T>`；断言只用于内部程序员不变量；
 - 采样可用于测试或优先级，但绝不能升级为 `CertifiedRegion`；
 - 持久化变化必须有损坏测试、固定格式回归和明确兼容性决定；
 - 派生或实质复用代码更新 `docs/provenance.md` 并保留版权；
-- 用户文档同时更新 `docs/zh-CN/` 中的同名中文镜像；
+- 修改 `docs/zh-CN/README.md` 所列核心指南时，同时更新同名中文版本；详细英文规范不要求逐篇翻译；
 - 不提交 build、wheel、缓存、本地路径、论文资产或实验输出。
 
 ## 最低测试

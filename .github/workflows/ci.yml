@@ -24,8 +24,8 @@ jobs:
         run: python3 tools/check_api_surface.py --root .
       - name: Check project scope traceability
         run: python3 tools/check_project_scope.py --root .
-      - name: Check Chinese documentation coverage
-        run: python3 tools/check_chinese_docs.py --root .
+      - name: Check documentation indexes and links
+        run: python3 tools/check_documentation.py --root .
 
   cpp:
     strategy:
