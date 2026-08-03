@@ -1,5 +1,7 @@
 # Security and safety reporting
 
+[简体中文](SECURITY.zh-CN.md) | English
+
 ## Supported versions
 
 Security and correctness fixes are provided for the latest tagged 4.x minor

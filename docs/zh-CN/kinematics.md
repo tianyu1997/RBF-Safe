@@ -1,0 +1,32 @@
+# 运动学与解析几何 Jacobian
+
+> 英文原文：[Kinematics and geometric Jacobian](../kinematics.md)
+
+`SerialRobotModel` 使用 modified-DH 变换：
+
+\[
+{}^{i-1}T_i = R_x(\alpha_i)T_x(a_i)R_z(\theta_i+q_i)T_z(d_i+q_i).
+\]
+
+只有与关节类型对应的项接收 \(q_i\)：旋转关节加到 `theta`，移动关节加到 `d`。工具帧是可选固定 modified-DH 变换。
+
+## 点运动学
+
+- `forward_kinematics(q)` 返回基座原点、各连杆坐标系原点和可选工具原点；
+- `end_effector_pose(q)` 返回工作空间位置与归一化 `x,y,z,w` 四元数；
+- `end_effector_geometric_jacobian(q)` 返回工作空间表达的解析几何 Jacobian。
+
+`GeometricJacobian` 为 6×N 行主序数组：0–2 行映射到线速度，3–5 行映射到角速度。旋转关节列为 \(z_i\times(p_e-p_i)\) 与 \(z_i\)；移动关节列为 \(z_i\) 与零角速度。
+
+```python
+j = robot.end_effector_geometric_jacobian(q)
+assert j.rows == 6
+assert j.columns == robot.dimension
+dx_dq0 = j.at(0, 0)
+```
+
+配置维度错误、非有限值或超出关节限制会失败；`at` 对行列进行边界检查。
+
+## 与区域认证的关系
+
+点 FK 与 Jacobian 是确定性数值几何。区域认证使用 `compute_ifk_aa_link_envelope` 在整个 C-space AABB 上传播区间/仿射算术，并为每条连杆生成保守工作空间 AABB。点测试可用于回归，但不能替代区域包络证明。

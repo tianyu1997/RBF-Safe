@@ -1,5 +1,7 @@
 # Third-party notices
 
+[简体中文](THIRD_PARTY_NOTICES.zh-CN.md) | English
+
 RBF-Safe includes the following unmodified third-party source:
 
 ## Monocypher 4.0.2

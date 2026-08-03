@@ -1,5 +1,7 @@
 # Maintainers
 
+[简体中文](MAINTAINERS.zh-CN.md) | English
+
 ## Current maintainer
 
 - [@tianyu1997](https://github.com/tianyu1997) — project direction, releases,

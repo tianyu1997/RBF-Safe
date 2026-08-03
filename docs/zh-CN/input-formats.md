@@ -1,0 +1,41 @@
+# 输入格式
+
+> 英文原文：[Input formats](../input-formats.md)
+
+机器人和场景使用严格 JSON schema 1。所有数值必须有限；数组维度、上下界和关节参数会在构造前验证。
+
+## 机器人
+
+```json
+{
+  "schema": 1,
+  "name": "planar-2r",
+  "joints": [
+    {"alpha": 0.0, "a": 1.0, "d": 0.0, "theta": 0.0, "type": "revolute"}
+  ],
+  "joint_limits": [[-3.14, 3.14]],
+  "link_radii": [0.05]
+}
+```
+
+每个关节采用 modified-DH 参数。`type` 为 `revolute` 或 `prismatic`。`joint_limits` 与 `link_radii` 必须和关节数一致。可选工具帧是固定变换，不增加配置维度。
+
+## 场景
+
+```json
+{
+  "schema": 1,
+  "version": "scene-v1",
+  "obstacles": [
+    {"id": "shelf", "lower": [-1.0, -1.0, 0.0], "upper": [1.0, 1.0, 2.0]}
+  ]
+}
+```
+
+障碍物 ID 必须稳定且唯一；AABB 的三个下界不得大于上界。`version` 参与场景身份。更改障碍物或版本会产生新的摘要。
+
+## 身份与兼容性
+
+规范化 JSON 的 SHA-256 用于身份绑定，而不是依赖输入文件名或字段顺序。Atlas、证书和更新操作使用摘要检查模型与场景是否匹配。
+
+未知顶层字段当前可以被忽略，但应用不应借此存放影响安全语义的数据。精确字段约束以英文原文和代码中的 schema 检查为准。

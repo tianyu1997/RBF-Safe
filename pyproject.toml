@@ -63,6 +63,7 @@ sdist.include = [
   ".clang-tidy",
   ".gitattributes",
   ".gitignore",
+  "*.zh-CN.md",
   "CHANGELOG.md",
   "CITATION.cff",
   "CODE_OF_CONDUCT.md",

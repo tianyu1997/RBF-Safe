@@ -13,6 +13,9 @@
 6. Run `python tools/check_project_scope.py --root .`; every requirement must
    retain public-API, behavioral-test, and documentation evidence, and the
    checked matrix must contain exactly one matching marker.
+7. Run `python tools/check_chinese_docs.py --root .`; every top-level English
+   document must retain a same-name Simplified Chinese mirror and valid local
+   links.
 
 ## 2. Validate
 

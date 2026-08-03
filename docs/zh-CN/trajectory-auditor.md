@@ -1,0 +1,26 @@
+# 轨迹审核器
+
+> 英文原文：[Trajectory auditor](../trajectory-auditor.md)
+
+`TrajectoryAuditor` 审核分段线性配置空间轨迹。它不按固定步长采样，而是解析计算每个轨迹段与每个认证 C-space AABB 的参数区间，再对覆盖区间求并集。
+
+## 调用
+
+```python
+report = rbfsafe.TrajectoryAuditor().audit(
+    atlas,
+    [[-1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+)
+```
+
+在 Atlas 不是由当前机器人/场景直接构建时，审核前必须调用 `verify_compatible`。
+
+## 状态
+
+- `CERTIFIED`：每个闭合轨迹参数点均被认证区域覆盖；
+- `PARTIAL`：输入有效，但存在明确未认证区间；
+- `INVALID`：维度、有限性、轨迹结构或 Atlas 不变量失败。
+
+报告包含覆盖率、按顺序排列的区域 ID、各段覆盖和未认证区段。边界点使用闭区间语义，零长度段也会检查。
+
+审核只证明轨迹几何位于认证区域并集中，不证明动力学可行性、时间参数、速度/加速度限制或控制器跟踪。
