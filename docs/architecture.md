@@ -37,8 +37,10 @@ RBFSafe::occupancy + RBFSafe::identity -> RBFSafe::coordination
 
 Owns standard-library value types, modified-DH forward kinematics, the
 analytic workspace-frame geometric Jacobian, robot and scene canonical
-identity, affine-arithmetic endpoint propagation, conservative LinkIAABB
-construction, and the default `RegionValidator`.
+identity, endpoint AABB generation, conservative link-envelope construction,
+and the default `RegionValidator`. Endpoint generation is isolated from link
+shape construction: IFK-AA provides certified affine-arithmetic bounds, while
+CritSample provides explicitly non-certified diagnostic bounds.
 
 ### LECT
 

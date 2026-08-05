@@ -258,7 +258,21 @@ double separation_lower_bound(const WorkspaceEnvelope& first, const WorkspaceEnv
     if (!first.valid() || !second.valid())
         return 0.0;
 
+    if (const auto* first_box = first.aabb()) {
+        if (const auto* second_box = second.aabb())
+            return first_box->distance_lower_bound(*second_box);
+    }
+    const double aabb_lower_bound = first.enclosing_aabb().distance_lower_bound(second.enclosing_aabb());
+    if (aabb_lower_bound > 0.0)
+        return aabb_lower_bound;
+
     std::vector<WorkspacePoint> directions{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
+    const std::size_t first_direction_count =
+        first.obb() ? 3u : (first.kdop() ? first.kdop()->directions().size() : 0u);
+    const std::size_t second_direction_count =
+        second.obb() ? 3u : (second.kdop() ? second.kdop()->directions().size() : 0u);
+    directions.reserve(4u + first_direction_count + second_direction_count +
+                       (first.obb() && second.obb() ? 9u : 0u));
     append_shape_directions(first, directions);
     append_shape_directions(second, directions);
     const WorkspacePoint center_direction = subtract(envelope_center(second), envelope_center(first));

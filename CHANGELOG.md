@@ -7,6 +7,19 @@ Versioning for library releases and versions its on-disk schemas separately.
 
 ## [Unreleased]
 
+### Added
+
+- Add typed AABB, OBB, k-DOP, and support-hull workspace envelopes across
+  scenes, dynamic updates, IFK-AA link generation, JSON, and Python.
+- Add explicit IFK-AA and non-certified CritSample endpoint AABB sources with
+  source/safety metadata and compatibility-safe IFK-AA validators.
+
+### Changed
+
+- Isolate endpoint AABB generation from link-shape construction. CritSample
+  now precomputes candidate DH matrices and incrementally rebuilds only the
+  changed transform suffix; envelope separation uses direct AABB fast paths.
+
 ### Documentation
 
 - Add a versioned repository reading guide and use descriptive Chinese

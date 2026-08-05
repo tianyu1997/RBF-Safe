@@ -44,6 +44,7 @@ add_library(rbfsafe_geometry
     src/workspace_envelope.cpp
     src/workspace_envelope_json.cpp
     src/model.cpp
+    src/endpoint_aabb.cpp
     src/geometry.cpp
     src/certificate.cpp)
 add_library(RBFSafe::geometry ALIAS rbfsafe_geometry)
