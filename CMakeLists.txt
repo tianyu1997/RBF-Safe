@@ -26,7 +26,7 @@ option(RBFSAFE_WARNINGS_AS_ERRORS "Treat RBF-Safe warnings as errors" OFF)
 function(rbfsafe_configure_target target)
     target_compile_features(${target} PUBLIC cxx_std_20)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /permissive- /EHsc)
+        target_compile_options(${target} PRIVATE /W4 /permissive- /EHsc /FS)
         if(RBFSAFE_WARNINGS_AS_ERRORS)
             target_compile_options(${target} PRIVATE /WX)
         endif()
@@ -41,6 +41,8 @@ endfunction()
 add_library(rbfsafe_geometry
     src/sha256.cpp
     src/json.cpp
+    src/workspace_envelope.cpp
+    src/workspace_envelope_json.cpp
     src/model.cpp
     src/geometry.cpp
     src/certificate.cpp)
@@ -551,6 +553,7 @@ if(RBFSAFE_BUILD_PYTHON)
     pybind11_add_module(_rbfsafe python/bindings.cpp python/bindings_policy.cpp python/bindings_calibration.cpp python/bindings_memory.cpp python/bindings_trust.cpp python/bindings_remote.cpp python/bindings_identity.cpp python/bindings_deployment.cpp python/bindings_execution.cpp python/bindings_transparency.cpp python/bindings_witness.cpp python/bindings_provenance.cpp python/bindings_occupancy.cpp python/bindings_coordination.cpp)
     target_link_libraries(_rbfsafe PRIVATE RBFSafe::rbfsafe)
     target_include_directories(_rbfsafe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    rbfsafe_configure_target(_rbfsafe)
     install(TARGETS _rbfsafe LIBRARY DESTINATION rbfsafe RUNTIME DESTINATION rbfsafe)
     install(DIRECTORY python/rbfsafe/ DESTINATION rbfsafe
         FILES_MATCHING

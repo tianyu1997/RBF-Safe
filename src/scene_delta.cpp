@@ -4,6 +4,7 @@
 #include "internal/json.h"
 #include "internal/scene_delta_utils.h"
 #include "internal/sha256.h"
+#include "internal/workspace_envelope_json.h"
 
 #include <algorithm>
 #include <map>
@@ -14,41 +15,34 @@
 namespace rbfsafe {
 namespace {
 
-bool same_bounds(const WorkspaceAabb& left, const WorkspaceAabb& right) {
-    return left.lower == right.lower && left.upper == right.upper;
+bool same_bounds(const WorkspaceEnvelope& left, const WorkspaceEnvelope& right) { return left == right; }
+
+bool uses_typed_envelopes(const SceneDelta& delta) {
+    return std::any_of(delta.changes.begin(), delta.changes.end(), [](const auto& change) {
+        return (change.before && change.before->type() != WorkspaceEnvelopeType::Aabb) ||
+               (change.after && change.after->type() != WorkspaceEnvelopeType::Aabb);
+    });
 }
 
-internal::Json workspace_box_json(const WorkspaceAabb& box) {
-    internal::Json::Array lower;
-    internal::Json::Array upper;
-    for (std::size_t axis = 0; axis < 3; ++axis) {
-        lower.emplace_back(box.lower[axis]);
-        upper.emplace_back(box.upper[axis]);
-    }
-    return internal::Json::Object{{"lower", std::move(lower)}, {"upper", std::move(upper)}};
-}
-
-internal::Json optional_box_json(const std::optional<WorkspaceAabb>& box) {
-    return box ? workspace_box_json(*box) : internal::Json(nullptr);
+internal::Json optional_box_json(const std::optional<WorkspaceEnvelope>& box, bool typed) {
+    return box ? internal::workspace_envelope_json(*box, typed) : internal::Json(nullptr);
 }
 
 internal::Json delta_payload(const SceneDelta& delta) {
+    const bool typed = uses_typed_envelopes(delta);
     internal::Json::Array changes;
     for (const auto& change : delta.changes) {
         changes.emplace_back(internal::Json::Object{
-            {"after", optional_box_json(change.after)},
-            {"before", optional_box_json(change.before)},
+            {"after", optional_box_json(change.after, typed)},
+            {"before", optional_box_json(change.before, typed)},
             {"kind", scene_change_kind_name(change.kind)},
             {"obstacle_id", change.obstacle_id},
         });
     }
     return internal::Json::Object{
-        {"changes", std::move(changes)},
-        {"format", "rbfsafe-scene-delta"},
-        {"from_digest", delta.from_digest},
-        {"from_version", delta.from_version},
-        {"schema", 1},
-        {"to_digest", delta.to_digest},
+        {"changes", std::move(changes)},    {"format", "rbfsafe-scene-delta"},
+        {"from_digest", delta.from_digest}, {"from_version", delta.from_version},
+        {"schema", typed ? 2 : 1},          {"to_digest", delta.to_digest},
         {"to_version", delta.to_version},
     };
 }
@@ -66,34 +60,13 @@ Result<std::string> string_field(const internal::Json& object, std::string_view 
     return value->as_string();
 }
 
-Result<std::optional<WorkspaceAabb>> optional_box(const internal::Json& value) {
+Result<std::optional<WorkspaceEnvelope>> optional_box(const internal::Json& value, bool typed) {
     if (value.is_null())
-        return std::optional<WorkspaceAabb>{};
-    if (!value.is_object()) {
-        return Result<std::optional<WorkspaceAabb>>::failure(StatusCode::CorruptData,
-                                                             "scene-delta bounds must be object or null");
-    }
-    const auto* lower = value.find("lower");
-    const auto* upper = value.find("upper");
-    if (lower == nullptr || upper == nullptr || !lower->is_array() || !upper->is_array() ||
-        lower->as_array().size() != 3 || upper->as_array().size() != 3) {
-        return Result<std::optional<WorkspaceAabb>>::failure(StatusCode::CorruptData,
-                                                             "scene-delta bounds arrays are invalid");
-    }
-    WorkspaceAabb box;
-    for (std::size_t axis = 0; axis < 3; ++axis) {
-        if (!lower->as_array()[axis].is_number() || !upper->as_array()[axis].is_number()) {
-            return Result<std::optional<WorkspaceAabb>>::failure(StatusCode::CorruptData,
-                                                                 "scene-delta bounds are not numeric");
-        }
-        box.lower[axis] = lower->as_array()[axis].as_number();
-        box.upper[axis] = upper->as_array()[axis].as_number();
-    }
-    if (!box.valid()) {
-        return Result<std::optional<WorkspaceAabb>>::failure(StatusCode::CorruptData,
-                                                             "scene-delta bounds are invalid");
-    }
-    return std::optional<WorkspaceAabb>{box};
+        return std::optional<WorkspaceEnvelope>{};
+    auto envelope = internal::decode_workspace_envelope(value, typed);
+    if (!envelope)
+        return envelope.error();
+    return std::optional<WorkspaceEnvelope>{std::move(envelope).value()};
 }
 
 } // namespace
@@ -151,10 +124,11 @@ Result<SceneDelta> internal::decode_scene_delta(const internal::Json& document) 
     if (!format)
         return format.error();
     if (format.value() != "rbfsafe-scene-delta" || schema == nullptr || !schema->is_number() ||
-        schema->as_number() != 1.0) {
+        (schema->as_number() != 1.0 && schema->as_number() != 2.0)) {
         return Result<SceneDelta>::failure(StatusCode::IncompatibleFormat,
                                            "unsupported scene-delta document");
     }
+    const bool typed = schema->as_number() == 2.0;
     auto from_version = string_field(document, "from_version");
     auto to_version = string_field(document, "to_version");
     auto from_digest = string_field(document, "from_digest");
@@ -196,8 +170,8 @@ Result<SceneDelta> internal::decode_scene_delta(const internal::Json& document) 
             return Result<SceneDelta>::failure(StatusCode::CorruptData,
                                                "scene-delta change bounds are missing");
         }
-        auto before = optional_box(*before_json);
-        auto after = optional_box(*after_json);
+        auto before = optional_box(*before_json, typed);
+        auto after = optional_box(*after_json, typed);
         if (!before)
             return before.error();
         if (!after)
@@ -234,8 +208,8 @@ Result<SceneDelta> compare_scenes(const SceneSnapshot& before, const SceneSnapsh
     delta.to_version = after.version();
     delta.from_digest = before.digest();
     delta.to_digest = after.digest();
-    std::map<std::string, WorkspaceAabb> old_obstacles;
-    std::map<std::string, WorkspaceAabb> new_obstacles;
+    std::map<std::string, WorkspaceEnvelope> old_obstacles;
+    std::map<std::string, WorkspaceEnvelope> new_obstacles;
     for (const auto& obstacle : before.obstacles())
         old_obstacles.emplace(obstacle.id, obstacle.bounds);
     for (const auto& obstacle : after.obstacles())

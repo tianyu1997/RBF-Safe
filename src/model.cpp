@@ -2,6 +2,7 @@
 
 #include "internal/json.h"
 #include "internal/sha256.h"
+#include "internal/workspace_envelope_json.h"
 
 #include <algorithm>
 #include <array>
@@ -480,19 +481,18 @@ Result<void> SceneSnapshot::validate() const {
 }
 
 std::string SceneSnapshot::canonical_json() const {
+    const bool typed = std::any_of(obstacles_.begin(), obstacles_.end(), [](const auto& obstacle) {
+        return obstacle.bounds.type() != WorkspaceEnvelopeType::Aabb;
+    });
     internal::Json::Array obstacles;
     for (const auto& obstacle : obstacles_) {
-        internal::Json::Array lower;
-        internal::Json::Array upper;
-        for (const auto value : obstacle.bounds.lower)
-            lower.emplace_back(value);
-        for (const auto value : obstacle.bounds.upper)
-            upper.emplace_back(value);
-        obstacles.emplace_back(internal::Json::Object{
-            {"id", obstacle.id}, {"lower", std::move(lower)}, {"upper", std::move(upper)}});
+        auto record = internal::workspace_envelope_json(obstacle.bounds, typed).as_object();
+        record.emplace("id", obstacle.id);
+        obstacles.emplace_back(std::move(record));
     }
-    return internal::Json(internal::Json::Object{
-                              {"obstacles", std::move(obstacles)}, {"schema", 1}, {"version", version_}})
+    return internal::Json(internal::Json::Object{{"obstacles", std::move(obstacles)},
+                                                 {"schema", typed ? 2 : 1},
+                                                 {"version", version_}})
         .dump(false);
 }
 
@@ -505,10 +505,12 @@ Result<SceneSnapshot> SceneSnapshot::from_json(const std::filesystem::path& path
     if (!root.value().is_object())
         return Result<SceneSnapshot>::failure(StatusCode::CorruptData, "scene JSON root must be object");
     const auto* schema = root.value().find("schema");
-    if (schema == nullptr || !schema->is_number() || schema->as_number() != 1.0) {
+    if (schema == nullptr || !schema->is_number() ||
+        (schema->as_number() != 1.0 && schema->as_number() != 2.0)) {
         return Result<SceneSnapshot>::failure(StatusCode::IncompatibleFormat, "unsupported scene JSON schema",
                                               path.string());
     }
+    const bool typed = schema->as_number() == 2.0;
     auto version = required_string(root.value(), "version");
     if (!version)
         return version.error();
@@ -523,23 +525,10 @@ Result<SceneSnapshot> SceneSnapshot::from_json(const std::filesystem::path& path
         auto id = required_string(json, "id");
         if (!id)
             return id.error();
-        const auto* lower = json.find("lower");
-        const auto* upper = json.find("upper");
-        if (lower == nullptr || upper == nullptr || !lower->is_array() || !upper->is_array() ||
-            lower->as_array().size() != 3 || upper->as_array().size() != 3) {
-            return Result<SceneSnapshot>::failure(StatusCode::CorruptData,
-                                                  "obstacle bounds must be length-three arrays", id.value());
-        }
-        WorkspaceAabb bounds;
-        for (std::size_t axis = 0; axis < 3; ++axis) {
-            if (!lower->as_array()[axis].is_number() || !upper->as_array()[axis].is_number()) {
-                return Result<SceneSnapshot>::failure(StatusCode::CorruptData,
-                                                      "obstacle bound must be numeric", id.value());
-            }
-            bounds.lower[axis] = lower->as_array()[axis].as_number();
-            bounds.upper[axis] = upper->as_array()[axis].as_number();
-        }
-        obstacles.push_back({std::move(id).value(), bounds});
+        auto bounds = internal::decode_workspace_envelope(json, typed);
+        if (!bounds)
+            return bounds.error();
+        obstacles.emplace_back(std::move(id).value(), std::move(bounds).value());
     }
     return create(std::move(obstacles), std::move(version).value());
 }

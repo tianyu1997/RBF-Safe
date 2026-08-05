@@ -49,9 +49,10 @@ InheritanceCheck can_inherit(const RegionDependency& dependency, const SceneDelt
         if (!change.after)
             return {};
         for (const auto& link : dependency.envelope.links) {
-            if (link.overlaps(*change.after))
+            const WorkspaceEnvelope link_envelope(link);
+            if (link_envelope.overlaps(*change.after))
                 return {};
-            clearance = std::min(clearance, link.distance_lower_bound(*change.after));
+            clearance = std::min(clearance, link_envelope.distance_lower_bound(*change.after));
         }
     }
     return {true, clearance};

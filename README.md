@@ -7,7 +7,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](CMakeLists.txt)
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
-RBF-Safe 4.7 is a C++20 and Python library for building, storing, querying, and reusing conservative geometric safety certificates in robot configuration space. It supports modified-DH serial robots, AABB scenes, deterministic LECT partitioning, certified AABB/OBB regions and corridors, connectivity, trajectory auditing, planning integrations, dynamic updates, policy shields, persistent safety memory, and auditable multi-robot coordination.
+RBF-Safe 4.7 is a C++20 and Python library for building, storing, querying, and reusing conservative geometric safety certificates in robot configuration space. It supports modified-DH serial robots, AABB/OBB/k-DOP/support-hull workspace envelopes, deterministic LECT partitioning, certified AABB/OBB regions and corridors, connectivity, trajectory auditing, planning integrations, dynamic updates, policy shields, persistent safety memory, and auditable multi-robot coordination.
 
 RBF-Safe is safety infrastructure, not a motion planner or a deployed-system safety certification. Sampling, visualization, successful planning, valid signatures, and consistent logs never upgrade evidence by themselves. Read the [safety model](docs/safety-model.md) before using a result in a robot system.
 

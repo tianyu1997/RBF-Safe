@@ -39,7 +39,7 @@ Source the resulting colcon install before starting MoveIt.
 The plugins load three immutable files/directories:
 
 - `robot_model_path`: RBF-Safe DH JSON;
-- `scene_path`: RBF-Safe AABB scene JSON; and
+- `scene_path`: RBF-Safe schema-1 AABB or schema-2 typed-envelope scene JSON; and
 - `atlas_path`: a compatible saved Atlas.
 
 `group_name` and `joint_names` are also required. The configured joint list

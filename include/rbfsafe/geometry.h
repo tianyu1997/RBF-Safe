@@ -10,16 +10,60 @@
 
 namespace rbfsafe {
 
+enum class EndpointAabbSource : std::uint8_t {
+    IfkAa = 0,
+    CritSample = 1,
+};
+
+const char* endpoint_aabb_source_name(EndpointAabbSource source) noexcept;
+
 struct EnvelopeOptions {
     double obstacle_padding = 0.0;
+    WorkspaceEnvelopeType workspace_envelope_type = WorkspaceEnvelopeType::Aabb;
+    std::size_t kdop_k = 26;
+    EndpointAabbSource endpoint_aabb_source = EndpointAabbSource::IfkAa;
+};
+
+struct EndpointAabbResult {
+    // Paired layout: [link 0 proximal, link 0 distal, link 1 proximal, ...].
+    std::vector<WorkspaceAabb> endpoints;
+    EndpointAabbSource source = EndpointAabbSource::IfkAa;
+    bool certified = true;
+    std::size_t evaluated_configurations = 0;
 };
 
 struct LinkEnvelope {
     std::vector<WorkspaceAabb> links;
 };
 
+struct WorkspaceLinkEnvelope {
+    std::vector<WorkspaceEnvelope> links;
+    EndpointAabbSource endpoint_aabb_source = EndpointAabbSource::IfkAa;
+    bool endpoint_bounds_certified = true;
+    std::size_t evaluated_configurations = 0;
+};
+
+// Computes paired endpoint AABBs with the source selected in options. IFK-AA
+// is conservative. CritSample is a deterministic, non-certified diagnostic
+// source derived from {lo, hi, k*pi/2} joint candidates.
+Result<EndpointAabbResult> compute_endpoint_aabbs(const SerialRobotModel& robot, const CspaceAabb& domain,
+                                                  const EnvelopeOptions& options = {});
+
+// Generalized link-envelope entry point. Callers must inspect
+// endpoint_bounds_certified before treating the result as conservative.
+Result<WorkspaceLinkEnvelope> compute_workspace_link_envelope(const SerialRobotModel& robot,
+                                                              const CspaceAabb& domain,
+                                                              const EnvelopeOptions& options = {});
+
 Result<LinkEnvelope> compute_ifk_aa_link_envelope(const SerialRobotModel& robot, const CspaceAabb& domain,
                                                   const EnvelopeOptions& options = {});
+
+// Computes a conservative per-link envelope using AABB, OBB, a standard
+// 6/14/18/26-DOP, or a support hull. The legacy LinkEnvelope API remains AABB
+// for persistence compatibility.
+Result<WorkspaceLinkEnvelope> compute_ifk_aa_workspace_link_envelope(const SerialRobotModel& robot,
+                                                                     const CspaceAabb& domain,
+                                                                     const EnvelopeOptions& options = {});
 
 Result<bool> configuration_is_collision_free(const SerialRobotModel& robot, const SceneSnapshot& scene,
                                              std::span<const double> configuration,
@@ -55,6 +99,20 @@ class IfkAaLinkAabbValidator final : public RegionValidator {
     Result<RegionValidation> validate(const SerialRobotModel& robot, const SceneSnapshot& scene,
                                       const CspaceAabb& domain) const override;
     std::string algorithm_name() const override { return "ifk-aa-link-iaabb"; }
+    std::string algorithm_version() const override { return "1"; }
+    const EnvelopeOptions& options() const noexcept { return options_; }
+
+  private:
+    EnvelopeOptions options_;
+};
+
+class IfkAaWorkspaceEnvelopeValidator final : public RegionValidator {
+  public:
+    explicit IfkAaWorkspaceEnvelopeValidator(EnvelopeOptions options = {}) : options_(options) {}
+
+    Result<RegionValidation> validate(const SerialRobotModel& robot, const SceneSnapshot& scene,
+                                      const CspaceAabb& domain) const override;
+    std::string algorithm_name() const override;
     std::string algorithm_version() const override { return "1"; }
     const EnvelopeOptions& options() const noexcept { return options_; }
 

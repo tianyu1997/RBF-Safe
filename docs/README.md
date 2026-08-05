@@ -12,6 +12,7 @@ RBF-Safe keeps short user guides separate from exact format and trust contracts.
 - [Architecture](architecture.md)
 - [API overview](api.md)
 - [Input formats](input-formats.md)
+- [Workspace envelopes](workspace-envelopes.md)
 - [Kinematics and geometric Jacobian](kinematics.md)
 - [Vision](vision.md)
 

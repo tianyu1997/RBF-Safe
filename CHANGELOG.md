@@ -9,6 +9,9 @@ Versioning for library releases and versions its on-disk schemas separately.
 
 ### Documentation
 
+- Add a versioned repository reading guide and use descriptive Chinese
+  filenames for every curated Simplified Chinese topic guide; retain standard
+  `README.md` and root language-navigation filenames.
 - Add a curated Simplified Chinese documentation set for the most important
   user, safety, integration, and maintainer guides, with bilingual navigation
   and a CI coverage/link checker. Detailed English specifications remain the

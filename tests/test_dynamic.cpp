@@ -35,6 +35,10 @@ int main() {
     const SceneSnapshot empty({}, "empty-v1");
     const SceneSnapshot renamed({}, "empty-v2");
     const SceneSnapshot far({{"far", {{-0.1, -0.1, 3.0}, {0.1, 0.1, 3.1}}}}, "far-v1");
+    auto far_obb_bounds = WorkspaceObb::create(
+        {0.0, 0.0, 3.05}, {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0}, {0.1, 0.1, 0.05});
+    CHECK(far_obb_bounds);
+    const SceneSnapshot far_obb({{"far", far_obb_bounds.value()}}, "far-obb-v1");
     const auto blocked = near_scene("blocked-v1");
 
     auto version_delta = compare_scenes(empty, renamed);
@@ -54,6 +58,9 @@ int main() {
     auto moved_delta = compare_scenes(blocked, moved);
     CHECK(moved_delta);
     CHECK(moved_delta.value().changes[0].kind == SceneChangeKind::Modified);
+    auto typed_delta = compare_scenes(empty, far_obb);
+    CHECK(typed_delta);
+    CHECK(typed_delta.value().changes[0].after->type() == WorkspaceEnvelopeType::Obb);
 
     auto initial = AtlasBuilder{}.build(robot, empty, {{0.25}});
     CHECK(initial);
@@ -84,6 +91,9 @@ int main() {
     CHECK(far_update.value().stats.certificates_inherited == 1);
     CHECK(far_update.value().stats.validations == 0);
     CHECK(far_update.value().atlas.regions()[0].id == initial_region_id);
+    auto far_obb_update = updater.update(robot, empty, far_obb, initial.value().atlas);
+    CHECK(far_obb_update);
+    CHECK(far_obb_update.value().stats.certificates_inherited == 1);
 
     auto restricted = updater.update(robot, empty, blocked, initial.value().atlas);
     CHECK(restricted);
@@ -154,6 +164,13 @@ int main() {
     auto corrupted_transition = SafeAtlas::load(standalone);
     CHECK(!corrupted_transition);
     CHECK(corrupted_transition.error().code == StatusCode::CorruptData);
+
+    const auto typed_standalone = root / "typed-updated-atlas";
+    CHECK(far_obb_update.value().atlas.save(typed_standalone));
+    auto loaded_typed_update = SafeAtlas::load(typed_standalone);
+    CHECK(loaded_typed_update);
+    CHECK(loaded_typed_update.value().transition()->changes[0].after->type() == WorkspaceEnvelopeType::Obb);
+    CHECK(read_text(typed_standalone / "transition.json").find("\"schema\": 2") != std::string::npos);
 
     const auto store_path = root / "store";
     auto store = AtlasVersionStore::create(store_path, initial.value().atlas);

@@ -15,28 +15,54 @@ _LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
 _CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 
 _CURATED_CHINESE_GUIDES = (
-    "api.md",
-    "architecture.md",
-    "atlas-format.md",
-    "corridors.md",
-    "dynamic-updates.md",
-    "getting-started.md",
-    "input-formats.md",
-    "installation.md",
-    "kinematics.md",
-    "moveit2.md",
-    "ompl-adapter.md",
-    "policy-safety.md",
-    "provenance.md",
-    "releasing.md",
-    "roadmap.md",
-    "runtime-shield.md",
-    "safe-ik.md",
-    "safety-memory.md",
-    "safety-model.md",
-    "trajectory-auditor.md",
-    "versioning.md",
+    "API总览.md",
+    "Atlas格式.md",
+    "MoveIt2集成.md",
+    "OMPL适配器.md",
+    "体系结构.md",
+    "动态更新.md",
+    "发布流程.md",
+    "安全模型.md",
+    "安全记忆.md",
+    "安全逆运动学.md",
+    "安装指南.md",
+    "快速开始.md",
+    "来源说明.md",
+    "版本与兼容性.md",
+    "策略安全.md",
+    "输入格式.md",
+    "走廊与HiPaC.md",
+    "轨迹审核.md",
+    "路线图.md",
+    "运行时安全屏障.md",
+    "运动学与雅可比矩阵.md",
+    "项目阅读路线.md",
 )
+
+_CHINESE_SOURCE_OVERRIDES = {
+    "API总览.md": "api.md",
+    "Atlas格式.md": "atlas-format.md",
+    "MoveIt2集成.md": "moveit2.md",
+    "OMPL适配器.md": "ompl-adapter.md",
+    "体系结构.md": "architecture.md",
+    "动态更新.md": "dynamic-updates.md",
+    "发布流程.md": "releasing.md",
+    "安全模型.md": "safety-model.md",
+    "安全记忆.md": "safety-memory.md",
+    "安全逆运动学.md": "safe-ik.md",
+    "安装指南.md": "installation.md",
+    "快速开始.md": "getting-started.md",
+    "来源说明.md": "provenance.md",
+    "版本与兼容性.md": "versioning.md",
+    "策略安全.md": "policy-safety.md",
+    "输入格式.md": "input-formats.md",
+    "走廊与HiPaC.md": "corridors.md",
+    "轨迹审核.md": "trajectory-auditor.md",
+    "路线图.md": "roadmap.md",
+    "运行时安全屏障.md": "runtime-shield.md",
+    "运动学与雅可比矩阵.md": "kinematics.md",
+    "项目阅读路线.md": "README.md",
+}
 
 _ROOT_CHINESE_GUIDES = (
     "CHANGELOG.md",
@@ -119,7 +145,11 @@ def check(root: Path) -> tuple[int, int, int, int, int]:
             )
 
     curated_names = sorted(_CURATED_CHINESE_GUIDES)
-    missing_sources = [name for name in curated_names if not (docs / name).is_file()]
+    missing_sources = [
+        _CHINESE_SOURCE_OVERRIDES.get(name, name)
+        for name in curated_names
+        if not (docs / _CHINESE_SOURCE_OVERRIDES.get(name, name)).is_file()
+    ]
     if missing_sources:
         raise ValueError(f"curated English sources are missing: {missing_sources}")
     chinese_names = sorted(
@@ -140,9 +170,10 @@ def check(root: Path) -> tuple[int, int, int, int, int]:
     for name in curated_names:
         document = chinese / name
         content = _read_utf8(document)
+        source_name = _CHINESE_SOURCE_OVERRIDES.get(name, name)
         if not content.startswith("# "):
             raise ValueError(f"Chinese document lacks an H1 title: {document}")
-        if f"(../{name})" not in content:
+        if f"(../{source_name})" not in content:
             raise ValueError(f"Chinese document lacks its English source: {document}")
         if len(_CJK_PATTERN.findall(content)) < _MIN_CJK_CHARACTERS:
             raise ValueError(f"Chinese document has too little content: {document}")

@@ -10,7 +10,7 @@ from its exact prior certificate.
 `compare_scenes(before, after)` compares stable obstacle IDs and returns a
 deterministically ordered `SceneDelta`. Geometry-equal snapshots with a new
 version produce a version-only delta. Added, removed, and modified obstacles
-retain exact before/after workspace AABBs and the old/new scene identities.
+retain exact before/after workspace envelopes and the old/new scene identities.
 
 ## Certificate inheritance rule
 
@@ -109,8 +109,8 @@ Use `rbfsafe-inspect atlas-store` to inspect the active version, or
 
 ## Safety boundary
 
-Dynamic updates cover static AABB snapshots with stable obstacle identities.
+Dynamic updates cover static AABB/OBB/k-DOP/support-hull snapshots with stable obstacle identities.
 They do not infer swept volumes, sensor uncertainty, self-collision changes,
 or execution-time guarantees. A consumer must first convert those effects to
-conservative AABBs and publish a new snapshot version. No v0.6 component emits
+conservative supported envelopes and publish a new snapshot version. No v0.6 component emits
 `RuntimeExecutable` evidence.

@@ -149,11 +149,110 @@ PYBIND11_MODULE(_rbfsafe, module) {
              py::arg("lower"), py::arg("upper"))
         .def_readwrite("lower", &WorkspaceAabb::lower)
         .def_readwrite("upper", &WorkspaceAabb::upper)
-        .def("valid", &WorkspaceAabb::valid);
+        .def("valid", &WorkspaceAabb::valid)
+        .def("overlaps", &WorkspaceAabb::overlaps, py::arg("other"), py::arg("tolerance") = 0.0)
+        .def("distance_lower_bound", &WorkspaceAabb::distance_lower_bound, py::arg("other"));
+
+    py::enum_<WorkspaceEnvelopeType>(module, "WorkspaceEnvelopeType")
+        .value("AABB", WorkspaceEnvelopeType::Aabb)
+        .value("OBB", WorkspaceEnvelopeType::Obb)
+        .value("KDOP", WorkspaceEnvelopeType::Kdop)
+        .value("SUPPORT_HULL", WorkspaceEnvelopeType::SupportHull);
+
+    py::enum_<EndpointAabbSource>(module, "EndpointAabbSource")
+        .value("IFK_AA", EndpointAabbSource::IfkAa)
+        .value("CRIT_SAMPLE", EndpointAabbSource::CritSample);
+
+    py::class_<WorkspaceObb>(module, "WorkspaceObb")
+        .def(py::init([](WorkspacePoint center, std::array<double, 9> basis, WorkspacePoint half_widths) {
+                 return unwrap(WorkspaceObb::create(center, basis, half_widths));
+             }),
+             py::arg("center"), py::arg("basis"), py::arg("half_widths"))
+        .def_property_readonly("center", &WorkspaceObb::center)
+        .def_property_readonly("basis", &WorkspaceObb::basis)
+        .def_property_readonly("half_widths", &WorkspaceObb::half_widths)
+        .def("valid", &WorkspaceObb::valid)
+        .def("enclosing_aabb", &WorkspaceObb::enclosing_aabb)
+        .def("support_point", &WorkspaceObb::support_point, py::arg("direction"));
+
+    py::class_<WorkspaceKdop>(module, "WorkspaceKdop")
+        .def(py::init([](std::vector<WorkspacePoint> directions, std::vector<Interval> projections) {
+                 return unwrap(WorkspaceKdop::create(std::move(directions), std::move(projections)));
+             }),
+             py::arg("directions"), py::arg("projections"))
+        .def_static(
+            "from_points",
+            [](std::vector<WorkspacePoint> points, std::vector<WorkspacePoint> directions, double padding) {
+                return unwrap(WorkspaceKdop::from_points(std::move(points), std::move(directions), padding));
+            },
+            py::arg("points"), py::arg("directions"), py::arg("padding") = 0.0)
+        .def_static(
+            "from_standard_points",
+            [](std::vector<WorkspacePoint> points, std::size_t k, double padding) {
+                return unwrap(WorkspaceKdop::from_points(std::move(points), k, padding));
+            },
+            py::arg("points"), py::arg("k") = 26, py::arg("padding") = 0.0)
+        .def_static(
+            "standard_directions",
+            [](std::size_t k) { return unwrap(WorkspaceKdop::standard_directions(k)); }, py::arg("k"))
+        .def_property_readonly("directions", &WorkspaceKdop::directions)
+        .def_property_readonly("projections", &WorkspaceKdop::projections)
+        .def_property_readonly("vertices", &WorkspaceKdop::vertices)
+        .def_property_readonly("k", &WorkspaceKdop::k)
+        .def("valid", &WorkspaceKdop::valid)
+        .def("enclosing_aabb", &WorkspaceKdop::enclosing_aabb)
+        .def("support_point", &WorkspaceKdop::support_point, py::arg("direction"));
+
+    py::class_<WorkspaceSupportHull>(module, "WorkspaceSupportHull")
+        .def(py::init([](std::vector<WorkspacePoint> points, double radius) {
+                 return unwrap(WorkspaceSupportHull::create(std::move(points), radius));
+             }),
+             py::arg("points"), py::arg("radius") = 0.0)
+        .def_property_readonly("points", &WorkspaceSupportHull::points)
+        .def_property_readonly("radius", &WorkspaceSupportHull::radius)
+        .def("valid", &WorkspaceSupportHull::valid)
+        .def("enclosing_aabb", &WorkspaceSupportHull::enclosing_aabb)
+        .def("support_point", &WorkspaceSupportHull::support_point, py::arg("direction"));
+
+    py::class_<WorkspaceEnvelope>(module, "WorkspaceEnvelope")
+        .def(py::init<WorkspaceAabb>())
+        .def(py::init<WorkspaceObb>())
+        .def(py::init<WorkspaceKdop>())
+        .def(py::init<WorkspaceSupportHull>())
+        .def_property_readonly("type", &WorkspaceEnvelope::type)
+        .def_property_readonly("aabb",
+                               [](const WorkspaceEnvelope& value) -> std::optional<WorkspaceAabb> {
+                                   return value.aabb() ? std::optional<WorkspaceAabb>(*value.aabb())
+                                                       : std::nullopt;
+                               })
+        .def_property_readonly("obb",
+                               [](const WorkspaceEnvelope& value) -> std::optional<WorkspaceObb> {
+                                   return value.obb() ? std::optional<WorkspaceObb>(*value.obb())
+                                                      : std::nullopt;
+                               })
+        .def_property_readonly("kdop",
+                               [](const WorkspaceEnvelope& value) -> std::optional<WorkspaceKdop> {
+                                   return value.kdop() ? std::optional<WorkspaceKdop>(*value.kdop())
+                                                       : std::nullopt;
+                               })
+        .def_property_readonly("support_hull",
+                               [](const WorkspaceEnvelope& value) -> std::optional<WorkspaceSupportHull> {
+                                   return value.support_hull()
+                                              ? std::optional<WorkspaceSupportHull>(*value.support_hull())
+                                              : std::nullopt;
+                               })
+        .def("valid", &WorkspaceEnvelope::valid)
+        .def("enclosing_aabb", &WorkspaceEnvelope::enclosing_aabb)
+        .def("support_point", &WorkspaceEnvelope::support_point, py::arg("direction"))
+        .def("overlaps", &WorkspaceEnvelope::overlaps, py::arg("other"), py::arg("tolerance") = 0.0)
+        .def("distance_lower_bound", &WorkspaceEnvelope::distance_lower_bound, py::arg("other"));
 
     py::class_<EnvelopeOptions>(module, "EnvelopeOptions")
         .def(py::init<>())
-        .def_readwrite("obstacle_padding", &EnvelopeOptions::obstacle_padding);
+        .def_readwrite("obstacle_padding", &EnvelopeOptions::obstacle_padding)
+        .def_readwrite("workspace_envelope_type", &EnvelopeOptions::workspace_envelope_type)
+        .def_readwrite("kdop_k", &EnvelopeOptions::kdop_k)
+        .def_readwrite("endpoint_aabb_source", &EnvelopeOptions::endpoint_aabb_source);
 
     py::enum_<JointType>(module, "JointType")
         .value("REVOLUTE", JointType::Revolute)
@@ -216,6 +315,10 @@ PYBIND11_MODULE(_rbfsafe, module) {
 
     py::class_<SceneObstacle>(module, "SceneObstacle")
         .def(py::init<std::string, WorkspaceAabb>(), py::arg("id"), py::arg("bounds"))
+        .def(py::init<std::string, WorkspaceObb>(), py::arg("id"), py::arg("bounds"))
+        .def(py::init<std::string, WorkspaceKdop>(), py::arg("id"), py::arg("bounds"))
+        .def(py::init<std::string, WorkspaceSupportHull>(), py::arg("id"), py::arg("bounds"))
+        .def(py::init<std::string, WorkspaceEnvelope>(), py::arg("id"), py::arg("bounds"))
         .def_readwrite("id", &SceneObstacle::id)
         .def_readwrite("bounds", &SceneObstacle::bounds);
 
@@ -356,8 +459,74 @@ PYBIND11_MODULE(_rbfsafe, module) {
         .def_readonly("component", &SafeRegion::component)
         .def_readonly("source_node", &SafeRegion::source_node);
 
+    py::class_<EndpointAabbResult>(module, "EndpointAabbResult")
+        .def_property_readonly("endpoints", [](const EndpointAabbResult& value) { return value.endpoints; })
+        .def_readonly("source", &EndpointAabbResult::source)
+        .def_readonly("certified", &EndpointAabbResult::certified)
+        .def_readonly("evaluated_configurations", &EndpointAabbResult::evaluated_configurations);
+
     py::class_<LinkEnvelope>(module, "LinkEnvelope")
         .def_property_readonly("links", [](const LinkEnvelope& value) { return value.links; });
+
+    py::class_<WorkspaceLinkEnvelope>(module, "WorkspaceLinkEnvelope")
+        .def_property_readonly("links", [](const WorkspaceLinkEnvelope& value) { return value.links; })
+        .def_readonly("endpoint_aabb_source", &WorkspaceLinkEnvelope::endpoint_aabb_source)
+        .def_readonly("endpoint_bounds_certified", &WorkspaceLinkEnvelope::endpoint_bounds_certified)
+        .def_readonly("evaluated_configurations", &WorkspaceLinkEnvelope::evaluated_configurations);
+
+    py::class_<RegionValidation>(module, "RegionValidation")
+        .def_readonly("disposition", &RegionValidation::disposition)
+        .def_readonly("clearance_lower_bound", &RegionValidation::clearance_lower_bound)
+        .def_readonly("envelope", &RegionValidation::envelope);
+
+    py::class_<IfkAaWorkspaceEnvelopeValidator>(module, "IfkAaWorkspaceEnvelopeValidator")
+        .def(py::init<EnvelopeOptions>(), py::arg("options") = EnvelopeOptions{})
+        .def(
+            "validate",
+            [](const IfkAaWorkspaceEnvelopeValidator& validator, const SerialRobotModel& robot,
+               const SceneSnapshot& scene, const CspaceAabb& domain) {
+                auto result = [&]() {
+                    py::gil_scoped_release release;
+                    return validator.validate(robot, scene, domain);
+                }();
+                return unwrap(std::move(result));
+            },
+            py::arg("robot"), py::arg("scene"), py::arg("domain"))
+        .def_property_readonly("algorithm_name", &IfkAaWorkspaceEnvelopeValidator::algorithm_name)
+        .def_property_readonly("algorithm_version", &IfkAaWorkspaceEnvelopeValidator::algorithm_version);
+
+    module.def(
+        "compute_ifk_aa_workspace_link_envelope",
+        [](const SerialRobotModel& robot, const CspaceAabb& domain, const EnvelopeOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return compute_ifk_aa_workspace_link_envelope(robot, domain, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("robot"), py::arg("domain"), py::arg("options") = EnvelopeOptions{});
+
+    module.def(
+        "compute_endpoint_aabbs",
+        [](const SerialRobotModel& robot, const CspaceAabb& domain, const EnvelopeOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return compute_endpoint_aabbs(robot, domain, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("robot"), py::arg("domain"), py::arg("options") = EnvelopeOptions{});
+
+    module.def(
+        "compute_workspace_link_envelope",
+        [](const SerialRobotModel& robot, const CspaceAabb& domain, const EnvelopeOptions& options) {
+            auto result = [&]() {
+                py::gil_scoped_release release;
+                return compute_workspace_link_envelope(robot, domain, options);
+            }();
+            return unwrap(std::move(result));
+        },
+        py::arg("robot"), py::arg("domain"), py::arg("options") = EnvelopeOptions{});
 
     py::class_<RegionDependency>(module, "RegionDependency")
         .def_readonly("region_id", &RegionDependency::region_id)

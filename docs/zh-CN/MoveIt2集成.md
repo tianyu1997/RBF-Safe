@@ -1,4 +1,4 @@
-# MoveIt 2 集成
+# MoveIt 2 集成（v4.7）
 
 > 英文原文：[MoveIt 2 integration](../moveit2.md)
 

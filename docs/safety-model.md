@@ -47,7 +47,7 @@ digital signatures and do not establish publisher authenticity.
 - Each represented link is conservatively covered by the straight segment
   between adjacent DH origins expanded by its configured radius.
 - Every relevant static environment object is conservatively covered by a
-  workspace AABB in the same coordinate frame and length unit.
+  supported workspace envelope in the same coordinate frame and length unit.
 - The active scene exactly matches the snapshot bound by the selected Atlas
   version between certification/update and use.
 - Supported compiler and floating-point modes preserve ordinary IEEE-754
@@ -460,11 +460,11 @@ responsibilities.
   latency are not modeled automatically. The v4.1 swept-motion layer covers
   only explicit piecewise-linear robot joint trajectories under one static
   bounded deployment frame per occupancy; v0.9 scene updates still occur only
-  between explicit static AABB snapshots.
-- AABB separation is the only workspace collision proof; OBB certification
-  uses a conservative C-space enclosure rather than a correlated workspace
-  proof, and no mesh or KDOP validation is performed. Swept-time validation
-  uses conservative per-link AABBs rather than exact correlated geometry.
+  between explicit static typed-envelope snapshots.
+- Static workspace separation supports AABB, OBB, k-DOP, and support-hull
+  envelopes through verified support-mapping separation directions. Mesh
+  collision is not implemented. Swept-time occupancy persistence continues to
+  use conservative per-link AABBs rather than exact correlated geometry.
 - Arbitrary AABB/OBB intersection portals are discovered, but zonotope/Taylor
   Portal intersections and continuous-time portals are not.
 - Pose tolerances, MoveIt callback acceptance, and trajectory coverage do not
