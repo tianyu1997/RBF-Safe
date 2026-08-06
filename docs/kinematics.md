@@ -50,9 +50,14 @@ interfaces make.
 
 ## Conservative envelopes
 
+`compute_endpoint_aabbs` exposes both endpoint generators. IFK-AA is the
+default certified affine-arithmetic bound. CritSample mirrors the deterministic
+RapidBoxForest boundary/`k*pi/2` candidate enumeration and is explicitly
+non-certified because sampling may miss an interior extremum.
+
 `compute_ifk_aa_link_envelope` evaluates interval forward kinematics over an
 entire C-space AABB and returns one conservative workspace AABB per link. The
 default `IfkAaLinkAabbValidator` signs `CertifiedRegion` evidence only when
 every IFK-AA/LinkIAABB envelope is separated from every scene obstacle. Point
-FK and Jacobian tests are regression evidence; they never upgrade sampled
-results into region certificates.
+FK, Jacobian, and CritSample tests are regression evidence; they never upgrade
+sampled results into region certificates.

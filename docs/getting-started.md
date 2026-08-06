@@ -5,7 +5,7 @@ This guide builds, saves, loads, and queries a small Atlas. Read the
 
 ## 1. Define the inputs
 
-RBF-Safe accepts a serial modified-DH robot and an immutable AABB scene. The
+RBF-Safe accepts a serial modified-DH robot and an immutable typed-envelope scene. The
 repository includes `data/planar_2r.json` and `data/empty_scene.json` as small
 examples. See [input formats](input-formats.md) for field-level definitions.
 

@@ -1,4 +1,4 @@
-# Atlas 目录格式
+# Atlas 目录格式（v4.7）
 
 > 英文原文：[Atlas directory format](../atlas-format.md)
 

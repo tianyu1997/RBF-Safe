@@ -16,7 +16,7 @@ RBF-Safe 将“几何计算结果”和“可执行授权”严格分开：
 - `CertifiedConnectivity`：区域之间存在经过认证的连通关系；
 - `RuntimeExecutable`：仅在精确命令、身份、时间窗、审查配置和控制器确认全部闭合时使用。
 
-采样、可视化、Jacobian、外部碰撞检查或成功的规划器输出都不会自动升级为区域证书。请先阅读[安全模型](docs/zh-CN/safety-model.md)。
+采样、可视化、Jacobian、外部碰撞检查或成功的规划器输出都不会自动升级为区域证书。请先阅读[安全模型](docs/zh-CN/安全模型.md)。
 
 ## 主要能力
 
@@ -64,7 +64,7 @@ find_package(RBFSafe 4.7 REQUIRED)
 target_link_libraries(my_target PRIVATE RBFSafe::rbfsafe)
 ```
 
-完整说明见[安装指南](docs/zh-CN/installation.md)。
+完整说明见[安装指南](docs/zh-CN/安装指南.md)。
 
 ## Python 快速开始
 
@@ -135,13 +135,14 @@ rbfsafe-inspect atlas --plot slice.png --dims 0 1
 ## 文档
 
 - [中文文档总览](docs/zh-CN/README.md)
+- [项目阅读路线](docs/zh-CN/项目阅读路线.md)
 - [完整英文文档索引](docs/README.md)
-- [入门教程](docs/zh-CN/getting-started.md)
-- [API 总览](docs/zh-CN/api.md)
-- [体系结构](docs/zh-CN/architecture.md)
-- [运动学与 Jacobian](docs/zh-CN/kinematics.md)
-- [轨迹审核](docs/zh-CN/trajectory-auditor.md)
-- [动态更新](docs/zh-CN/dynamic-updates.md)
+- [入门教程](docs/zh-CN/快速开始.md)
+- [API 总览](docs/zh-CN/API总览.md)
+- [体系结构](docs/zh-CN/体系结构.md)
+- [运动学与 Jacobian](docs/zh-CN/运动学与雅可比矩阵.md)
+- [轨迹审核](docs/zh-CN/轨迹审核.md)
+- [动态更新](docs/zh-CN/动态更新.md)
 - [中文变更日志](CHANGELOG.zh-CN.md)
 
 `docs/zh-CN/` 提供精选核心指南；详细 schema、历史格式和审计协议保留英文规范。公共标识符、JSON 字段、错误码和命令行参数不会翻译。
@@ -152,8 +153,8 @@ rbfsafe-inspect atlas --plot slice.png --dims 0 1
 
 ## 贡献
 
-提交改动前请阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md) 和[发布流程中文版](docs/zh-CN/releasing.md)。修改中文索引所列核心指南时，应同步更新对应的中文文件。
+提交改动前请阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md) 和[发布流程中文版](docs/zh-CN/发布流程.md)。修改中文索引所列核心指南时，应同步更新对应的中文文件。
 
 ## 许可证
 
-RBF-Safe 使用 [MIT License](LICENSE)。第三方组件与权属信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和[来源说明](docs/zh-CN/provenance.md)。
+RBF-Safe 使用 [MIT License](LICENSE)。第三方组件与权属信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和[来源说明](docs/zh-CN/来源说明.md)。

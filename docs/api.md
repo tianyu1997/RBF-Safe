@@ -5,12 +5,13 @@ module headers directly and link only the corresponding CMake target.
 
 ## Data and identity
 
-- `Interval`, `Configuration`, `CspaceAabb`, and `WorkspaceAabb` are
+- `Interval`, `Configuration`, `CspaceAabb`, `WorkspaceAabb`, `WorkspaceObb`,
+  `WorkspaceKdop`, `WorkspaceSupportHull`, and `WorkspaceEnvelope` are
   standard-library value types.
 - `SerialRobotModel` stores modified-DH joints, limits, an optional constant
   tool transform, and one radius per transform-generated link.
-- `SceneSnapshot` stores uniquely identified AABB obstacles and a required
-  version string.
+- `SceneSnapshot` stores uniquely identified typed workspace envelopes and a
+  required version string.
 - Robot and scene `digest()` values are SHA-256 of canonical JSON content.
 
 `SerialRobotModel::forward_kinematics(q)` returns `link_count() + 1` frame
@@ -24,10 +25,25 @@ angular velocity. `at(row, column)` is bounds checked. See
 
 ## Geometry and certification
 
+`compute_endpoint_aabbs(robot, domain, options)` selects certified IFK-AA or
+non-certified CritSample endpoint generation. The returned
+`EndpointAabbResult` uses paired proximal/distal boxes and explicitly reports
+its source, certification status, and evaluated configuration count.
+
 `compute_ifk_aa_link_envelope(robot, domain)` returns one conservative
 workspace AABB per represented link. `IfkAaLinkAabbValidator` returns either
 `CertifiedFree` with a clearance lower bound or `Undetermined`. Envelope
 overlap never proves collision.
+
+`compute_workspace_link_envelope(robot, domain, options)` uses the selected
+endpoint source. Its `endpoint_bounds_certified` field must be checked before
+the result is used as conservative evidence; CritSample results are diagnostic.
+
+`compute_ifk_aa_workspace_link_envelope(robot, domain, options)` selects AABB,
+OBB, standard k-DOP, or SupportHull output.
+`IfkAaWorkspaceEnvelopeValidator` validates with the selected representation
+while retaining enclosing-AABB Atlas dependencies. See
+[workspace envelopes](workspace-envelopes.md).
 
 Certificate evidence levels are explicit:
 

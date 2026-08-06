@@ -32,3 +32,4 @@
 #include <rbfsafe/types.h>
 #include <rbfsafe/version.h>
 #include <rbfsafe/witness.h>
+#include <rbfsafe/workspace_envelope.h>

@@ -315,13 +315,14 @@ Result<HigherOrderValidation> validate_envelope(const SceneSnapshot& scene, Cspa
     result.envelope = std::move(envelope_result).value();
     double clearance = std::numeric_limits<double>::infinity();
     for (const auto& link : result.envelope.links) {
+        const WorkspaceEnvelope link_envelope(link);
         for (const auto& obstacle : scene.obstacles()) {
-            if (link.overlaps(obstacle.bounds)) {
+            if (link_envelope.overlaps(obstacle.bounds)) {
                 result.disposition = ValidationDisposition::Undetermined;
                 result.clearance_lower_bound = 0.0;
                 return result;
             }
-            clearance = std::min(clearance, link.distance_lower_bound(obstacle.bounds));
+            clearance = std::min(clearance, link_envelope.distance_lower_bound(obstacle.bounds));
         }
     }
     result.clearance_lower_bound = std::isfinite(clearance) ? clearance : 0.0;

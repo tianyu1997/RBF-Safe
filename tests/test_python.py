@@ -66,6 +66,82 @@ def test_geometric_jacobian() -> None:
         robot.end_effector_geometric_jacobian([2.0, 0.0])
 
 
+def test_workspace_envelope_types() -> None:
+    aabb = rbfsafe.WorkspaceEnvelope(
+        rbfsafe.WorkspaceAabb([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
+    )
+    obb = rbfsafe.WorkspaceObb(
+        [2.0, 0.5, 0.5],
+        [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        [0.25, 0.1, 0.1],
+    )
+    assert aabb.type == rbfsafe.WorkspaceEnvelopeType.AABB
+    assert not aabb.overlaps(rbfsafe.WorkspaceEnvelope(obb))
+    assert aabb.distance_lower_bound(rbfsafe.WorkspaceEnvelope(obb)) == pytest.approx(
+        0.75
+    )
+
+    points = [
+        [x, y, z]
+        for x in (2.0, 3.0)
+        for y in (0.0, 1.0)
+        for z in (0.0, 1.0)
+    ]
+    kdop = rbfsafe.WorkspaceKdop.from_standard_points(points, 26)
+    assert kdop.k == 26
+    assert len(rbfsafe.WorkspaceKdop.standard_directions(14)) == 7
+    hull = rbfsafe.WorkspaceSupportHull(
+        [[2.0, 0.5, 0.5], [3.0, 0.5, 0.5]], 0.25
+    )
+    scene = rbfsafe.SceneSnapshot(
+        [
+            rbfsafe.SceneObstacle("obb", obb),
+            rbfsafe.SceneObstacle("kdop", kdop),
+            rbfsafe.SceneObstacle("hull", hull),
+        ],
+        "python-mixed-workspace-v1",
+    )
+    assert [item.bounds.type for item in scene.obstacles] == [
+        rbfsafe.WorkspaceEnvelopeType.SUPPORT_HULL,
+        rbfsafe.WorkspaceEnvelopeType.KDOP,
+        rbfsafe.WorkspaceEnvelopeType.OBB,
+    ]
+
+    domain = rbfsafe.CspaceAabb(
+        [rbfsafe.Interval(-0.2, 0.2), rbfsafe.Interval(-0.2, 0.2)]
+    )
+    endpoint_options = rbfsafe.EnvelopeOptions()
+    endpoint_options.endpoint_aabb_source = rbfsafe.EndpointAabbSource.CRIT_SAMPLE
+    endpoints = rbfsafe.compute_endpoint_aabbs(
+        make_robot(), domain, endpoint_options
+    )
+    assert endpoints.source == rbfsafe.EndpointAabbSource.CRIT_SAMPLE
+    assert not endpoints.certified
+    assert endpoints.evaluated_configurations == 9
+    assert len(endpoints.endpoints) == 4
+
+    sampled_links = rbfsafe.compute_workspace_link_envelope(
+        make_robot(), domain, endpoint_options
+    )
+    assert sampled_links.endpoint_aabb_source == rbfsafe.EndpointAabbSource.CRIT_SAMPLE
+    assert not sampled_links.endpoint_bounds_certified
+    assert sampled_links.evaluated_configurations == 9
+
+    options = rbfsafe.EnvelopeOptions()
+    options.workspace_envelope_type = rbfsafe.WorkspaceEnvelopeType.SUPPORT_HULL
+    typed_links = rbfsafe.compute_ifk_aa_workspace_link_envelope(
+        make_robot(),
+        domain,
+        options,
+    )
+    assert len(typed_links.links) == 2
+    assert typed_links.endpoint_bounds_certified
+    assert all(
+        link.type == rbfsafe.WorkspaceEnvelopeType.SUPPORT_HULL
+        for link in typed_links.links
+    )
+
+
 def test_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     robot = make_robot()
     scene = rbfsafe.SceneSnapshot([], "python-empty-v1")

@@ -6,7 +6,9 @@ no source, build, runtime, or data-format dependency on it.
 | Legacy area | v0.1 disposition | Rationale |
 |---|---|---|
 | `link_interval_envelope` interval/DH/AA-FK/LinkIAABB | Reimplemented against new value types | Conservative geometry core |
-| CritSample, MC, GCPC, KDOP, SupportHull | Deferred | Multiple policies would enlarge the initial claim surface |
+| CritSample endpoint AABBs | Re-derived in v4.7 | Deterministic boundary/`k*pi/2` diagnostic source with explicit non-certified metadata; IFK validators remain certification-only |
+| MC, GCPC endpoint AABBs | Deferred | Additional sampling/cache policies would enlarge the public diagnostic surface |
+| Workspace OBB, KDOP, SupportHull | Re-derived in v4.7 | New typed values, support-mapping separation proofs, IFK-AA containment, and schema-2 scene deltas |
 | LECT split and interval lookup concepts | Reimplemented as public `LectTree` | Stable path keys replace allocation IDs |
 | LECT journal, prewarm modes, SBF adapter, old snapshots | Retired | Experiment-oriented layout is not a public contract |
 | Safe box certification and query semantics | Selectively re-derived | Needed for SafeAtlas |

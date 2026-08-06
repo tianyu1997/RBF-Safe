@@ -120,6 +120,7 @@ struct WorkspaceAabb {
         }
         return std::sqrt(squared);
     }
+    friend bool operator==(const WorkspaceAabb&, const WorkspaceAabb&) = default;
 };
 
 inline Result<void> validate_configuration(std::span<const double> configuration,

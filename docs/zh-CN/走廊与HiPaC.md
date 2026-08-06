@@ -1,4 +1,4 @@
-# OBB 走廊、Portal 与 HiPaC
+# OBB 走廊、Portal 与 HiPaC（v4.7）
 
 > 英文原文：[OBB corridors, portals, and HiPaC](../corridors.md)
 

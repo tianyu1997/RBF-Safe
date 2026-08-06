@@ -15,8 +15,8 @@ enum class SceneChangeKind : std::uint8_t { Added = 0, Removed = 1, Modified = 2
 struct SceneObstacleChange {
     SceneChangeKind kind = SceneChangeKind::Modified;
     std::string obstacle_id;
-    std::optional<WorkspaceAabb> before;
-    std::optional<WorkspaceAabb> after;
+    std::optional<WorkspaceEnvelope> before;
+    std::optional<WorkspaceEnvelope> after;
 };
 
 struct SceneDelta {

@@ -4,41 +4,42 @@
 
 ## 入门
 
-- [安装](installation.md)
-- [快速开始](getting-started.md)
-- [输入格式](input-formats.md)
+- [项目阅读路线](项目阅读路线.md)
+- [安装](安装指南.md)
+- [快速开始](快速开始.md)
+- [输入格式](输入格式.md)
 
 ## 核心概念
 
-- [安全模型](safety-model.md)
-- [体系结构](architecture.md)
-- [API 总览](api.md)
-- [运动学与解析 Jacobian](kinematics.md)
+- [安全模型](安全模型.md)
+- [体系结构](体系结构.md)
+- [API 总览](API总览.md)
+- [运动学与解析 Jacobian](运动学与雅可比矩阵.md)
 
 ## 证书与规划
 
-- [Atlas 磁盘格式](atlas-format.md)
-- [OBB、Portal 与 HiPaC 走廊](corridors.md)
-- [轨迹审核器](trajectory-auditor.md)
-- [Safe IK](safe-ik.md)
-- [OMPL 适配器](ompl-adapter.md)
-- [MoveIt 2 集成](moveit2.md)
-- [运行时动作 Shield](runtime-shield.md)
-- [动态更新](dynamic-updates.md)
+- [Atlas 磁盘格式](Atlas格式.md)
+- [OBB、Portal 与 HiPaC 走廊](走廊与HiPaC.md)
+- [轨迹审核器](轨迹审核.md)
+- [Safe IK](安全逆运动学.md)
+- [OMPL 适配器](OMPL适配器.md)
+- [MoveIt 2 集成](MoveIt2集成.md)
+- [运行时动作 Shield](运行时安全屏障.md)
+- [动态更新](动态更新.md)
 
 ## 高级能力
 
-- [学习策略安全门](policy-safety.md)
-- [持久安全记忆](safety-memory.md)
+- [学习策略安全门](策略安全.md)
+- [持久安全记忆](安全记忆.md)
 
 这些概览会链接到对应的英文格式规范。英文规范仍保留全部多机器人占用、认证发布、信任轮换、透明日志、执行账本和来源验证细节。
 
 ## 工程与发布
 
-- [版本与兼容性](versioning.md)
-- [路线图](roadmap.md)
-- [代码与算法来源](provenance.md)
-- [发布流程](releasing.md)
+- [版本与兼容性](版本与兼容性.md)
+- [路线图](路线图.md)
+- [代码与算法来源](来源说明.md)
+- [发布流程](发布流程.md)
 
 ## 阅读规则
 

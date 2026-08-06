@@ -2,12 +2,14 @@
 
 #include <rbfsafe/result.h>
 #include <rbfsafe/types.h>
+#include <rbfsafe/workspace_envelope.h>
 
 #include <array>
 #include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace rbfsafe {
@@ -79,7 +81,19 @@ class SerialRobotModel {
 
 struct SceneObstacle {
     std::string id;
-    WorkspaceAabb bounds;
+    WorkspaceEnvelope bounds;
+
+    SceneObstacle() = default;
+    SceneObstacle(std::string obstacle_id, WorkspaceEnvelope envelope)
+        : id(std::move(obstacle_id)), bounds(std::move(envelope)) {}
+    SceneObstacle(std::string obstacle_id, WorkspaceAabb envelope)
+        : id(std::move(obstacle_id)), bounds(envelope) {}
+    SceneObstacle(std::string obstacle_id, WorkspaceObb envelope)
+        : id(std::move(obstacle_id)), bounds(std::move(envelope)) {}
+    SceneObstacle(std::string obstacle_id, WorkspaceKdop envelope)
+        : id(std::move(obstacle_id)), bounds(std::move(envelope)) {}
+    SceneObstacle(std::string obstacle_id, WorkspaceSupportHull envelope)
+        : id(std::move(obstacle_id)), bounds(std::move(envelope)) {}
 };
 
 class SceneSnapshot {

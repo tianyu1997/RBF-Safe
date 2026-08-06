@@ -1,4 +1,4 @@
-# OMPL 适配器
+# OMPL 适配器（v4.7）
 
 > 英文原文：[OMPL adapter](../ompl-adapter.md)
 

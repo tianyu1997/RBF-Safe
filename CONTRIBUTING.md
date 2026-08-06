@@ -59,7 +59,7 @@ python tools/check_documentation.py --root .
   coverage, and an explicit schema compatibility decision.
 - Derived or materially reused work must update `docs/provenance.md` and retain
   applicable copyright notices.
-- Changes to a guide listed in `docs/zh-CN/README.md` must update its same-name
+- Changes to a guide listed in `docs/zh-CN/README.md` must update the mapped
   Simplified Chinese edition; run `python tools/check_documentation.py --root .`
   before submitting. Detailed English-only specifications do not require a
   Chinese mirror.
