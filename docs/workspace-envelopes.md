@@ -23,7 +23,8 @@ only after finding and verifying a separating direction from the two support
 mappings. If the bounded search cannot prove separation, the result is
 conservatively treated as a possible overlap. This preserves the certificate
 rule that `CertifiedFree` never depends on an unverified negative collision
-answer.
+answer. Exact AABB pairs and shapes with disjoint enclosing AABBs use direct
+fast paths before the support-mapping search.
 
 ## Static scenes
 
@@ -47,7 +48,7 @@ hull geometry use scene-delta schema 2.
   returns certified conservative endpoint bounds;
 - `CritSample` deterministically enumerates each joint's lower and upper
   bounds plus every interior `k*pi/2` value. Intervals narrower than `0.01`
-  radians collapse to their midpoint, and large candidate products use the
+  joint units collapse to their midpoint, and large candidate products use the
   RapidBoxForest 8192-combination reduction rule.
 
 CritSample is deliberately reported as `certified == false`: sampled extrema
@@ -55,6 +56,11 @@ can miss interior extrema. It is useful for diagnostics, regression studies,
 and envelope-tightness comparisons, but it cannot support `CertifiedRegion`
 evidence. `EndpointAabbResult` reports the source, safety flag, paired endpoint
 AABBs, and evaluated configuration count.
+
+The CritSample implementation precomputes every candidate modified-DH matrix.
+Its odometer traversal then rebuilds only the transform-prefix suffix affected
+by the changed joint, avoiding repeated model validation, trigonometric work,
+and per-configuration FK allocations.
 
 ## Per-link envelopes
 

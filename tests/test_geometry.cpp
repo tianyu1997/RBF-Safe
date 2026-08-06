@@ -2,6 +2,7 @@
 
 #include <array>
 #include <filesystem>
+#include <limits>
 #include <random>
 
 int main() {
@@ -169,6 +170,36 @@ int main() {
         }
     }
 
+    std::vector<WorkspaceAabb> brute_critical_bounds(robot.link_count() * 2);
+    for (auto& endpoint : brute_critical_bounds) {
+        endpoint.lower.fill(std::numeric_limits<double>::infinity());
+        endpoint.upper.fill(-std::numeric_limits<double>::infinity());
+    }
+    for (const double first_candidate : {-0.7, 0.0, 0.9}) {
+        for (const double second_candidate : {-0.5, 0.0, 0.8}) {
+            const auto points = robot.forward_kinematics(Configuration{first_candidate, second_candidate});
+            CHECK(points);
+            for (std::size_t link = 0; link < robot.link_count(); ++link) {
+                for (std::size_t endpoint = 0; endpoint < 2; ++endpoint) {
+                    auto& bounds = brute_critical_bounds[link * 2 + endpoint];
+                    for (std::size_t axis = 0; axis < 3; ++axis) {
+                        const double coordinate = points.value()[link + endpoint][axis];
+                        bounds.lower[axis] = std::min(bounds.lower[axis], coordinate);
+                        bounds.upper[axis] = std::max(bounds.upper[axis], coordinate);
+                    }
+                }
+            }
+        }
+    }
+    for (std::size_t endpoint = 0; endpoint < brute_critical_bounds.size(); ++endpoint) {
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            CHECK(close(critical_endpoints.value().endpoints[endpoint].lower[axis],
+                        brute_critical_bounds[endpoint].lower[axis]));
+            CHECK(close(critical_endpoints.value().endpoints[endpoint].upper[axis],
+                        brute_critical_bounds[endpoint].upper[axis]));
+        }
+    }
+
     SerialRobotModel crit_reference_robot("crit-reference", {{0.0, 1.0, 0.0, 0.0, JointType::Revolute}},
                                           {{-2.0, 2.0}}, {0.0});
     auto kpi2_endpoints =
@@ -180,6 +211,24 @@ int main() {
     CHECK(narrow_endpoints);
     CHECK(narrow_endpoints.value().evaluated_configurations == 1);
 
+    SerialRobotModel crit_tool_robot("crit-tool", {{0.0, 1.0, 0.0, 0.0, JointType::Revolute}}, {{-2.0, 2.0}},
+                                     {0.0, 0.0}, DhJoint{0.0, 0.5, 0.0, 0.25, JointType::Revolute});
+    auto tool_endpoints = compute_endpoint_aabbs(crit_tool_robot, CspaceAabb({{-2.0, 2.0}}), crit_options);
+    CHECK(tool_endpoints);
+    CHECK(tool_endpoints.value().endpoints.size() == 4);
+    for (const double candidate : {-2.0, -1.5707963267948966, 0.0, 1.5707963267948966, 2.0}) {
+        const auto points = crit_tool_robot.forward_kinematics(Configuration{candidate});
+        CHECK(points);
+        for (std::size_t link = 0; link < crit_tool_robot.link_count(); ++link) {
+            for (std::size_t endpoint = 0; endpoint < 2; ++endpoint) {
+                const auto& bounds = tool_endpoints.value().endpoints[link * 2 + endpoint];
+                for (std::size_t axis = 0; axis < 3; ++axis)
+                    CHECK((Interval{bounds.lower[axis], bounds.upper[axis]}.contains(
+                        points.value()[link + endpoint][axis], 1e-12)));
+            }
+        }
+    }
+
     const std::vector<DhJoint> cap_joints(4, DhJoint{0.0, 1.0, 0.0, 0.0, JointType::Revolute});
     const std::vector<Interval> cap_limits(4, Interval{-7.0, 7.0});
     SerialRobotModel cap_robot("crit-cap", cap_joints, cap_limits, std::vector<double>(4, 0.0));
@@ -188,6 +237,12 @@ int main() {
     // Eleven candidates per dimension exceed 8192 combinations; the largest
     // first candidate set is reduced to {lo, midpoint, hi}.
     CHECK(capped_endpoints.value().evaluated_configurations == 3 * 11 * 11 * 11);
+
+    auto prismatic_endpoints = compute_endpoint_aabbs(prismatic, CspaceAabb({{0.2, 1.3}}), crit_options);
+    CHECK(prismatic_endpoints);
+    CHECK(prismatic_endpoints.value().evaluated_configurations == 2);
+    CHECK(close(prismatic_endpoints.value().endpoints[1].lower[2], 0.2));
+    CHECK(close(prismatic_endpoints.value().endpoints[1].upper[2], 1.3));
 
     auto envelope = compute_ifk_aa_link_envelope(robot, domain);
     CHECK(envelope);
