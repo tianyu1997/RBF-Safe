@@ -8,7 +8,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/safe_ik.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class SafeIkSolver", "SafeConnected", "AtlasRoute"]
         },
         {
@@ -18,7 +18,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/safe-ik.md",
+          "path": "docs/applications/planning/safe-ik.md",
           "contains": ["SafeIkSolver", "connectivity_route"]
         }
       ]
@@ -29,7 +29,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/shield.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class RuntimeShield", "JointDelta", "EndEffectorPose", "Trajectory"]
         },
         {
@@ -39,7 +39,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/runtime-shield.md",
+          "path": "docs/applications/planning/runtime-shield.md",
           "contains": ["ACCEPT", "REPAIR", "REJECT"]
         }
       ]
@@ -50,7 +50,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/optimization.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class TrajOptRegionAdapter", "class ChompRegionAdapter", "class StompRegionAdapter", "class MpcRegionAdapter"]
         },
         {
@@ -60,7 +60,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/optimization.md",
+          "path": "docs/applications/planning/optimization.md",
           "contains": ["TrajOpt", "CHOMP", "STOMP", "MPC"]
         }
       ]
@@ -81,7 +81,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/moveit2.md",
+          "path": "docs/applications/planning/moveit2.md",
           "contains": ["PlanningRequestAdapter", "ConstraintSampler", "KinematicsBase"]
         }
       ]
@@ -92,7 +92,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/ompl.h",
+          "path": "include/rbfsafe/modules/ompl.h",
           "contains": ["class OmplAdapter", "class OmplPlanner", "RegionSamplingPolicy", "OmplPlannerKind"]
         },
         {
@@ -102,7 +102,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/ompl-adapter.md",
+          "path": "docs/applications/planning/ompl-adapter.md",
           "contains": ["RRT*", "PRM", "BIT*", "audits the returned path"]
         }
       ]
@@ -113,7 +113,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/trajectory.h",
+          "path": "include/rbfsafe/modules/atlas.h",
           "contains": ["class TrajectoryAuditor", "Certified", "Partial", "Invalid"]
         },
         {
@@ -123,7 +123,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/trajectory-auditor.md",
+          "path": "docs/atlas/trajectory-auditor.md",
           "contains": ["CERTIFIED", "PARTIAL", "INVALID"]
         }
       ]
@@ -134,7 +134,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/atlas.h",
+          "path": "include/rbfsafe/modules/atlas.h",
           "contains": ["class SafeAtlas", "regions_at", "nearest_region", "connected", "route"]
         },
         {
@@ -144,7 +144,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/api.md",
+          "path": "docs/core/api.md",
           "contains": ["regions_at(q)", "nearest_region(q)", "connected(q1, q2)"]
         }
       ]
@@ -155,12 +155,12 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/geometry.h",
+          "path": "include/rbfsafe/modules/geometry.h",
           "contains": ["class RegionValidator", "class IfkAaLinkAabbValidator"]
         },
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/corridor.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class ObbRegionValidator", "class HipacCorridorBuilder"]
         },
         {
@@ -170,7 +170,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/corridors.md",
+          "path": "docs/applications/planning/corridors.md",
           "contains": ["ObbRegionValidator", "witness portals", "CertifiedConnectivity"]
         }
       ]
@@ -181,12 +181,12 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/model.h",
+          "path": "include/rbfsafe/modules/geometry.h",
           "contains": ["forward_kinematics", "end_effector_pose", "end_effector_geometric_jacobian", "struct GeometricJacobian"]
         },
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/geometry.h",
+          "path": "include/rbfsafe/modules/geometry.h",
           "contains": ["compute_ifk_aa_link_envelope"]
         },
         {
@@ -196,7 +196,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/kinematics.md",
+          "path": "docs/geometry/kinematics.md",
           "contains": ["modified DH", "GeometricJacobian", "IFK-AA"]
         }
       ]
@@ -207,12 +207,12 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/lect.h",
+          "path": "include/rbfsafe/modules/lect.h",
           "contains": ["class LectTree", "LectNodeKey", "overlap_leaves"]
         },
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/corridor.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class HipacCorridorBuilder", "HipacOptions"]
         },
         {
@@ -227,7 +227,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/corridors.md",
+          "path": "docs/applications/planning/corridors.md",
           "contains": ["HipacCorridorBuilder", "recursively"]
         }
       ]
@@ -238,7 +238,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/dynamic.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class AtlasUpdater", "AtlasUpdateStats", "repair_invalidated_regions"]
         },
         {
@@ -248,7 +248,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/dynamic-updates.md",
+          "path": "docs/atlas/dynamic-updates.md",
           "contains": ["invalidates", "Local repair", "Rollback"]
         }
       ]
@@ -259,7 +259,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/certificate.h",
+          "path": "include/rbfsafe/modules/geometry.h",
           "contains": ["Unknown", "PointChecked", "CertifiedRegion", "CertifiedConnectivity", "RuntimeExecutable"]
         },
         {
@@ -269,7 +269,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/safety-model.md",
+          "path": "docs/core/safety-model.md",
           "contains": ["PointChecked", "CertifiedRegion", "CertifiedConnectivity", "RuntimeExecutable"]
         }
       ]
@@ -280,7 +280,7 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/region_database.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["Aabb", "Obb", "Portal", "TrajectoryTube", "Zonotope", "Taylor"]
         },
         {
@@ -290,7 +290,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/region-database.md",
+          "path": "docs/applications/planning/region-database.md",
           "contains": ["AABB", "OBB", "Portal", "TrajectoryTube", "Zonotope", "Taylor"]
         }
       ]
@@ -302,7 +302,7 @@
         {
           "kind": "public-api",
           "path": "include/rbfsafe/rbfsafe.h",
-          "contains": ["rbfsafe/atlas.h", "rbfsafe/safe_ik.h", "rbfsafe/shield.h"]
+          "contains": ["rbfsafe/modules/atlas.h", "rbfsafe/modules/applications.h"]
         },
         {
           "kind": "public-api",
@@ -316,7 +316,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/getting-started.md",
+          "path": "docs/core/getting-started.md",
           "contains": ["Build and query in C++", "Inspect and visualize", "Solve a Safe IK query"]
         }
       ]
@@ -328,7 +328,7 @@
         {
           "kind": "public-api",
           "path": "include/rbfsafe/rbfsafe.h",
-          "contains": ["rbfsafe/geometry.h", "rbfsafe/trajectory.h", "rbfsafe/dynamic.h"]
+          "contains": ["rbfsafe/modules/geometry.h", "rbfsafe/modules/atlas.h", "rbfsafe/modules/applications.h"]
         },
         {
           "kind": "test",
@@ -337,7 +337,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/release-fixtures.md",
+          "path": "docs/maintenance/release-fixtures.md",
           "contains": ["IIWA", "UR5", "Panda", "Franka", "shelf", "clutter", "industrial"]
         }
       ]
@@ -349,7 +349,7 @@
         {
           "kind": "public-api",
           "path": "include/rbfsafe/rbfsafe.h",
-          "contains": ["rbfsafe/region_database.h", "rbfsafe/planning.h", "rbfsafe/safe_ik.h", "rbfsafe/trajectory.h"]
+          "contains": ["rbfsafe/modules/applications.h", "rbfsafe/modules/atlas.h"]
         },
         {
           "kind": "test",
@@ -358,7 +358,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/roadmap.md",
+          "path": "docs/maintenance/roadmap.md",
           "contains": ["v1.0 - Stable geometric safety library"]
         }
       ]
@@ -369,12 +369,12 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/policy.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class LearningPolicySafetyGate"]
         },
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/shield.h",
+          "path": "include/rbfsafe/modules/applications.h",
           "contains": ["class RuntimeShield", "class RuntimeShieldMonitor"]
         },
         {
@@ -384,7 +384,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/roadmap.md",
+          "path": "docs/maintenance/roadmap.md",
           "contains": ["v2.0 - Learning-policy safety"]
         }
       ]
@@ -395,17 +395,17 @@
       "evidence": [
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/memory.h",
+          "path": "include/rbfsafe/modules/assurance.h",
           "contains": ["class SafetyMemory", "class SafetyMemoryStore", "FleetSnapshot"]
         },
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/coordination.h",
+          "path": "include/rbfsafe/modules/assurance.h",
           "contains": ["ContinuousFleetOccupancyBundle", "CoordinatedReservationAgreement"]
         },
         {
           "kind": "public-api",
-          "path": "include/rbfsafe/deployment.h",
+          "path": "include/rbfsafe/modules/assurance.h",
           "contains": ["DeploymentProfile", "ReviewedDeploymentProfile"]
         },
         {
@@ -420,7 +420,7 @@
         },
         {
           "kind": "documentation",
-          "path": "docs/roadmap.md",
+          "path": "docs/maintenance/roadmap.md",
           "contains": ["v3.0 - Robot safety memory"]
         }
       ]

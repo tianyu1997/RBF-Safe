@@ -46,7 +46,7 @@ python tools/check_documentation.py --root .
 
 - Keep changes within one component or responsibility layer unless a public
   contract genuinely crosses modules. Preserve the one-way dependencies shown
-  in `docs/architecture.md`.
+  in `docs/core/architecture.md`.
 - Public headers use standard-library value types and must not expose Eigen,
   JSON, pybind11, or storage implementation details.
 - Expected failures use `Result<T>`. Assertions are reserved for internal
@@ -57,7 +57,7 @@ python tools/check_documentation.py --root .
   `CertifiedRegion`.
 - Persistence changes require corruption tests, fixed-format regression
   coverage, and an explicit schema compatibility decision.
-- Derived or materially reused work must update `docs/provenance.md` and retain
+- Derived or materially reused work must update `docs/maintenance/provenance.md` and retain
   applicable copyright notices.
 - Changes to a guide listed in `docs/zh-CN/README.md` must update the mapped
   Simplified Chinese edition; run `python tools/check_documentation.py --root .`

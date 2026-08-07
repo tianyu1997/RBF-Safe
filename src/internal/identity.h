@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/identity.h>
+#include <rbfsafe/modules/assurance.h>
 
 #include <span>
 #include <string>

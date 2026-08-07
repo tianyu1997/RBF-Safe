@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/occupancy.h>
+#include <rbfsafe/modules/assurance.h>
 
 #include "json.h"
 

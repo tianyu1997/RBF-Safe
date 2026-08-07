@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/coordination.h>
+#include <rbfsafe/modules/assurance.h>
 
 #include <string>
 

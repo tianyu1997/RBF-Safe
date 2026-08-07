@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "rbfsafe"
-version = "4.7.0"
+version = "5.0.0"
 description = "Reusable geometric safety certificates for robot configuration spaces"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,11 +32,12 @@ Issues = "https://github.com/tianyu1997/RBF-Safe/issues"
 Changelog = "https://github.com/tianyu1997/RBF-Safe/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-visualization = ["matplotlib>=3.7"]
+visualization = ["matplotlib>=3.7", "numpy>=1.23"]
 test = ["pytest>=7"]
 
 [project.scripts]
 rbfsafe-inspect = "rbfsafe.cli:main"
+rbfsafe-envelope-lab = "rbfsafe.envelope_lab:main"
 
 [tool.scikit-build]
 cmake.args = ["-DRBFSAFE_BUILD_PYTHON=ON", "-DRBFSAFE_BUILD_TESTS=OFF", "-DRBFSAFE_BUILD_EXAMPLES=OFF", "-DRBFSAFE_BUILD_TOOLS=OFF"]

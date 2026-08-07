@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/lect.h>
+#include <rbfsafe/modules/lect.h>
 
 #include "internal/binary.h"
 

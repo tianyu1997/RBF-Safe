@@ -11,23 +11,25 @@ from pathlib import Path
 
 
 def public_files(root: Path) -> list[Path]:
-    headers = sorted((root / "include" / "rbfsafe").glob("*.h"))
+    include_root = root / "include" / "rbfsafe"
+    headers = sorted(include_root.glob("*.h")) + sorted(
+        (include_root / "modules").glob("*.h")
+    )
     return headers + [root / "python" / "rbfsafe" / "__init__.py"]
 
 
 def normalized_bytes(path: Path) -> bytes:
     content = path.read_text(encoding="utf-8").replace("\r\n", "\n")
-    if path.name == "version.h":
-        content = re.sub(
-            r'(#define RBFSAFE_VERSION_(?:MAJOR|MINOR|PATCH)) \d+',
-            r"\1 @VERSION@",
-            content,
-        )
-        content = re.sub(
-            r'(#define RBFSAFE_VERSION_STRING) "[^"]+"',
-            r'\1 "@VERSION@"',
-            content,
-        )
+    content = re.sub(
+        r'(#define RBFSAFE_VERSION_(?:MAJOR|MINOR|PATCH)) \d+',
+        r"\1 @VERSION@",
+        content,
+    )
+    content = re.sub(
+        r'(#define RBFSAFE_VERSION_STRING) "[^"]+"',
+        r'\1 "@VERSION@"',
+        content,
+    )
     return content.encode("utf-8")
 
 
@@ -40,7 +42,7 @@ def current_entries(root: Path) -> dict[str, str]:
 
 
 def current_major(root: Path) -> int:
-    version_header = (root / "include" / "rbfsafe" / "version.h").read_text(
+    version_header = (root / "include" / "rbfsafe" / "modules" / "core.h").read_text(
         encoding="utf-8"
     )
     match = re.search(r"^#define RBFSAFE_VERSION_MAJOR (\d+)$", version_header, re.MULTILINE)

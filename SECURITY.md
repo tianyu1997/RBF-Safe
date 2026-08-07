@@ -4,7 +4,7 @@
 
 ## Supported versions
 
-Security and correctness fixes are provided for the latest tagged 4.x minor
+Security and correctness fixes are provided for the latest tagged 5.x minor
 release. Users should reproduce a report against the current `main` branch
 when practical.
 
@@ -56,7 +56,7 @@ RBF-Safe certificates are geometric software claims bound to recorded robot,
 scene, algorithm, and parameter identities. They do not replace controller
 limits, emergency stops, independent collision monitoring, calibration
 checks, or application-specific risk assessment. See
-[docs/safety-model.md](docs/safety-model.md).
+[docs/core/safety-model.md](docs/core/safety-model.md).
 
 An occupancy publication history protects only the retained directory and the
 caller-supplied pins. Whole-directory rollback is detectable only when the

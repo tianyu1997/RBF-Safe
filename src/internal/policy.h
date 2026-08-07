@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/policy.h>
+#include <rbfsafe/modules/applications.h>
 
 #include <string>
 

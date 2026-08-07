@@ -176,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--matrix",
         type=Path,
-        default=Path("docs/project-scope-matrix.md"),
+        default=Path("docs/maintenance/project-scope-matrix.md"),
     )
     args = parser.parse_args(argv)
     root = args.root.resolve()
