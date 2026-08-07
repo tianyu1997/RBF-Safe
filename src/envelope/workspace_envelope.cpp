@@ -44,8 +44,7 @@ bool finite_point(const WorkspacePoint& value) {
                        [](double coordinate) { return std::isfinite(coordinate); });
 }
 
-double determinant(const WorkspacePoint& first, const WorkspacePoint& second,
-                   const WorkspacePoint& third) {
+double determinant(const WorkspacePoint& first, const WorkspacePoint& second, const WorkspacePoint& third) {
     return dot(first, cross(second, third));
 }
 
