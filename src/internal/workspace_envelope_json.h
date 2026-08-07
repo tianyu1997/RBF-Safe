@@ -2,8 +2,8 @@
 
 #include "json.h"
 
-#include <rbfsafe/result.h>
-#include <rbfsafe/workspace_envelope.h>
+#include <rbfsafe/modules/core.h>
+#include <rbfsafe/modules/envelope.h>
 
 namespace rbfsafe::internal {
 

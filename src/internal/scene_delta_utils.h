@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/scene_delta.h>
+#include <rbfsafe/modules/atlas.h>
 
 #include "internal/json.h"
 

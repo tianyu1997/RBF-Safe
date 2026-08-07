@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/atlas.h>
+#include <rbfsafe/modules/atlas.h>
 
 #include <cstddef>
 #include <memory>

@@ -10,7 +10,7 @@ import rbfsafe
 
 
 def test_version() -> None:
-    assert rbfsafe.__version__ == "4.7.0"
+    assert rbfsafe.__version__ == "5.0.0"
 
 
 def make_robot() -> rbfsafe.SerialRobotModel:
@@ -140,6 +140,60 @@ def test_workspace_envelope_types() -> None:
         link.type == rbfsafe.WorkspaceEnvelopeType.SUPPORT_HULL
         for link in typed_links.links
     )
+
+
+def test_workspace_envelope_lab_core(tmp_path: Path) -> None:
+    from rbfsafe.envelope_lab import (
+        EXPERIMENT_VARIANTS,
+        default_domain,
+        export_report_csv,
+        export_report_json,
+        load_preset_robot,
+        load_robot,
+        make_probe_scene,
+        run_experiment,
+    )
+
+    for preset, dimension in (("planar-2r", 2), ("iiwa", 7), ("ur5", 6), ("franka", 7)):
+        assert load_preset_robot(preset).dimension == dimension
+
+    fixture = Path(__file__).resolve().parents[1] / "data" / "release-fixtures" / "robots" / "ur5.json"
+    custom_robot = load_robot(robot_file=fixture)
+    assert custom_robot.name == "release-universal-robots-ur5"
+    assert custom_robot.dimension == 6
+
+    robot = load_preset_robot("planar-2r")
+    domain = default_domain(robot)
+    scene = make_probe_scene(robot, domain)
+    report = run_experiment(robot, scene, domain)
+
+    assert [result.variant.key for result in report.results] == [
+        variant.key for variant in EXPERIMENT_VARIANTS
+    ]
+    assert len(report.results) == 8
+    assert all(len(result.enclosing_aabb_volumes) == robot.link_count for result in report.results)
+    assert all(len(result.link_obstacle_overlaps) == robot.link_count for result in report.results)
+    assert all(len(result.link_distance_lower_bounds) == robot.link_count for result in report.results)
+
+    ifk_results = [result for result in report.results if result.variant.endpoint_source == "ifk_aa"]
+    crit_results = [result for result in report.results if result.variant.endpoint_source == "crit_sample"]
+    assert len(ifk_results) == 5
+    assert len(crit_results) == 3
+    assert all(result.endpoint_bounds_certified for result in ifk_results)
+    assert all(result.evaluated_configurations == 0 for result in ifk_results)
+    assert all(result.validator_eligible for result in ifk_results)
+    assert all(result.validator_certified_free is not None for result in ifk_results)
+    assert all(not result.endpoint_bounds_certified for result in crit_results)
+    assert all(result.evaluated_configurations == 9 for result in crit_results)
+    assert all(not result.validator_eligible for result in crit_results)
+    assert all(result.validator_certified_free is None for result in crit_results)
+
+    json_path = export_report_json(report, tmp_path / "envelopes.json")
+    csv_path = export_report_csv(report, tmp_path / "envelopes.csv")
+    exported = json.loads(json_path.read_text(encoding="utf-8"))
+    assert exported["robot"]["dimension"] == 2
+    assert len(exported["results"]) == 8
+    assert len(csv_path.read_text(encoding="utf-8").splitlines()) == 9
 
 
 def test_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

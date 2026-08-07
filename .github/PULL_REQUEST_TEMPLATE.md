@@ -22,4 +22,4 @@ List the exact commands run and their results.
 - [ ] Public headers do not expose Eigen, JSON, or storage implementation types.
 - [ ] New expected failures use `Result<T>` and a specific error code.
 - [ ] No build output, local path, cache, credential, or private dataset is included.
-- [ ] Substantially reused code is recorded in `docs/provenance.md`.
+- [ ] Substantially reused code is recorded in `docs/maintenance/provenance.md`.

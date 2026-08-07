@@ -7,15 +7,17 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](CMakeLists.txt)
 [![Python](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)](pyproject.toml)
 
-RBF-Safe 4.7 is a C++20 and Python library for building, storing, querying, and reusing conservative geometric safety certificates in robot configuration space. It supports modified-DH serial robots, AABB/OBB/k-DOP/support-hull workspace envelopes, deterministic LECT partitioning, certified AABB/OBB regions and corridors, connectivity, trajectory auditing, planning integrations, dynamic updates, policy shields, persistent safety memory, and auditable multi-robot coordination.
+RBF-Safe 5.0 is a C++20 and Python library for building, storing, querying, and reusing conservative geometric safety certificates in robot configuration space. It supports modified-DH serial robots, AABB/OBB/k-DOP/support-hull workspace envelopes, deterministic LECT partitioning, certified AABB/OBB regions and corridors, connectivity, trajectory auditing, planning integrations, dynamic updates, policy shields, persistent safety memory, and auditable multi-robot coordination.
 
-RBF-Safe is safety infrastructure, not a motion planner or a deployed-system safety certification. Sampling, visualization, successful planning, valid signatures, and consistent logs never upgrade evidence by themselves. Read the [safety model](docs/safety-model.md) before using a result in a robot system.
+RBF-Safe is safety infrastructure, not a motion planner or a deployed-system safety certification. Sampling, visualization, successful planning, valid signatures, and consistent logs never upgrade evidence by themselves. Read the [safety model](docs/core/safety-model.md) before using a result in a robot system.
 
 ## Main components
 
 | Component | Purpose |
 |---|---|
-| `RBFSafe::geometry` | Modified-DH FK, analytic geometric Jacobian, IFK-AA, and conservative link envelopes |
+| `RBFSafe::core` | Shared result/value types plus deterministic JSON and SHA-256 infrastructure |
+| `RBFSafe::envelope` | Standalone AABB/OBB/k-DOP/support-hull workspace envelope values and predicates |
+| `RBFSafe::geometry` | Robot/scene models, modified-DH FK, analytic Jacobian, IFK-AA, validators, and certificates |
 | `RBFSafe::lect` | Deterministic mutable trees and immutable snapshots with stable path keys |
 | `RBFSafe::atlas` | Certified-region construction, lookup, connectivity, routing, and versioned persistence |
 | `RBFSafe::corridor`, `RBFSafe::regions` | OBB/Portal/HiPaC corridors and a unified certified-region database |
@@ -27,6 +29,10 @@ RBF-Safe is safety infrastructure, not a motion planner or a deployed-system saf
 | `RBFSafe::deployment`, `RBFSafe::execution` | Reviewed deployment profiles, bounded sessions, and revocation-aware authorization ledgers |
 | `RBFSafe::transparency`, `RBFSafe::witness`, `RBFSafe::provenance` | Merkle logs, checkpoint gossip, split-view detection, hardware statements, and external time |
 | `RBFSafe::occupancy`, `RBFSafe::coordination` | Continuous swept occupancy, authenticated publication histories, and coordinated reservations |
+
+For a smaller public include surface, use the module aggregates
+`RBFSafe::applications` and `RBFSafe::assurance`; individual implementation
+targets remain available when dependency minimization matters.
 
 The [documentation index](docs/README.md) links each component to its usage guide, exact storage schema, compatibility rules, and trust boundary.
 
@@ -50,7 +56,7 @@ cmake --install build --config Release --prefix install
 ```
 
 ```cmake
-find_package(RBFSafe 4.7 REQUIRED)
+find_package(RBFSafe 5.0 REQUIRED)
 target_link_libraries(my_target PRIVATE RBFSafe::rbfsafe)
 ```
 
@@ -111,7 +117,7 @@ rbfsafe-inspect atlas --trajectory data/trajectory_2r.json
 rbfsafe-inspect atlas --plot slice.png --dims 0 1
 ```
 
-See [Getting started](docs/getting-started.md) for corridors, Safe IK, planning, shields, policy gates, safety memory, occupancy, trust, deployment, and execution examples.
+See [Getting started](docs/core/getting-started.md) for corridors, Safe IK, planning, shields, policy gates, safety memory, occupancy, trust, deployment, and execution examples.
 
 ## Repository layout
 
@@ -134,18 +140,18 @@ Build trees, wheels, caches, test output, and local install prefixes are intenti
 ## Documentation
 
 - [Complete English documentation index](docs/README.md)
-- [Installation](docs/installation.md)
-- [Getting started](docs/getting-started.md)
-- [API overview](docs/api.md)
-- [Architecture](docs/architecture.md)
-- [Safety model](docs/safety-model.md)
-- [Versioning and compatibility](docs/versioning.md)
+- [Installation](docs/core/installation.md)
+- [Getting started](docs/core/getting-started.md)
+- [API overview](docs/core/api.md)
+- [Architecture](docs/core/architecture.md)
+- [Safety model](docs/core/safety-model.md)
+- [Versioning and compatibility](docs/maintenance/versioning.md)
 - [Curated Simplified Chinese documentation](docs/zh-CN/README.md)
-- [Project-scope traceability matrix](docs/project-scope-matrix.md)
+- [Project-scope traceability matrix](docs/maintenance/project-scope-matrix.md)
 
 ## Compatibility and support
 
-The 4.x public C++ and Python APIs follow the documented source-compatibility policy; a universal C++ binary ABI is not promised. Storage schemas are versioned independently and validated before use. RapidBoxForest caches are not RBF-Safe files.
+The 5.x public C++ and Python APIs follow the documented source-compatibility policy. Version 5.0 replaces the former fine-grained C++ include paths with module headers; a universal C++ binary ABI is not promised. Storage schemas are versioned independently and validated before use. RapidBoxForest caches are not RBF-Safe files.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development rules, [SUPPORT.md](SUPPORT.md) for support channels, [SECURITY.md](SECURITY.md) for private vulnerability or incorrect-certificate reports, and [CHANGELOG.md](CHANGELOG.md) for release notes.
 

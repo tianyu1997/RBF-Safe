@@ -6,6 +6,10 @@
 
 ## 尚未发布
 
+- 将 C++ 公共声明合并为七个常规模块头和一个可选 OMPL 模块头，删除旧的
+  `include/rbfsafe/*.h` 细粒度入口；调用方应改用 `rbfsafe/modules/*.h` 或
+  总入口 `rbfsafe/rbfsafe.h`。该破坏性变更建立 5.0 API，不修改磁盘 schema；
+- 抽取 `RBFSafe::core` 与 `RBFSafe::envelope`，使 geometry 与 LECT 的依赖边界明确；
 - 增加 v4.7 项目阅读路线，并将精选中文主题指南统一改为清晰的中文文件名；保留标准 `README.md` 和根目录语言导航文件名；
 - 为最重要的使用、安全、集成和维护指南提供精选简体中文版本；
 - 保留中文 README、变更日志、贡献指南和安全报告；

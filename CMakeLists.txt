@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(
     RBFSafe
-    VERSION 4.7.0
+    VERSION 5.0.0
     DESCRIPTION "Deterministic certified safe-region atlases for serial robots"
     HOMEPAGE_URL "https://github.com/tianyu1997/RBF-Safe"
     LANGUAGES C CXX)
@@ -38,14 +38,35 @@ function(rbfsafe_configure_target target)
     endif()
 endfunction()
 
+add_library(rbfsafe_core
+    src/core/sha256.cpp
+    src/core/json.cpp)
+add_library(RBFSafe::core ALIAS rbfsafe_core)
+set_target_properties(rbfsafe_core PROPERTIES EXPORT_NAME core)
+target_include_directories(rbfsafe_core
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+rbfsafe_configure_target(rbfsafe_core)
+
+add_library(rbfsafe_envelope
+    src/envelope/workspace_envelope.cpp
+    src/envelope/workspace_envelope_json.cpp)
+add_library(RBFSafe::envelope ALIAS rbfsafe_envelope)
+set_target_properties(rbfsafe_envelope PROPERTIES EXPORT_NAME envelope)
+target_include_directories(rbfsafe_envelope
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(rbfsafe_envelope PUBLIC rbfsafe_core)
+rbfsafe_configure_target(rbfsafe_envelope)
+
 add_library(rbfsafe_geometry
-    src/sha256.cpp
-    src/json.cpp
-    src/workspace_envelope.cpp
-    src/workspace_envelope_json.cpp
-    src/model.cpp
-    src/geometry.cpp
-    src/certificate.cpp)
+    src/geometry/model.cpp
+    src/geometry/geometry.cpp
+    src/geometry/certificate.cpp)
 add_library(RBFSafe::geometry ALIAS rbfsafe_geometry)
 set_target_properties(rbfsafe_geometry PROPERTIES EXPORT_NAME geometry)
 target_include_directories(rbfsafe_geometry
@@ -53,9 +74,10 @@ target_include_directories(rbfsafe_geometry
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(rbfsafe_geometry PUBLIC rbfsafe_core rbfsafe_envelope)
 rbfsafe_configure_target(rbfsafe_geometry)
 
-add_library(rbfsafe_lect src/lect.cpp)
+add_library(rbfsafe_lect src/lect/lect.cpp)
 add_library(RBFSafe::lect ALIAS rbfsafe_lect)
 set_target_properties(rbfsafe_lect PROPERTIES EXPORT_NAME lect)
 target_include_directories(rbfsafe_lect
@@ -63,16 +85,16 @@ target_include_directories(rbfsafe_lect
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(rbfsafe_lect PUBLIC rbfsafe_geometry)
+target_link_libraries(rbfsafe_lect PUBLIC rbfsafe_core)
 rbfsafe_configure_target(rbfsafe_lect)
 
 add_library(rbfsafe_atlas
-    src/atlas.cpp
-    src/atlas_identity.cpp
-    src/persistence.cpp
-    src/region_index.cpp
-    src/scene_delta.cpp
-    src/trajectory.cpp)
+    src/atlas/atlas.cpp
+    src/atlas/atlas_identity.cpp
+    src/atlas/persistence.cpp
+    src/atlas/region_index.cpp
+    src/atlas/scene_delta.cpp
+    src/atlas/trajectory.cpp)
 add_library(RBFSafe::atlas ALIAS rbfsafe_atlas)
 set_target_properties(rbfsafe_atlas PROPERTIES EXPORT_NAME atlas)
 target_include_directories(rbfsafe_atlas
@@ -84,9 +106,9 @@ target_link_libraries(rbfsafe_atlas PUBLIC rbfsafe_geometry rbfsafe_lect)
 rbfsafe_configure_target(rbfsafe_atlas)
 
 add_library(rbfsafe_occupancy
-    src/moving_obstacle_occupancy.cpp
-    src/occupancy.cpp
-    src/occupancy_persistence.cpp)
+    src/assurance/occupancy/moving_obstacle_occupancy.cpp
+    src/assurance/occupancy/occupancy.cpp
+    src/assurance/occupancy/occupancy_persistence.cpp)
 add_library(RBFSafe::occupancy ALIAS rbfsafe_occupancy)
 set_target_properties(rbfsafe_occupancy PROPERTIES EXPORT_NAME occupancy)
 target_include_directories(rbfsafe_occupancy
@@ -97,7 +119,7 @@ target_include_directories(rbfsafe_occupancy
 target_link_libraries(rbfsafe_occupancy PUBLIC rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_occupancy)
 
-add_library(rbfsafe_update src/dynamic.cpp src/version_store.cpp)
+add_library(rbfsafe_update src/applications/update/dynamic.cpp src/applications/update/version_store.cpp)
 add_library(RBFSafe::update ALIAS rbfsafe_update)
 set_target_properties(rbfsafe_update PROPERTIES EXPORT_NAME update)
 target_include_directories(rbfsafe_update
@@ -108,7 +130,7 @@ target_include_directories(rbfsafe_update
 target_link_libraries(rbfsafe_update PUBLIC rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_update)
 
-add_library(rbfsafe_ik src/safe_ik.cpp)
+add_library(rbfsafe_ik src/applications/ik/safe_ik.cpp)
 add_library(RBFSafe::ik ALIAS rbfsafe_ik)
 set_target_properties(rbfsafe_ik PROPERTIES EXPORT_NAME ik)
 target_include_directories(rbfsafe_ik
@@ -119,7 +141,7 @@ target_include_directories(rbfsafe_ik
 target_link_libraries(rbfsafe_ik PUBLIC rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_ik)
 
-add_library(rbfsafe_corridor src/corridor.cpp src/corridor_persistence.cpp)
+add_library(rbfsafe_corridor src/applications/corridor/corridor.cpp src/applications/corridor/corridor_persistence.cpp)
 add_library(RBFSafe::corridor ALIAS rbfsafe_corridor)
 set_target_properties(rbfsafe_corridor PROPERTIES EXPORT_NAME corridor)
 target_include_directories(rbfsafe_corridor
@@ -131,11 +153,11 @@ target_link_libraries(rbfsafe_corridor PUBLIC rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_corridor)
 
 add_library(rbfsafe_regions
-    src/higher_order.cpp
-    src/portal.cpp
-    src/region_database.cpp
-    src/region_database_persistence.cpp
-    src/region_identity.cpp)
+    src/applications/regions/higher_order.cpp
+    src/applications/regions/portal.cpp
+    src/applications/regions/region_database.cpp
+    src/applications/regions/region_database_persistence.cpp
+    src/applications/regions/region_identity.cpp)
 add_library(RBFSafe::regions ALIAS rbfsafe_regions)
 set_target_properties(rbfsafe_regions PROPERTIES EXPORT_NAME regions)
 target_include_directories(rbfsafe_regions
@@ -146,7 +168,7 @@ target_include_directories(rbfsafe_regions
 target_link_libraries(rbfsafe_regions PUBLIC rbfsafe_corridor)
 rbfsafe_configure_target(rbfsafe_regions)
 
-add_library(rbfsafe_planning src/planning.cpp)
+add_library(rbfsafe_planning src/applications/planning/planning.cpp)
 add_library(RBFSafe::planning ALIAS rbfsafe_planning)
 set_target_properties(rbfsafe_planning PROPERTIES EXPORT_NAME planning)
 target_include_directories(rbfsafe_planning
@@ -157,7 +179,7 @@ target_include_directories(rbfsafe_planning
 target_link_libraries(rbfsafe_planning PUBLIC rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_planning)
 
-add_library(rbfsafe_optimization src/optimization.cpp)
+add_library(rbfsafe_optimization src/applications/optimization/optimization.cpp)
 add_library(RBFSafe::optimization ALIAS rbfsafe_optimization)
 set_target_properties(rbfsafe_optimization PROPERTIES EXPORT_NAME optimization)
 target_include_directories(rbfsafe_optimization
@@ -168,7 +190,7 @@ target_include_directories(rbfsafe_optimization
 target_link_libraries(rbfsafe_optimization PUBLIC rbfsafe_regions)
 rbfsafe_configure_target(rbfsafe_optimization)
 
-add_library(rbfsafe_shield src/shield.cpp)
+add_library(rbfsafe_shield src/applications/shield/shield.cpp)
 add_library(RBFSafe::shield ALIAS rbfsafe_shield)
 set_target_properties(rbfsafe_shield PROPERTIES EXPORT_NAME shield)
 target_include_directories(rbfsafe_shield
@@ -180,11 +202,11 @@ target_link_libraries(rbfsafe_shield PUBLIC rbfsafe_ik)
 rbfsafe_configure_target(rbfsafe_shield)
 
 add_library(rbfsafe_policy
-    src/calibration.cpp
-    src/calibration_lifecycle.cpp
-    src/calibration_lifecycle_persistence.cpp
-    src/policy.cpp
-    src/policy_persistence.cpp)
+    src/applications/policy/calibration.cpp
+    src/applications/policy/calibration_lifecycle.cpp
+    src/applications/policy/calibration_lifecycle_persistence.cpp
+    src/applications/policy/policy.cpp
+    src/applications/policy/policy_persistence.cpp)
 add_library(RBFSafe::policy ALIAS rbfsafe_policy)
 set_target_properties(rbfsafe_policy PROPERTIES EXPORT_NAME policy)
 target_include_directories(rbfsafe_policy
@@ -196,11 +218,11 @@ target_link_libraries(rbfsafe_policy PUBLIC rbfsafe_shield)
 rbfsafe_configure_target(rbfsafe_policy)
 
 add_library(rbfsafe_memory
-    src/fleet_schedule_archive.cpp
-    src/fleet_schedule_persistence.cpp
-    src/memory.cpp
-    src/memory_persistence.cpp
-    src/memory_store.cpp)
+    src/assurance/memory/fleet_schedule_archive.cpp
+    src/assurance/memory/fleet_schedule_persistence.cpp
+    src/assurance/memory/memory.cpp
+    src/assurance/memory/memory_persistence.cpp
+    src/assurance/memory/memory_store.cpp)
 add_library(RBFSafe::memory ALIAS rbfsafe_memory)
 set_target_properties(rbfsafe_memory PROPERTIES EXPORT_NAME memory)
 target_include_directories(rbfsafe_memory
@@ -211,7 +233,7 @@ target_include_directories(rbfsafe_memory
 target_link_libraries(rbfsafe_memory PUBLIC rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_memory)
 
-add_library(rbfsafe_trust src/trust.cpp)
+add_library(rbfsafe_trust src/assurance/trust/trust.cpp)
 add_library(RBFSafe::trust ALIAS rbfsafe_trust)
 set_target_properties(rbfsafe_trust PROPERTIES EXPORT_NAME trust)
 target_include_directories(rbfsafe_trust
@@ -222,7 +244,7 @@ target_include_directories(rbfsafe_trust
 target_link_libraries(rbfsafe_trust PUBLIC rbfsafe_memory)
 rbfsafe_configure_target(rbfsafe_trust)
 
-add_library(rbfsafe_remote src/remote.cpp src/remote_persistence.cpp)
+add_library(rbfsafe_remote src/assurance/remote/remote.cpp src/assurance/remote/remote_persistence.cpp)
 add_library(RBFSafe::remote ALIAS rbfsafe_remote)
 set_target_properties(rbfsafe_remote PROPERTIES EXPORT_NAME remote)
 target_include_directories(rbfsafe_remote
@@ -271,10 +293,10 @@ else()
 endif()
 
 add_library(rbfsafe_identity
-    src/identity.cpp
-    src/identity_checkpoint.cpp
-    src/identity_history.cpp
-    src/identity_persistence.cpp
+    src/assurance/identity/identity.cpp
+    src/assurance/identity/identity_checkpoint.cpp
+    src/assurance/identity/identity_history.cpp
+    src/assurance/identity/identity_persistence.cpp
     $<TARGET_OBJECTS:rbfsafe_monocypher>)
 add_library(RBFSafe::identity ALIAS rbfsafe_identity)
 set_target_properties(rbfsafe_identity PROPERTIES EXPORT_NAME identity)
@@ -289,12 +311,12 @@ target_link_libraries(rbfsafe_identity PUBLIC rbfsafe_remote)
 rbfsafe_configure_target(rbfsafe_identity)
 
 add_library(rbfsafe_coordination
-    src/coordination.cpp
-    src/coordination_history.cpp
-    src/coordination_rotating_history.cpp
-    src/coordination_reservation.cpp
-    src/coordination_reservation_persistence.cpp
-    src/coordination_persistence.cpp)
+    src/assurance/coordination/coordination.cpp
+    src/assurance/coordination/coordination_history.cpp
+    src/assurance/coordination/coordination_rotating_history.cpp
+    src/assurance/coordination/coordination_reservation.cpp
+    src/assurance/coordination/coordination_reservation_persistence.cpp
+    src/assurance/coordination/coordination_persistence.cpp)
 add_library(RBFSafe::coordination ALIAS rbfsafe_coordination)
 set_target_properties(rbfsafe_coordination PROPERTIES EXPORT_NAME coordination)
 target_include_directories(rbfsafe_coordination
@@ -307,8 +329,8 @@ target_link_libraries(rbfsafe_coordination
 rbfsafe_configure_target(rbfsafe_coordination)
 
 add_library(rbfsafe_deployment
-    src/deployment.cpp
-    src/deployment_persistence.cpp)
+    src/assurance/deployment/deployment.cpp
+    src/assurance/deployment/deployment_persistence.cpp)
 add_library(RBFSafe::deployment ALIAS rbfsafe_deployment)
 set_target_properties(rbfsafe_deployment PROPERTIES EXPORT_NAME deployment)
 target_include_directories(rbfsafe_deployment
@@ -320,10 +342,10 @@ target_link_libraries(rbfsafe_deployment PUBLIC rbfsafe_identity)
 rbfsafe_configure_target(rbfsafe_deployment)
 
 add_library(rbfsafe_execution
-    src/execution.cpp
-    src/execution_persistence.cpp
-    src/execution_ledger.cpp
-    src/execution_ledger_persistence.cpp)
+    src/assurance/execution/execution.cpp
+    src/assurance/execution/execution_persistence.cpp
+    src/assurance/execution/execution_ledger.cpp
+    src/assurance/execution/execution_ledger_persistence.cpp)
 add_library(RBFSafe::execution ALIAS rbfsafe_execution)
 set_target_properties(rbfsafe_execution PROPERTIES EXPORT_NAME execution)
 target_include_directories(rbfsafe_execution
@@ -335,8 +357,8 @@ target_link_libraries(rbfsafe_execution PUBLIC rbfsafe_deployment rbfsafe_atlas)
 rbfsafe_configure_target(rbfsafe_execution)
 
 add_library(rbfsafe_transparency
-    src/transparency.cpp
-    src/transparency_persistence.cpp)
+    src/assurance/transparency/transparency.cpp
+    src/assurance/transparency/transparency_persistence.cpp)
 add_library(RBFSafe::transparency ALIAS rbfsafe_transparency)
 set_target_properties(rbfsafe_transparency PROPERTIES EXPORT_NAME transparency)
 target_include_directories(rbfsafe_transparency
@@ -348,8 +370,8 @@ target_link_libraries(rbfsafe_transparency PUBLIC rbfsafe_execution)
 rbfsafe_configure_target(rbfsafe_transparency)
 
 add_library(rbfsafe_witness
-    src/witness.cpp
-    src/witness_persistence.cpp)
+    src/assurance/witness/witness.cpp
+    src/assurance/witness/witness_persistence.cpp)
 add_library(RBFSafe::witness ALIAS rbfsafe_witness)
 set_target_properties(rbfsafe_witness PROPERTIES EXPORT_NAME witness)
 target_include_directories(rbfsafe_witness
@@ -361,7 +383,7 @@ target_link_libraries(rbfsafe_witness PUBLIC rbfsafe_transparency)
 rbfsafe_configure_target(rbfsafe_witness)
 
 add_library(rbfsafe_provenance
-    src/provenance.cpp)
+    src/assurance/provenance/provenance.cpp)
 add_library(RBFSafe::provenance ALIAS rbfsafe_provenance)
 set_target_properties(rbfsafe_provenance PROPERTIES EXPORT_NAME provenance)
 target_include_directories(rbfsafe_provenance
@@ -372,10 +394,39 @@ target_include_directories(rbfsafe_provenance
 target_link_libraries(rbfsafe_provenance PUBLIC rbfsafe_identity)
 rbfsafe_configure_target(rbfsafe_provenance)
 
+add_library(rbfsafe_applications INTERFACE)
+add_library(RBFSafe::applications ALIAS rbfsafe_applications)
+set_target_properties(rbfsafe_applications PROPERTIES EXPORT_NAME applications)
+target_link_libraries(rbfsafe_applications INTERFACE
+    rbfsafe_corridor
+    rbfsafe_regions
+    rbfsafe_optimization
+    rbfsafe_ik
+    rbfsafe_planning
+    rbfsafe_update
+    rbfsafe_shield
+    rbfsafe_policy)
+
+add_library(rbfsafe_assurance INTERFACE)
+add_library(RBFSafe::assurance ALIAS rbfsafe_assurance)
+set_target_properties(rbfsafe_assurance PROPERTIES EXPORT_NAME assurance)
+target_link_libraries(rbfsafe_assurance INTERFACE
+    rbfsafe_occupancy
+    rbfsafe_memory
+    rbfsafe_trust
+    rbfsafe_remote
+    rbfsafe_identity
+    rbfsafe_coordination
+    rbfsafe_deployment
+    rbfsafe_execution
+    rbfsafe_transparency
+    rbfsafe_witness
+    rbfsafe_provenance)
+
 add_library(rbfsafe INTERFACE)
 add_library(RBFSafe::rbfsafe ALIAS rbfsafe)
 set_target_properties(rbfsafe PROPERTIES EXPORT_NAME rbfsafe)
-target_link_libraries(rbfsafe INTERFACE rbfsafe_optimization rbfsafe_policy rbfsafe_witness rbfsafe_provenance rbfsafe_coordination rbfsafe_update rbfsafe_planning)
+target_link_libraries(rbfsafe INTERFACE rbfsafe_applications rbfsafe_assurance)
 
 set(RBFSAFE_OMPL_BUILT 0)
 if(RBFSAFE_BUILD_OMPL)
@@ -396,7 +447,7 @@ if(RBFSAFE_BUILD_OMPL)
             INTERFACE_LINK_LIBRARIES "${OMPL_LIBRARIES}")
     endif()
 
-    add_library(rbfsafe_ompl src/ompl.cpp)
+    add_library(rbfsafe_ompl src/applications/planning/ompl.cpp)
     add_library(RBFSafe::ompl ALIAS rbfsafe_ompl)
     set_target_properties(rbfsafe_ompl PROPERTIES EXPORT_NAME ompl)
     target_include_directories(rbfsafe_ompl
@@ -418,105 +469,46 @@ if(RBFSAFE_BUILD_TOOLS)
     endif()
 endif()
 
-if(RBFSAFE_BUILD_EXAMPLES)
-    add_executable(rbfsafe_quickstart examples/quickstart.cpp)
-    target_link_libraries(rbfsafe_quickstart PRIVATE RBFSafe::rbfsafe)
-    rbfsafe_configure_target(rbfsafe_quickstart)
-    add_executable(rbfsafe_hipac_quickstart examples/hipac_quickstart.cpp)
-    target_link_libraries(rbfsafe_hipac_quickstart PRIVATE RBFSafe::corridor)
-    rbfsafe_configure_target(rbfsafe_hipac_quickstart)
-    add_executable(rbfsafe_safe_ik_quickstart examples/safe_ik_quickstart.cpp)
-    target_link_libraries(rbfsafe_safe_ik_quickstart PRIVATE RBFSafe::ik)
-    rbfsafe_configure_target(rbfsafe_safe_ik_quickstart)
-    add_executable(rbfsafe_dynamic_update_quickstart examples/dynamic_update_quickstart.cpp)
-    target_link_libraries(rbfsafe_dynamic_update_quickstart PRIVATE RBFSafe::update)
-    rbfsafe_configure_target(rbfsafe_dynamic_update_quickstart)
-    add_executable(rbfsafe_region_database_quickstart examples/region_database_quickstart.cpp)
-    target_link_libraries(rbfsafe_region_database_quickstart PRIVATE RBFSafe::regions)
-    rbfsafe_configure_target(rbfsafe_region_database_quickstart)
-    add_executable(rbfsafe_planning_quickstart examples/planning_quickstart.cpp)
-    target_link_libraries(rbfsafe_planning_quickstart PRIVATE RBFSafe::planning)
-    rbfsafe_configure_target(rbfsafe_planning_quickstart)
-    add_executable(rbfsafe_optimization_quickstart examples/optimization_quickstart.cpp)
-    target_link_libraries(rbfsafe_optimization_quickstart PRIVATE RBFSafe::optimization)
-    rbfsafe_configure_target(rbfsafe_optimization_quickstart)
-    add_executable(rbfsafe_shield_quickstart examples/shield_quickstart.cpp)
-    target_link_libraries(rbfsafe_shield_quickstart PRIVATE RBFSafe::shield)
-    rbfsafe_configure_target(rbfsafe_shield_quickstart)
-    add_executable(rbfsafe_policy_safety_quickstart examples/policy_safety_quickstart.cpp)
-    target_link_libraries(rbfsafe_policy_safety_quickstart PRIVATE RBFSafe::policy)
-    rbfsafe_configure_target(rbfsafe_policy_safety_quickstart)
-    add_executable(rbfsafe_calibrated_policy_quickstart examples/calibrated_policy_quickstart.cpp)
-    target_link_libraries(rbfsafe_calibrated_policy_quickstart PRIVATE RBFSafe::policy)
-    rbfsafe_configure_target(rbfsafe_calibrated_policy_quickstart)
-    add_executable(rbfsafe_calibration_lifecycle_quickstart examples/calibration_lifecycle_quickstart.cpp)
-    target_link_libraries(rbfsafe_calibration_lifecycle_quickstart PRIVATE RBFSafe::policy)
-    rbfsafe_configure_target(rbfsafe_calibration_lifecycle_quickstart)
-    add_executable(rbfsafe_safety_memory_quickstart examples/safety_memory_quickstart.cpp)
-    target_link_libraries(rbfsafe_safety_memory_quickstart PRIVATE RBFSafe::memory)
-    rbfsafe_configure_target(rbfsafe_safety_memory_quickstart)
-    add_executable(rbfsafe_safety_memory_store_quickstart examples/safety_memory_store_quickstart.cpp)
-    target_link_libraries(rbfsafe_safety_memory_store_quickstart PRIVATE RBFSafe::memory)
-    rbfsafe_configure_target(rbfsafe_safety_memory_store_quickstart)
-    add_executable(rbfsafe_fleet_schedule_archive_quickstart examples/fleet_schedule_archive_quickstart.cpp)
-    target_link_libraries(rbfsafe_fleet_schedule_archive_quickstart PRIVATE RBFSafe::memory)
-    rbfsafe_configure_target(rbfsafe_fleet_schedule_archive_quickstart)
-    add_executable(rbfsafe_artifact_attestation_quickstart examples/artifact_attestation_quickstart.cpp)
-    target_link_libraries(rbfsafe_artifact_attestation_quickstart PRIVATE RBFSafe::trust)
-    rbfsafe_configure_target(rbfsafe_artifact_attestation_quickstart)
-    add_executable(rbfsafe_remote_artifact_quickstart examples/remote_artifact_quickstart.cpp)
-    target_link_libraries(rbfsafe_remote_artifact_quickstart PRIVATE RBFSafe::remote)
-    rbfsafe_configure_target(rbfsafe_remote_artifact_quickstart)
-    add_executable(rbfsafe_public_identity_quickstart examples/public_identity_quickstart.cpp)
-    target_link_libraries(rbfsafe_public_identity_quickstart PRIVATE RBFSafe::identity)
-    rbfsafe_configure_target(rbfsafe_public_identity_quickstart)
-    add_executable(rbfsafe_deployment_profile_quickstart examples/deployment_profile_quickstart.cpp)
-    target_link_libraries(rbfsafe_deployment_profile_quickstart PRIVATE RBFSafe::deployment)
-    rbfsafe_configure_target(rbfsafe_deployment_profile_quickstart)
-    add_executable(rbfsafe_bounded_execution_session_quickstart examples/bounded_execution_session_quickstart.cpp)
-    target_link_libraries(rbfsafe_bounded_execution_session_quickstart PRIVATE RBFSafe::execution)
-    rbfsafe_configure_target(rbfsafe_bounded_execution_session_quickstart)
-    add_executable(rbfsafe_provenance_quickstart examples/provenance_quickstart.cpp)
-    target_link_libraries(rbfsafe_provenance_quickstart PRIVATE RBFSafe::provenance)
-    rbfsafe_configure_target(rbfsafe_provenance_quickstart)
-    add_executable(rbfsafe_continuous_occupancy_quickstart
-        examples/continuous_occupancy_quickstart.cpp)
-    target_link_libraries(rbfsafe_continuous_occupancy_quickstart
-        PRIVATE RBFSafe::occupancy)
-    rbfsafe_configure_target(rbfsafe_continuous_occupancy_quickstart)
-    add_executable(rbfsafe_continuous_robot_scene_occupancy_quickstart
-        examples/continuous_robot_scene_occupancy_quickstart.cpp)
-    target_link_libraries(rbfsafe_continuous_robot_scene_occupancy_quickstart
-        PRIVATE RBFSafe::occupancy)
-    rbfsafe_configure_target(
-        rbfsafe_continuous_robot_scene_occupancy_quickstart)
-    add_executable(rbfsafe_occupancy_publication_quickstart
-        examples/occupancy_publication_quickstart.cpp)
-    target_link_libraries(rbfsafe_occupancy_publication_quickstart
-        PRIVATE RBFSafe::coordination)
-    rbfsafe_configure_target(rbfsafe_occupancy_publication_quickstart)
+function(rbfsafe_add_example name source dependency)
+    add_executable(${name} ${source})
+    target_link_libraries(${name} PRIVATE ${dependency})
+    rbfsafe_configure_target(${name})
+endfunction()
 
-    add_executable(rbfsafe_occupancy_publication_history_quickstart
-        examples/occupancy_publication_history_quickstart.cpp)
-    target_link_libraries(rbfsafe_occupancy_publication_history_quickstart
-        PRIVATE RBFSafe::coordination)
-    rbfsafe_configure_target(rbfsafe_occupancy_publication_history_quickstart)
-    add_executable(rbfsafe_rotating_occupancy_publication_history_quickstart
-        examples/rotating_occupancy_publication_history_quickstart.cpp)
-    target_link_libraries(
-        rbfsafe_rotating_occupancy_publication_history_quickstart
-        PRIVATE RBFSafe::coordination)
-    rbfsafe_configure_target(
-        rbfsafe_rotating_occupancy_publication_history_quickstart)
-    add_executable(rbfsafe_coordinated_reservation_quickstart
-        examples/coordinated_reservation_quickstart.cpp)
-    target_link_libraries(rbfsafe_coordinated_reservation_quickstart
-        PRIVATE RBFSafe::coordination)
-    rbfsafe_configure_target(rbfsafe_coordinated_reservation_quickstart)
+if(RBFSAFE_BUILD_EXAMPLES)
+    rbfsafe_add_example(rbfsafe_quickstart examples/core/quickstart.cpp RBFSafe::rbfsafe)
+    rbfsafe_add_example(rbfsafe_hipac_quickstart examples/core/hipac_quickstart.cpp RBFSafe::corridor)
+    rbfsafe_add_example(rbfsafe_safe_ik_quickstart examples/core/safe_ik_quickstart.cpp RBFSafe::ik)
+    rbfsafe_add_example(rbfsafe_dynamic_update_quickstart examples/core/dynamic_update_quickstart.cpp RBFSafe::update)
+    rbfsafe_add_example(rbfsafe_region_database_quickstart examples/core/region_database_quickstart.cpp RBFSafe::regions)
+    rbfsafe_add_example(rbfsafe_planning_quickstart examples/core/planning_quickstart.cpp RBFSafe::planning)
+    rbfsafe_add_example(rbfsafe_optimization_quickstart examples/core/optimization_quickstart.cpp RBFSafe::optimization)
+    rbfsafe_add_example(rbfsafe_shield_quickstart examples/core/shield_quickstart.cpp RBFSafe::shield)
+
+    rbfsafe_add_example(rbfsafe_policy_safety_quickstart examples/policy/policy_safety_quickstart.cpp RBFSafe::policy)
+    rbfsafe_add_example(rbfsafe_calibrated_policy_quickstart examples/policy/calibrated_policy_quickstart.cpp RBFSafe::policy)
+    rbfsafe_add_example(rbfsafe_calibration_lifecycle_quickstart examples/policy/calibration_lifecycle_quickstart.cpp RBFSafe::policy)
+
+    rbfsafe_add_example(rbfsafe_safety_memory_quickstart examples/artifacts/safety_memory_quickstart.cpp RBFSafe::memory)
+    rbfsafe_add_example(rbfsafe_safety_memory_store_quickstart examples/artifacts/safety_memory_store_quickstart.cpp RBFSafe::memory)
+    rbfsafe_add_example(rbfsafe_fleet_schedule_archive_quickstart examples/artifacts/fleet_schedule_archive_quickstart.cpp RBFSafe::memory)
+    rbfsafe_add_example(rbfsafe_artifact_attestation_quickstart examples/artifacts/artifact_attestation_quickstart.cpp RBFSafe::trust)
+    rbfsafe_add_example(rbfsafe_remote_artifact_quickstart examples/artifacts/remote_artifact_quickstart.cpp RBFSafe::remote)
+    rbfsafe_add_example(rbfsafe_provenance_quickstart examples/artifacts/provenance_quickstart.cpp RBFSafe::provenance)
+
+    rbfsafe_add_example(rbfsafe_public_identity_quickstart examples/deployment/public_identity_quickstart.cpp RBFSafe::identity)
+    rbfsafe_add_example(rbfsafe_deployment_profile_quickstart examples/deployment/deployment_profile_quickstart.cpp RBFSafe::deployment)
+    rbfsafe_add_example(rbfsafe_bounded_execution_session_quickstart examples/deployment/bounded_execution_session_quickstart.cpp RBFSafe::execution)
+
+    rbfsafe_add_example(rbfsafe_continuous_occupancy_quickstart examples/coordination/continuous_occupancy_quickstart.cpp RBFSafe::occupancy)
+    rbfsafe_add_example(rbfsafe_continuous_robot_scene_occupancy_quickstart examples/coordination/continuous_robot_scene_occupancy_quickstart.cpp RBFSafe::occupancy)
+    rbfsafe_add_example(rbfsafe_occupancy_publication_quickstart examples/coordination/occupancy_publication_quickstart.cpp RBFSafe::coordination)
+    rbfsafe_add_example(rbfsafe_occupancy_publication_history_quickstart examples/coordination/occupancy_publication_history_quickstart.cpp RBFSafe::coordination)
+    rbfsafe_add_example(rbfsafe_rotating_occupancy_publication_history_quickstart examples/coordination/rotating_occupancy_publication_history_quickstart.cpp RBFSafe::coordination)
+    rbfsafe_add_example(rbfsafe_coordinated_reservation_quickstart examples/coordination/coordinated_reservation_quickstart.cpp RBFSafe::coordination)
+
     if(RBFSAFE_BUILD_OMPL)
-        add_executable(rbfsafe_ompl_quickstart examples/ompl_quickstart.cpp)
-        target_link_libraries(rbfsafe_ompl_quickstart PRIVATE RBFSafe::ompl)
-        rbfsafe_configure_target(rbfsafe_ompl_quickstart)
+        rbfsafe_add_example(rbfsafe_ompl_quickstart examples/core/ompl_quickstart.cpp RBFSafe::ompl)
     endif()
 endif()
 
@@ -573,7 +565,7 @@ if(NOT SKBUILD)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/RBFSafe/licenses/Monocypher
         RENAME LICENSE.md)
 
-    install(TARGETS rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_occupancy rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe_policy rbfsafe_memory rbfsafe_trust rbfsafe_remote rbfsafe_identity rbfsafe_coordination rbfsafe_deployment rbfsafe_execution rbfsafe_transparency rbfsafe_witness rbfsafe_provenance rbfsafe
+    install(TARGETS rbfsafe_core rbfsafe_envelope rbfsafe_geometry rbfsafe_lect rbfsafe_atlas rbfsafe_occupancy rbfsafe_update rbfsafe_ik rbfsafe_corridor rbfsafe_regions rbfsafe_planning rbfsafe_optimization rbfsafe_shield rbfsafe_policy rbfsafe_memory rbfsafe_trust rbfsafe_remote rbfsafe_identity rbfsafe_coordination rbfsafe_deployment rbfsafe_execution rbfsafe_transparency rbfsafe_witness rbfsafe_provenance rbfsafe_applications rbfsafe_assurance rbfsafe
         EXPORT RBFSafeTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

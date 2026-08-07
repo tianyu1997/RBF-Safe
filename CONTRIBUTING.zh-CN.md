@@ -37,12 +37,12 @@ python tools/check_documentation.py --root .
 
 ## 改动规则
 
-- 尽量只修改一个组件或职责层；公共契约确需跨模块时，保持 `docs/architecture.md` 规定的单向依赖；
+- 尽量只修改一个组件或职责层；公共契约确需跨模块时，保持 `docs/core/architecture.md` 规定的单向依赖；
 - 公共头文件使用标准库值类型，不暴露 Eigen、JSON、pybind11 或存储实现；
 - 预期失败返回 `Result<T>`；断言只用于内部程序员不变量；
 - 采样可用于测试或优先级，但绝不能升级为 `CertifiedRegion`；
 - 持久化变化必须有损坏测试、固定格式回归和明确兼容性决定；
-- 派生或实质复用代码更新 `docs/provenance.md` 并保留版权；
+- 派生或实质复用代码更新 `docs/maintenance/provenance.md` 并保留版权；
 - 修改 `docs/zh-CN/README.md` 所列核心指南时，同时更新 `tools/check_documentation.py` 登记的中文版本；详细英文规范不要求逐篇翻译；
 - 不提交 build、wheel、缓存、本地路径、论文资产或实验输出。
 

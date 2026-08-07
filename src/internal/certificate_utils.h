@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/certificate.h>
+#include <rbfsafe/modules/geometry.h>
 
 #include <string>
 

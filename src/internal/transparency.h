@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/transparency.h>
+#include <rbfsafe/modules/assurance.h>
 
 #include <filesystem>
 #include <string>

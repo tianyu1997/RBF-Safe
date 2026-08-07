@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rbfsafe/result.h>
+#include <rbfsafe/modules/core.h>
 
 #include <filesystem>
 #include <map>

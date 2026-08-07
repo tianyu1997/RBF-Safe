@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-RBF-Safe 是一个 C++20 与 Python 开源库，用于在机器人配置空间中生成、保存、查询和复用保守的几何安全证书。当前版本为 **4.7.0**，支持串联 modified-DH 机器人、工作空间 AABB 障碍物、确定性 LECT 分区、认证 AABB/OBB 区域、HiPaC 走廊、连通性查询、轨迹审核、Safe IK、规划与优化适配器，以及动态安全记忆。
+RBF-Safe 是一个 C++20 与 Python 开源库，用于在机器人配置空间中生成、保存、查询和复用保守的几何安全证书。当前版本为 **5.0.0**，支持串联 modified-DH 机器人、工作空间 AABB 障碍物、确定性 LECT 分区、认证 AABB/OBB 区域、HiPaC 走廊、连通性查询、轨迹审核、Safe IK、规划与优化适配器，以及动态安全记忆。
 
 项目采用 MIT 许可证。核心库不依赖 RapidBoxForest 的源码、构建产物或旧缓存格式。
 
@@ -16,7 +16,7 @@ RBF-Safe 将“几何计算结果”和“可执行授权”严格分开：
 - `CertifiedConnectivity`：区域之间存在经过认证的连通关系；
 - `RuntimeExecutable`：仅在精确命令、身份、时间窗、审查配置和控制器确认全部闭合时使用。
 
-采样、可视化、Jacobian、外部碰撞检查或成功的规划器输出都不会自动升级为区域证书。请先阅读[安全模型](docs/zh-CN/安全模型.md)。
+采样、可视化、Jacobian、外部碰撞检查或成功的规划器输出都不会自动升级为区域证书。请先阅读[安全模型](docs/zh-CN/core/安全模型.md)。
 
 ## 主要能力
 
@@ -60,11 +60,11 @@ cmake --install build --config Release --prefix install
 下游项目可使用：
 
 ```cmake
-find_package(RBFSafe 4.7 REQUIRED)
+find_package(RBFSafe 5.0 REQUIRED)
 target_link_libraries(my_target PRIVATE RBFSafe::rbfsafe)
 ```
 
-完整说明见[安装指南](docs/zh-CN/安装指南.md)。
+完整说明见[安装指南](docs/zh-CN/core/安装指南.md)。
 
 ## Python 快速开始
 
@@ -135,26 +135,26 @@ rbfsafe-inspect atlas --plot slice.png --dims 0 1
 ## 文档
 
 - [中文文档总览](docs/zh-CN/README.md)
-- [项目阅读路线](docs/zh-CN/项目阅读路线.md)
+- [项目阅读路线](docs/zh-CN/core/项目阅读路线.md)
 - [完整英文文档索引](docs/README.md)
-- [入门教程](docs/zh-CN/快速开始.md)
-- [API 总览](docs/zh-CN/API总览.md)
-- [体系结构](docs/zh-CN/体系结构.md)
-- [运动学与 Jacobian](docs/zh-CN/运动学与雅可比矩阵.md)
-- [轨迹审核](docs/zh-CN/轨迹审核.md)
-- [动态更新](docs/zh-CN/动态更新.md)
+- [入门教程](docs/zh-CN/core/快速开始.md)
+- [API 总览](docs/zh-CN/core/API总览.md)
+- [体系结构](docs/zh-CN/core/体系结构.md)
+- [运动学与 Jacobian](docs/zh-CN/geometry/运动学与雅可比矩阵.md)
+- [轨迹审核](docs/zh-CN/atlas/轨迹审核.md)
+- [动态更新](docs/zh-CN/atlas/动态更新.md)
 - [中文变更日志](CHANGELOG.zh-CN.md)
 
 `docs/zh-CN/` 提供精选核心指南；详细 schema、历史格式和审计协议保留英文规范。公共标识符、JSON 字段、错误码和命令行参数不会翻译。
 
 ## 验证状态
 
-4.7.0 发布门禁覆盖 Linux/Windows、GCC/Clang/MSVC、ASan/UBSan、Python wheel、独立 CMake consumer、OMPL 与 MoveIt。项目范围清单将原始工程计划映射到 18 项需求和 63 条公共 API、行为测试及文档证据。
+5.0.0 将 C++ 公共入口收敛为模块头，并继续使用 Linux/Windows、GCC/Clang/MSVC、ASan/UBSan、Python wheel、独立 CMake consumer、OMPL 与 MoveIt 发布门禁。项目范围清单将原始工程计划映射到 18 项需求和 63 条公共 API、行为测试及文档证据。
 
 ## 贡献
 
-提交改动前请阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md) 和[发布流程中文版](docs/zh-CN/发布流程.md)。修改中文索引所列核心指南时，应同步更新对应的中文文件。
+提交改动前请阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md) 和[发布流程中文版](docs/zh-CN/maintenance/发布流程.md)。修改中文索引所列核心指南时，应同步更新对应的中文文件。
 
 ## 许可证
 
-RBF-Safe 使用 [MIT License](LICENSE)。第三方组件与权属信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和[来源说明](docs/zh-CN/来源说明.md)。
+RBF-Safe 使用 [MIT License](LICENSE)。第三方组件与权属信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和[来源说明](docs/zh-CN/maintenance/来源说明.md)。

@@ -1,4 +1,4 @@
-#include <rbfsafe/ompl.h>
+#include <rbfsafe/modules/ompl.h>
 
 int main() {
     rbfsafe::OmplAdapterOptions options;

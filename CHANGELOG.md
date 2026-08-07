@@ -7,6 +7,17 @@ Versioning for library releases and versions its on-disk schemas separately.
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Consolidate the public C++ declarations into seven dependency-ordered
+  module headers plus the optional OMPL module header. Remove the former
+  fine-grained `include/rbfsafe/*.h` entry points; downstream code must include
+  `rbfsafe/modules/*.h` or the aggregate `rbfsafe/rbfsafe.h`.
+- Split the foundational implementation and installed targets into
+  `RBFSafe::core`, `RBFSafe::envelope`, `RBFSafe::geometry`, and
+  geometry-independent `RBFSafe::lect`. This source-incompatible header
+  migration establishes the 5.0 API surface without changing storage schemas.
+
 ### Documentation
 
 - Add a versioned repository reading guide and use descriptive Chinese

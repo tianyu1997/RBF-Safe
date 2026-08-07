@@ -44,7 +44,7 @@ int main() {
     const rbfsafe::DeploymentFrameBounds deployment_frame;
     const auto fleet_archive = rbfsafe::FleetScheduleArchive::create("consumer-fleet");
     (void)updater;
-    return RBFSAFE_VERSION_MAJOR == 4 && RBFSAFE_VERSION_MINOR == 7 && RBFSAFE_VERSION_PATCH == 0 &&
+    return RBFSAFE_VERSION_MAJOR == 5 && RBFSAFE_VERSION_MINOR == 0 && RBFSAFE_VERSION_PATCH == 0 &&
                    interval.contains(0.0) && jacobian.valid() && jacobian.at(5, 0) == 0.0 &&
                    options.maximum_region_tests > 0 && hipac_options.maximum_validations > 0 &&
                    safe_ik_options.maximum_iterations > 0 && update_options.maximum_validations > 0 &&

@@ -1,6 +1,6 @@
 #include "test_support.h"
 
-#include <rbfsafe/ompl.h>
+#include <rbfsafe/modules/ompl.h>
 
 #include <ompl/base/ScopedState.h>
 #include <ompl/geometric/SimpleSetup.h>
