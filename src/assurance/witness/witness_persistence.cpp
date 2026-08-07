@@ -1,5 +1,5 @@
-#include <rbfsafe/modules/core.h>
 #include <rbfsafe/modules/assurance.h>
+#include <rbfsafe/modules/core.h>
 
 #include "internal/certificate_utils.h"
 #include "internal/identity.h"

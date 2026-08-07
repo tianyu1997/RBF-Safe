@@ -1,7 +1,6 @@
 #pragma once
 
 #include <rbfsafe/modules/applications.h>
-#include <rbfsafe/modules/applications.h>
 
 #include <span>
 #include <string>

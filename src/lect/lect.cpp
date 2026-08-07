@@ -1,5 +1,5 @@
-#include <rbfsafe/modules/lect.h>
 #include <rbfsafe/modules/core.h>
+#include <rbfsafe/modules/lect.h>
 
 #include "internal/binary.h"
 #include "internal/json.h"

@@ -44,12 +44,8 @@ bool finite_point(const WorkspacePoint& value) {
                        [](double coordinate) { return std::isfinite(coordinate); });
 }
 
-WorkspacePoint normalized(const WorkspacePoint& value) {
-    const double magnitude = norm(value);
-    return magnitude > 0.0 ? scale(value, 1.0 / magnitude) : WorkspacePoint{};
-}
-
-double determinant(const WorkspacePoint& first, const WorkspacePoint& second, const WorkspacePoint& third) {
+double determinant(const WorkspacePoint& first, const WorkspacePoint& second,
+                   const WorkspacePoint& third) {
     return dot(first, cross(second, third));
 }
 
